@@ -21,6 +21,8 @@
     "framework",
     "initialization",
     "multiplayer",
+    "events",
+    "architecture",
     "unity"
   ],
   "samples": [
