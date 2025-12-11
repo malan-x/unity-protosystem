@@ -588,7 +588,7 @@ namespace ProtoSystem
             EditorGUI.BeginDisabledGroup(string.IsNullOrEmpty(newNamespaceInput));
             if (GUILayout.Button("✨ Создать EventBus файл", GUILayout.Height(30)))
             {
-                string createdPath = EventBusEditorUtils.CreateProjectEventBusFile(newNamespaceInput);
+                string createdPath = EventBusEditorUtils.CreateEventBusFile(newNamespaceInput);
                 if (!string.IsNullOrEmpty(createdPath))
                 {
                     // Обновляем кэш

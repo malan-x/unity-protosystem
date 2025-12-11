@@ -13,7 +13,7 @@ namespace ProtoSystem
     /// </summary>
     public static class EventBusEditorUtils
     {
-        private const string EDITOR_PREFS_KEY = "ProtoSystem_EventIdsFilePath";
+        private const string EDITOR_PREFS_KEY_BASE = "ProtoSystem_EventIdsFilePath_";
         private const string EVENT_IDS_FILE_PATTERN = "EventIds.*.cs";
 
         /// <summary>
@@ -46,19 +46,22 @@ namespace ProtoSystem
         {
             var info = new EventBusFileInfo();
 
-            // Пробуем получить путь из EditorPrefs
-            string cachedPath = EditorPrefs.GetString(EDITOR_PREFS_KEY, "");
+            // Ключ специфичный для проекта
+            string prefsKey = EDITOR_PREFS_KEY_BASE + Application.dataPath.GetHashCode();
 
-            if (!string.IsNullOrEmpty(cachedPath) && File.Exists(cachedPath))
+            // Пробуем получить путь из EditorPrefs
+            string cachedPath = EditorPrefs.GetString(prefsKey, "");
+
+            if (!string.IsNullOrEmpty(cachedPath) && File.Exists(cachedPath) && IsPathInProject(cachedPath))
             {
-                // Кэшированный путь валиден
+                // Кэшированный путь валиден и в проекте
                 info.FilePath = cachedPath;
                 info.Exists = true;
                 ParseEventBusFile(info);
                 return info;
             }
 
-            // Ищем файл в проекте или пакете
+            // Ищем файл в проекте
             string foundPath = FindEventBusFile();
 
             if (!string.IsNullOrEmpty(foundPath))
@@ -66,8 +69,8 @@ namespace ProtoSystem
                 info.FilePath = foundPath;
                 info.Exists = true;
 
-                // Сохраняем путь в EditorPrefs
-                EditorPrefs.SetString(EDITOR_PREFS_KEY, foundPath);
+                // Сохраняем путь в EditorPrefs для этого проекта
+                EditorPrefs.SetString(prefsKey, foundPath);
 
                 ParseEventBusFile(info);
             }
@@ -77,6 +80,14 @@ namespace ProtoSystem
             }
 
             return info;
+        }
+
+        /// <summary>
+        /// Проверяет, находится ли путь в текущем проекте
+        /// </summary>
+        private static bool IsPathInProject(string path)
+        {
+            return path.StartsWith(Application.dataPath, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -178,15 +189,18 @@ namespace ProtoSystem
         }
 
         /// <summary>
-        /// Создает новый файл EventIds для проекта в Assets
+        /// Создает новый файл EventIds для проекта
         /// </summary>
-        public static string CreateProjectEventBusFile(string projectNamespace)
+        public static string CreateEventBusFile(string projectNamespace)
         {
             if (string.IsNullOrEmpty(projectNamespace))
             {
                 Debug.LogError("Namespace не может быть пустым");
                 return null;
             }
+
+            // Ключ специфичный для проекта
+            string prefsKey = EDITOR_PREFS_KEY_BASE + Application.dataPath.GetHashCode();
 
             // Путь: Assets/KM/Scripts/Events/EventIds.<Namespace>.cs
             string eventsDir = Path.Combine(Application.dataPath, "KM", "Scripts", "Events");
@@ -203,7 +217,7 @@ namespace ProtoSystem
             if (File.Exists(filePath))
             {
                 Debug.LogWarning($"Файл уже существует: {filePath}");
-                EditorPrefs.SetString(EDITOR_PREFS_KEY, filePath);
+                EditorPrefs.SetString(prefsKey, filePath);
                 return filePath;
             }
 
@@ -214,7 +228,7 @@ namespace ProtoSystem
             File.WriteAllText(filePath, content, System.Text.Encoding.UTF8);
 
             // Сохраняем путь в EditorPrefs
-            EditorPrefs.SetString(EDITOR_PREFS_KEY, filePath);
+            EditorPrefs.SetString(prefsKey, filePath);
 
             // Обновляем AssetDatabase
             AssetDatabase.Refresh();
@@ -293,8 +307,9 @@ namespace {projectNamespace}
         /// </summary>
         public static void ResetCache()
         {
-            EditorPrefs.DeleteKey(EDITOR_PREFS_KEY);
-            Debug.Log("Кэш пути EventIds сброшен");
+            string prefsKey = EDITOR_PREFS_KEY_BASE + Application.dataPath.GetHashCode();
+            EditorPrefs.DeleteKey(prefsKey);
+            Debug.Log("Кэш пути EventIds сброшен для текущего проекта");
         }
 
         /// <summary>
