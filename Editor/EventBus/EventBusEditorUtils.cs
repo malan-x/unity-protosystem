@@ -95,24 +95,13 @@ namespace ProtoSystem
         /// </summary>
         private static string FindEventBusFile()
         {
-            // Сначала ищем в Assets/KM/Scripts/Events/
-            string eventsPath = Path.GetFullPath(Path.Combine(Application.dataPath, "KM", "Scripts", "Events"));
-            if (Directory.Exists(eventsPath))
-            {
-                var eventFiles = Directory.GetFiles(eventsPath, EVENT_IDS_FILE_PATTERN, SearchOption.TopDirectoryOnly)
-                    .ToList();
-                
-                if (eventFiles.Count > 0)
-                    return eventFiles.First();
-            }
-
-            // Затем ищем в любом месте Assets
+            // Ищем в Assets/*/Scripts/Events/
             string assetsPath = Application.dataPath;
-            var assetFiles = Directory.GetFiles(assetsPath, EVENT_IDS_FILE_PATTERN, SearchOption.AllDirectories)
-                .Where(f => !f.Contains("Packages"))
+            var eventFiles = Directory.GetFiles(assetsPath, EVENT_IDS_FILE_PATTERN, SearchOption.AllDirectories)
+                .Where(f => f.Contains(Path.Combine("Scripts", "Events")) && !f.Contains("Packages"))
                 .ToList();
 
-            return assetFiles.FirstOrDefault();
+            return eventFiles.FirstOrDefault();
         }
 
         /// <summary>
@@ -202,8 +191,8 @@ namespace ProtoSystem
             // Ключ специфичный для проекта
             string prefsKey = EDITOR_PREFS_KEY_BASE + Application.dataPath.GetHashCode();
 
-            // Путь: Assets/KM/Scripts/Events/EventIds.<Namespace>.cs
-            string eventsDir = Path.Combine(Application.dataPath, "KM", "Scripts", "Events");
+            // Путь: Assets/{Namespace}/Scripts/Events/EventIds.{Namespace}.cs
+            string eventsDir = Path.Combine(Application.dataPath, projectNamespace, "Scripts", "Events");
             string fileName = $"EventIds.{projectNamespace}.cs";
             string filePath = Path.Combine(eventsDir, fileName);
 
