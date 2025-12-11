@@ -1,0 +1,37 @@
+{
+  "name": "com.protosystem.core",
+  "version": "1.0.0",
+  "displayName": "ProtoSystem Core",
+  "description": "ProtoSystem - это фреймворк для Unity, который предоставляет глобальную шину событий и систему инициализации компонентов на основе атрибутов, позволяя создавать модульные и масштабируемые multiplayer-приложения.",
+  "unity": "6.0",
+  "unityRelease": "0b17",
+  "documentationUrl": "https://github.com/wildforest/unity-protosystem",
+  "changelogUrl": "https://github.com/wildforest/unity-protosystem/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/wildforest/unity-protosystem/blob/main/LICENSE",
+  "author": {
+    "name": "Малков А.А.",
+    "email": "",
+    "url": ""
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "com.unity.netcode.gameobjects": "1.0.0",
+    "com.unity.burst": "1.8.4",
+    "com.unity.collections": "1.2.4",
+    "com.unity.mathematics": "1.2.6"
+  },
+  "keywords": [
+    "framework",
+    "events",
+    "initialization",
+    "multiplayer",
+    "unity"
+  ],
+  "samples": [
+    {
+      "displayName": "Basic Setup",
+      "description": "Basic setup example",
+      "path": "Samples~/BasicSetup"
+    }
+  ]
+}
