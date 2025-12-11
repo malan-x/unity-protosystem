@@ -2,26 +2,36 @@
   "name": "com.protosystem.core",
   "version": "1.0.0",
   "displayName": "ProtoSystem Core",
-  "description": "Universal Unity framework for system initialization and event-driven architecture",
+  "description": "ProtoSystem - это фреймворк для Unity, который предоставляет глобальную шину событий и систему инициализации компонентов на основе атрибутов, позволяя создавать модульные и масштабируемые multiplayer-приложения.",
   "unity": "2021.3",
-  "unityRelease": "0f1",
-  "documentationUrl": "https://github.com/wildforest/ProtoSystem",
-  "changelogUrl": "https://github.com/wildforest/ProtoSystem/blob/main/CHANGELOG.md",
-  "licensesUrl": "https://github.com/wildforest/ProtoSystem/blob/main/LICENSE",
+  "unityRelease": "0b17",
+  "documentationUrl": "https://github.com/wildforest/unity-protosystem",
+  "changelogUrl": "https://github.com/wildforest/unity-protosystem/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/wildforest/unity-protosystem/blob/main/LICENSE",
+  "author": {
+    "name": "Малков А.А.",
+    "email": "",
+    "url": ""
+  },
+  "license": "UNLICENSED",
   "dependencies": {
-    "com.unity.netcode.gameobjects": "2.4.4"
+    "com.unity.netcode.gameobjects": "1.0.0",
+    "com.unity.burst": "1.8.4",
+    "com.unity.collections": "1.2.4",
+    "com.unity.mathematics": "1.2.6"
   },
   "keywords": [
     "framework",
-    "initialization",
     "events",
-    "architecture",
+    "initialization",
+    "multiplayer",
     "unity"
   ],
-  "author": {
-    "name": "wildforest",
-    "email": "contact@example.com",
-    "url": "https://github.com/wildforest"
-  },
-  "type": "library"
+  "samples": [
+    {
+      "displayName": "Basic Setup",
+      "description": "Basic setup example",
+      "path": "Samples~/BasicSetup"
+    }
+  ]
 }
