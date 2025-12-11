@@ -135,7 +135,7 @@ public class MyNetworkSystem : NetworkInitializableSystem
 
 ## Проектные события (EventIds)
 
-События определяются в отдельном файле проекта:
+События определяются в отдельном файле проекта с использованием enum для гарантии уникальности ID:
 
 ```csharp
 // Assets/YourProject/Scripts/Events/EventIds.YourProject.cs
@@ -143,14 +143,27 @@ namespace YourProject
 {
     public static class Evt
     {
+        /// <summary>
+        /// Перечисление всех событий проекта для гарантии уникальности ID
+        /// </summary>
+        public enum EventType
+        {
+            // === ВАШИ КАТЕГОРИИ ===
+            Событие_1,
+            Событие_2,
+            // Добавляйте новые события сюда
+        }
+
         public static class МояКатегория
         {
-            public const int Событие_1 = 10001;
-            public const int Событие_2 = 10002;
+            public const int Событие_1 = (int)EventType.Событие_1;
+            public const int Событие_2 = (int)EventType.Событие_2;
         }
     }
 }
 ```
+
+**Важно:** Все новые события добавляйте в `EventType` enum — это гарантирует отсутствие дубликатов ID. Enum автоматически присваивает последовательные значения.
 
 Использование:
 ```csharp

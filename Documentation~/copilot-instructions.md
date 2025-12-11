@@ -86,13 +86,25 @@ namespace ProjectName
 {
     public static class Evt
     {
+        /// <summary>
+        /// Enum of all project events to guarantee unique IDs
+        /// </summary>
+        public enum EventType
+        {
+            // === YOUR CATEGORIES ===
+            EventName,
+            // Add new events here
+        }
+
         public static class CategoryName
         {
-            public const int EventName = 1001;
+            public const int EventName = (int)EventType.EventName;
         }
     }
 }
 ```
+
+**Important:** Add all new events to the `EventType` enum first — this guarantees no duplicate IDs. The enum automatically assigns sequential values.
 
 Usage requires `using ProjectName;` in files that use events.
 

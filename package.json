@@ -1,6 +1,6 @@
 {
   "name": "com.protosystem.core",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "displayName": "ProtoSystem Core",
   "description": "ProtoSystem - это фреймворк для Unity, который предоставляет глобальную шину событий и систему инициализации компонентов на основе атрибутов, позволяя создавать модульные и масштабируемые multiplayer-приложения.",
   "unity": "2021.3",
