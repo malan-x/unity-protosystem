@@ -5,9 +5,9 @@
   "description": "ProtoSystem - это фреймворк для Unity, который предоставляет глобальную шину событий и систему инициализации компонентов на основе атрибутов, позволяя создавать модульные и масштабируемые multiplayer-приложения.",
   "unity": "2021.3",
   "unityRelease": "0b17",
-  "documentationUrl": "https://github.com/wildforest/unity-protosystem",
-  "changelogUrl": "https://github.com/wildforest/unity-protosystem/blob/main/CHANGELOG.md",
-  "licensesUrl": "https://github.com/wildforest/unity-protosystem/blob/main/LICENSE",
+  "documentationUrl": "https://github.com/malan-x/unity-protosystem",
+  "changelogUrl": "https://github.com/malan-x/unity-protosystem/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/malan-x/unity-protosystem/blob/main/LICENSE",
   "author": {
     "name": "Малков А.А.",
     "email": "",
@@ -15,14 +15,10 @@
   },
   "license": "UNLICENSED",
   "dependencies": {
-    "com.unity.netcode.gameobjects": "1.0.0",
-    "com.unity.burst": "1.8.4",
-    "com.unity.collections": "1.2.4",
-    "com.unity.mathematics": "1.2.6"
+    "com.unity.netcode.gameobjects": "2.4.4"
   },
   "keywords": [
     "framework",
-    "events",
     "initialization",
     "multiplayer",
     "unity"
