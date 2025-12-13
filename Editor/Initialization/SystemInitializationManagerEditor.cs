@@ -213,6 +213,25 @@ namespace ProtoSystem
 
             EditorGUILayout.EndHorizontal();
 
+            // Строка метрик
+            EditorGUILayout.BeginHorizontal();
+            
+            bool showMetrics = SystemMetricsSettings.ShowMetrics;
+            bool newShowMetrics = EditorGUILayout.Toggle("📊 Метрики", showMetrics, GUILayout.Width(100));
+            if (newShowMetrics != showMetrics)
+            {
+                SystemMetricsSettings.ShowMetrics = newShowMetrics;
+            }
+            
+            GUILayout.FlexibleSpace();
+            
+            if (GUILayout.Button("⚙️ Настройки метрик", GUILayout.Width(130)))
+            {
+                SystemMetricsSettingsWindow.ShowWindow();
+            }
+            
+            EditorGUILayout.EndHorizontal();
+
             systemsList.DoLayoutList();
         }
 
@@ -631,6 +650,12 @@ namespace ProtoSystem
             {
                 height += 40f;
             }
+            
+            // Добавляем место для метрик
+            if (SystemMetricsSettings.ShowMetrics)
+            {
+                height += 22f; // Строка метрик
+            }
 
             return height;
         }
@@ -727,7 +752,100 @@ namespace ProtoSystem
                 GUI.color = new Color(1f, 0.3f, 0.3f);
                 EditorGUI.HelpBox(warningRect, $"Циклическая зависимость: {cyclicInfo}", MessageType.Error);
                 GUI.color = oldColor;
+                currentY += 40;
             }
+            
+            // Метрики системы
+            if (SystemMetricsSettings.ShowMetrics)
+            {
+                DrawSystemMetrics(rect, currentY, index);
+            }
+        }
+        
+        /// <summary>
+        /// Отрисовка метрик для системы
+        /// </summary>
+        private void DrawSystemMetrics(Rect rect, float y, int index)
+        {
+            SystemInitializationManager manager = target as SystemInitializationManager;
+            if (manager == null || index >= manager.Systems.Count) return;
+            
+            var entry = manager.Systems[index];
+            var metrics = SystemMetricsCache.GetMetrics(entry);
+            
+            if (!metrics.IsValid)
+            {
+                Rect invalidRect = new Rect(rect.x + 50, y, rect.width - 55, 18);
+                EditorGUI.LabelField(invalidRect, "📊 Метрики недоступны", EditorStyles.miniLabel);
+                return;
+            }
+            
+            // Строка метрик с прогресс-барами
+            float startX = rect.x + 50;
+            float itemWidth = (rect.width - 60) / 3f;
+            
+            // LOC
+            DrawMetricWithBar(
+                new Rect(startX, y, itemWidth - 5, 18),
+                $"📝 {metrics.LinesOfCode} LOC",
+                metrics.LinesOfCode,
+                SystemMetricsSettings.LocWarningThreshold,
+                SystemMetricsSettings.LocErrorThreshold);
+            
+            // KB
+            DrawMetricWithBar(
+                new Rect(startX + itemWidth, y, itemWidth - 5, 18),
+                $"💾 {metrics.FileSizeKB:F1} KB",
+                metrics.FileSizeKB,
+                SystemMetricsSettings.KbWarningThreshold,
+                SystemMetricsSettings.KbErrorThreshold);
+            
+            // Methods
+            DrawMetricWithBar(
+                new Rect(startX + itemWidth * 2, y, itemWidth - 5, 18),
+                $"🔧 {metrics.MethodCount} методов",
+                metrics.MethodCount,
+                SystemMetricsSettings.MethodsWarningThreshold,
+                SystemMetricsSettings.MethodsErrorThreshold);
+        }
+        
+        /// <summary>
+        /// Отрисовка метрики с цветовым индикатором
+        /// </summary>
+        private void DrawMetricWithBar(Rect rect, string label, float value, float warningThreshold, float errorThreshold)
+        {
+            // Определяем цвет
+            Color barColor;
+            if (value >= errorThreshold)
+            {
+                barColor = new Color(1f, 0.3f, 0.3f, 0.5f); // Красный
+            }
+            else if (value >= warningThreshold)
+            {
+                barColor = new Color(1f, 0.8f, 0.2f, 0.5f); // Жёлтый
+            }
+            else
+            {
+                barColor = new Color(0.3f, 0.8f, 0.3f, 0.3f); // Зелёный
+            }
+            
+            // Рисуем фон-индикатор
+            float progress = Mathf.Clamp01(value / errorThreshold);
+            Rect barRect = new Rect(rect.x, rect.y + 14, rect.width * progress, 3);
+            EditorGUI.DrawRect(barRect, barColor);
+            
+            // Рисуем текст
+            var style = new GUIStyle(EditorStyles.miniLabel);
+            if (value >= errorThreshold)
+            {
+                style.normal.textColor = new Color(1f, 0.4f, 0.4f);
+            }
+            else if (value >= warningThreshold)
+            {
+                style.normal.textColor = new Color(1f, 0.85f, 0.3f);
+            }
+            
+            EditorGUI.LabelField(rect, label, style);
         }
 
         private void ShowSystemEditWindow(SerializedProperty element, int index)
