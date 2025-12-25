@@ -145,6 +145,44 @@ namespace ProtoSystem.Effects.Editor
                 }
             }
 
+            // 3. Fallback: ищем класс с именем Evt/_Events среди ВСЕХ типов (для любого namespace, например Sheeps.Evt)
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                var name = assembly.GetName().Name;
+
+                if (name.StartsWith("Unity.") ||
+                    name.StartsWith("UnityEngine") ||
+                    name.StartsWith("UnityEditor") ||
+                    name.StartsWith("System") ||
+                    name.StartsWith("mscorlib") ||
+                    name.StartsWith("netstandard") ||
+                    name.StartsWith("Mono.") ||
+                    name.StartsWith("ProtoSystem"))
+                    continue;
+
+                try
+                {
+                    foreach (var type in assembly.GetTypes())
+                    {
+                        // Ищем static class с нужным именем
+                        if (type.IsClass && type.IsAbstract && type.IsSealed) // static class
+                        {
+                            foreach (var className in StandardEventClassNames)
+                            {
+                                if (type.Name == className)
+                                {
+                                    return type;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (ReflectionTypeLoadException)
+                {
+                    // Игнорируем ошибки загрузки типов
+                }
+            }
+
             return null;
         }
 

@@ -124,13 +124,13 @@ namespace ProtoSystem.Effects
 
         /// <summary>
         /// Ищет класс событий в пользовательских сборках.
-        /// Приоритет: KM._Events, затем глобальные Evt/_Events
+        /// Приоритет: KM._Events, затем глобальные Evt/_Events, затем поиск по всем типам
         /// </summary>
         private static Type FindEventIdsType()
         {
             // Порядок поиска:
-            // 1. Assembly-CSharp (основная сборка Unity) - приоритет
-            // 2. Любая пользовательская сборка
+            // 1. По известным namespace + именам классов
+            // 2. Fallback: поиск среди всех типов сборки по имени класса
 
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
@@ -160,6 +160,45 @@ namespace ProtoSystem.Effects
                             return evtType;
                         }
                     }
+                }
+            }
+
+            // Fallback: ищем класс с именем Evt/_Events среди ВСЕХ типов (для любого namespace)
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                var name = assembly.GetName().Name;
+
+                if (name.StartsWith("Unity.") ||
+                    name.StartsWith("UnityEngine") ||
+                    name.StartsWith("UnityEditor") ||
+                    name.StartsWith("System") ||
+                    name.StartsWith("mscorlib") ||
+                    name.StartsWith("netstandard") ||
+                    name.StartsWith("Mono.") ||
+                    name.StartsWith("ProtoSystem"))
+                    continue;
+
+                try
+                {
+                    foreach (var type in assembly.GetTypes())
+                    {
+                        // Ищем static class с нужным именем
+                        if (type.IsClass && type.IsAbstract && type.IsSealed) // static class
+                        {
+                            foreach (var className in StandardEventClassNames)
+                            {
+                                if (type.Name == className)
+                                {
+                                    Debug.Log($"[EventPathResolver] Найден класс событий '{type.FullName}' в сборке {name} (fallback)");
+                                    return type;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (ReflectionTypeLoadException)
+                {
+                    // Игнорируем ошибки загрузки типов
                 }
             }
 
