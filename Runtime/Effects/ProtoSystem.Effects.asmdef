@@ -1,14 +1,10 @@
 {
-    "name": "ProtoSystem.Editor",
-    "rootNamespace": "",
+    "name": "ProtoSystem.Effects",
+    "rootNamespace": "ProtoSystem.Effects",
     "references": [
-        "ProtoSystem.Runtime",
-        "ProtoSystem.Effects",
-        "Unity.Netcode.Editor"
+        "ProtoSystem.Runtime"
     ],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
