@@ -109,7 +109,7 @@ namespace ProtoSystem
     /// <summary>
     /// Окно настроек метрик систем
     /// </summary>
-    public class SystemMetricsSettingsWindow : EditorWindow
+    public class SystemMetricsSettingsWindow : UnityEditor.EditorWindow
     {
         [MenuItem("Tools/ProtoSystem/Настройки метрик систем")]
         public static void ShowWindow()

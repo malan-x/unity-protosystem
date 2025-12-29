@@ -10,7 +10,7 @@ namespace ProtoSystem
     /// Кастомный редактор для SystemInitializationManager
     /// </summary>
     [CustomEditor(typeof(SystemInitializationManager))]
-    public class SystemInitializationManagerEditor : Editor
+    public class SystemInitializationManagerEditor : UnityEditor.Editor
     {
         private ReorderableList systemsList;
         private SerializedProperty systemsProperty;
@@ -22,6 +22,9 @@ namespace ProtoSystem
         private EventBusEditorUtils.EventBusFileInfo cachedEventBusInfo;
         private string newNamespaceInput = "";
         private bool eventBusInfoCached = false;
+
+        // ProtoSystem Components секция
+        private bool showProtoSystemComponents = true;
 
         private void OnEnable()
         {
@@ -100,6 +103,11 @@ namespace ProtoSystem
 
             // Статистика и граф
             DrawAnalysisSection(manager);
+
+            EditorGUILayout.Space(10);
+
+            // ProtoSystem компоненты
+            DrawProtoSystemComponentsSection(manager);
 
             EditorGUILayout.Space(10);
 
@@ -467,6 +475,186 @@ namespace ProtoSystem
                 EditorGUILayout.HelpBox("🔍 Нажмите 'Анализировать зависимости' для построения графа", MessageType.Info);
             }
         }
+
+        #region ProtoSystem Components Section
+
+        private void DrawProtoSystemComponentsSection(SystemInitializationManager manager)
+        {
+            GUILayout.BeginVertical(boxStyle);
+            
+            // Заголовок с кнопкой раскрытия
+            EditorGUILayout.BeginHorizontal();
+            
+            string foldoutIcon = showProtoSystemComponents ? "🔽" : "🔼";
+            if (GUILayout.Button($"{foldoutIcon} 📦 Компоненты ProtoSystem", EditorStyles.boldLabel))
+            {
+                showProtoSystemComponents = !showProtoSystemComponents;
+            }
+            
+            GUILayout.FlexibleSpace();
+            
+            if (GUILayout.Button("🔄", GUILayout.Width(25)))
+            {
+                ProtoSystemComponentsUtility.InvalidateCache();
+            }
+            
+            EditorGUILayout.EndHorizontal();
+
+            if (showProtoSystemComponents)
+            {
+                EditorGUILayout.Space(5);
+                
+                var components = ProtoSystemComponentsUtility.GetAllComponents(manager);
+                
+                if (components.Count == 0)
+                {
+                    EditorGUILayout.HelpBox("Компоненты ProtoSystem не найдены", MessageType.Info);
+                }
+                else
+                {
+                    // Группируем по категориям
+                    var categories = components.GroupBy(c => c.Category).OrderBy(g => g.Key);
+                    
+                    foreach (var category in categories)
+                    {
+                        EditorGUILayout.LabelField($"📁 {category.Key}", EditorStyles.miniLabel);
+                        
+                        EditorGUILayout.BeginVertical("Box");
+                        
+                        foreach (var component in category)
+                        {
+                            DrawComponentRow(manager, component);
+                        }
+                        
+                        EditorGUILayout.EndVertical();
+                        EditorGUILayout.Space(3);
+                    }
+                }
+                
+                // Общая статистика
+                EditorGUILayout.Space(5);
+                EditorGUILayout.BeginHorizontal();
+                
+                int inScene = components.Count(c => c.ExistsInScene);
+                int inManager = components.Count(c => c.ExistsInManager);
+                
+                EditorGUILayout.LabelField($"В сцене: {inScene}/{components.Count}", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField($"В менеджере: {inManager}/{components.Count}", EditorStyles.miniLabel);
+                
+                GUILayout.FlexibleSpace();
+                
+                // Кнопка добавить все
+                EditorGUI.BeginDisabledGroup(inManager == components.Count);
+                if (GUILayout.Button("➕ Добавить все", GUILayout.Width(110)))
+                {
+                    foreach (var component in components)
+                    {
+                        if (!component.ExistsInManager)
+                        {
+                            if (!component.ExistsInScene)
+                            {
+                                ProtoSystemComponentsUtility.CreateAndAddToManager(manager, component);
+                            }
+                            else
+                            {
+                                ProtoSystemComponentsUtility.AddToManager(manager, component);
+                            }
+                        }
+                    }
+                }
+                EditorGUI.EndDisabledGroup();
+                
+                EditorGUILayout.EndHorizontal();
+            }
+
+            GUILayout.EndVertical();
+        }
+
+        private void DrawComponentRow(SystemInitializationManager manager, ProtoSystemComponentInfo component)
+        {
+            EditorGUILayout.BeginHorizontal();
+            
+            // Иконка и имя
+            string statusIcon;
+            Color statusColor;
+            
+            if (component.ExistsInManager)
+            {
+                statusIcon = "✅";
+                statusColor = Color.green;
+            }
+            else if (component.ExistsInScene)
+            {
+                statusIcon = "🔶";
+                statusColor = Color.yellow;
+            }
+            else
+            {
+                statusIcon = "⭕";
+                statusColor = Color.gray;
+            }
+            
+            var oldColor = GUI.color;
+            GUI.color = statusColor;
+            EditorGUILayout.LabelField($"{component.Icon} {component.DisplayName}", GUILayout.Width(160));
+            GUI.color = oldColor;
+            
+            // Статус
+            EditorGUILayout.LabelField(statusIcon, GUILayout.Width(25));
+            
+            // Описание (tooltip)
+            var descRect = GUILayoutUtility.GetRect(new GUIContent(component.Description), EditorStyles.miniLabel, GUILayout.ExpandWidth(true));
+            EditorGUI.LabelField(descRect, new GUIContent(TruncateString(component.Description, 35), component.Description), EditorStyles.miniLabel);
+            
+            // Кнопки действий
+            if (!component.ExistsInScene)
+            {
+                if (GUILayout.Button(new GUIContent("🔨", "Создать в сцене"), GUILayout.Width(25)))
+                {
+                    ProtoSystemComponentsUtility.CreateComponentInScene(component.Type, manager.transform);
+                }
+            }
+            
+            if (!component.ExistsInManager)
+            {
+                if (component.ExistsInScene)
+                {
+                    if (GUILayout.Button(new GUIContent("➕", "Добавить в менеджер"), GUILayout.Width(25)))
+                    {
+                        ProtoSystemComponentsUtility.AddToManager(manager, component);
+                    }
+                }
+                else
+                {
+                    if (GUILayout.Button(new GUIContent("➕🔨", "Создать и добавить"), GUILayout.Width(40)))
+                    {
+                        ProtoSystemComponentsUtility.CreateAndAddToManager(manager, component);
+                    }
+                }
+            }
+            else
+            {
+                // Кнопка выбора в сцене
+                if (component.SceneInstance != null)
+                {
+                    if (GUILayout.Button(new GUIContent("🎯", "Выбрать в сцене"), GUILayout.Width(25)))
+                    {
+                        Selection.activeGameObject = component.SceneInstance.gameObject;
+                    }
+                }
+            }
+            
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private string TruncateString(string str, int maxLength)
+        {
+            if (string.IsNullOrEmpty(str) || str.Length <= maxLength)
+                return str;
+            return str.Substring(0, maxLength - 3) + "...";
+        }
+
+        #endregion
 
         #region EventBus Section
 
@@ -886,7 +1074,7 @@ namespace ProtoSystem
     /// <summary>
     /// Окно редактирования системы
     /// </summary>
-    public class SystemEditWindow : EditorWindow
+    public class SystemEditWindow : UnityEditor.EditorWindow
     {
         private SerializedProperty systemProperty;
         private SerializedObject parentObject;

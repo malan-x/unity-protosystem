@@ -346,7 +346,7 @@ namespace ProtoSystem.ProEditor
     /// <summary>
     /// Окно настроек для иконок системы в иерархии
     /// </summary>
-    public class SystemIconsSettingsWindow : EditorWindow
+    public class SystemIconsSettingsWindow : UnityEditor.EditorWindow
     {
         private bool showIcons = true;
         private bool showStatusText = true;

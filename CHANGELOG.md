@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2024-12-29
+
+### Added
+- **Автоматическое создание конфигов в инспекторе**
+  - Кнопка "🔨 Создать *Config" для пустых полей конфигурации
+  - Кнопка "📦 Создать *Container" для пустых полей контейнеров
+  - Путь создания: `Assets/<ProjectNamespace>/Settings/<SystemFolder>/`
+  - Namespace проекта берётся из файла EventIds
+- **InitializableSystemEditor** — кастомный редактор для всех локальных систем
+- **NetworkInitializableSystemEditor** — кастомный редактор для сетевых систем
+- **ConfigCreationUtility** — утилита для создания ScriptableObject ассетов
+- Компоненты ProtoSystem теперь создаются как дочерние объекты SystemInitializationManager
+
+### Changed
+- **EffectsManager** переименован в **EffectsManagerSystem** для консистентности именования
+
+### Fixed
+- Исправлена ошибка доступа к приватному полю `existingSystemObject` в ProtoSystemComponentsUtility
+
+## [1.3.0] - 2024-12-26
+
+### Added
+- **SettingsSystem** — система управления настройками игры
+  - Секции настроек: Audio, Video, Controls, Gameplay
+  - Автоматическое применение видео настроек (Resolution, Quality, VSync)
+  - Поддержка кастомных секций настроек
+  - Хранение в INI файле (Desktop) или PlayerPrefs (WebGL/Mobile)
+  - Миграция между версиями схемы настроек
+  - Интеграция с EventBus для реактивного обновления UI
+- События настроек в EventBus (Settings.Audio.*, Settings.Video.*, etc.)
+- SettingsConfig ScriptableObject для настройки дефолтов
+- Юнит-тесты для системы настроек
+- Документация по SettingsSystem
+
+### Technical Details
+- События настроек используют номера 10100-10199
+- События UI зарезервированы: 10500-10599
+
+## [1.2.0] - 2024-12-XX
+
+### Added
+- **EffectsManagerSystem** — система управления VFX/Audio/UI эффектами
+  - Пул эффектов с автоматическим переиспользованием
+  - Поддержка VFX, Audio, UI и комбинированных эффектов
+  - Автоматические триггеры через EventBus
+  - UI анимации (Scale, Fade, Slide, Bounce, Rotate)
+  - Интеграция с MoreMountains.Tools (опционально)
+
 ## [1.0.0] - 2024-01-XX
 
 ### Added
@@ -20,3 +68,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical Details
 - Unity 2021.3+ compatibility
 - Netcode for GameObjects 2.4.4 dependency
+
+---
+
+## Системы из коробки
+
+ProtoSystem включает следующие готовые системы (по приоритету инициализации):
+
+| Приоритет | Система | Категория | Описание |
+|-----------|---------|-----------|----------|
+| 5 | ⚙️ **SettingsSystem** | Core | Настройки игры с персистентностью (INI/PlayerPrefs) |
+| 10 | 🖼️ **UISystem** | UI | Управление окнами, диалогами, тостами и тултипами |
+| 15 | 🎬 **SceneFlowSystem** | Core | Загрузка сцен с переходами и loading screen |
+| 20 | ✨ **EffectsManagerSystem** | Effects | Управление визуальными и звуковыми эффектами |
+| 25 | 🖱️ **CursorManager** | UI | Управление курсором (Lock/Confine/Free) |
+| 30 | 🌐 **NetworkLobbySystem** | Network | Сетевое лобби для мультиплеера (Netcode) |
+
+### Конфигурация систем
+
+Каждая система использует ScriptableObject для конфигурации:
+
+| Система | Конфиг | Путь по умолчанию |
+|---------|--------|-------------------|
+| SettingsSystem | `SettingsConfig` | `Assets/<NS>/Settings/Settings/` |
+| UISystem | `UISystemConfig` | `Assets/<NS>/Settings/UI/` |
+| SceneFlowSystem | `SceneFlowConfig` | `Assets/<NS>/Settings/SceneFlow/` |
+| EffectsManagerSystem | `EffectContainer` | `Assets/<NS>/Settings/Containers/` |
+| CursorManager | `CursorConfig` | `Assets/<NS>/Settings/Cursor/` |
+| NetworkLobbySystem | `NetworkLobbyConfig` | `Assets/<NS>/Settings/NetworkLobby/` |
+
+> `<NS>` — namespace проекта из файла EventIds (например, `KM`)

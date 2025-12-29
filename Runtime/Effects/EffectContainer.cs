@@ -5,7 +5,7 @@ namespace ProtoSystem.Effects
 {
     /// <summary>
     /// Контейнер эффектов для группировки и организации.
-    /// Содержит коллекцию EffectConfig для использования в EffectsManager.
+    /// Содержит коллекцию EffectConfig для использования в EffectsManagerSystem.
     /// </summary>
     [CreateAssetMenu(menuName = "ProtoSystem/Effects/Effect Container", fileName = "EffectContainer")]
     public class EffectContainer : ScriptableObject

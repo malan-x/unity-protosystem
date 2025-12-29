@@ -1,8 +1,8 @@
 {
   "name": "com.protosystem.core",
-  "version": "1.2.2",
+  "version": "1.4.0",
   "displayName": "ProtoSystem Core",
-  "description": "ProtoSystem - это фреймворк для Unity, который предоставляет глобальную шину событий и систему инициализации компонентов на основе атрибутов, позволяя создавать модульные и масштабируемые multiplayer-приложения. Он упрощает управление событиями инициализации, обеспечивая гибкую архитектуру для разработки игр и приложений с поддержкой сетевых функций. Имеет в своём составе уже готовые модули: EffectsManager",
+  "description": "ProtoSystem - это фреймворк для Unity, который предоставляет глобальную шину событий и систему инициализации компонентов на основе атрибутов, позволяя создавать модульные и масштабируемые multiplayer-приложения. Он упрощает управление событиями инициализации, обеспечивая гибкую архитектуру для разработки игр и приложений с поддержкой сетевых функций. Имеет в своём составе уже готовые модули: EffectsManager, SettingsSystem, UISystem, CursorManager, SceneFlowSystem, NetworkLobbySystem",
   "unity": "2021.3",
   "unityRelease": "0b17",
   "documentationUrl": "https://github.com/malan-x/unity-protosystem",
@@ -21,6 +21,7 @@
     "multiplayer",
     "events",
     "architecture",
+    "settings",
     "unity"
   ],
   "samples": [
@@ -29,5 +30,8 @@
       "description": "Basic setup example",
       "path": "Samples~/BasicSetup"
     }
+  ],
+  "testables": [
+    "com.unity.test-framework"
   ]
 }

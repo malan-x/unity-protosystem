@@ -588,7 +588,7 @@ namespace ProtoSystem.Effects.Editor
     /// <summary>
     /// Окно поиска эффектов по тегам
     /// </summary>
-    public class EffectTagSearchWindow : EditorWindow
+    public class EffectTagSearchWindow : UnityEditor.EditorWindow
     {
         private EffectContainer container;
         private string searchTag = "";
@@ -675,7 +675,7 @@ namespace ProtoSystem.Effects.Editor
     /// <summary>
     /// Простой диалог для ввода текста
     /// </summary>
-    public class EditorInputDialog : EditorWindow
+    public class EditorInputDialog : UnityEditor.EditorWindow
     {
         private string inputValue = "";
         private string message = "";
