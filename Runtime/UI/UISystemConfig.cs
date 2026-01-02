@@ -1,4 +1,5 @@
 // Packages/com.protosystem.core/Runtime/UI/UISystemConfig.cs
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ProtoSystem.UI
@@ -9,6 +10,14 @@ namespace ProtoSystem.UI
     [CreateAssetMenu(fileName = "UISystemConfig", menuName = "ProtoSystem/UI/System Config")]
     public class UISystemConfig : ScriptableObject
     {
+        [Header("Window Prefabs")]
+        [Tooltip("Список prefab'ов окон для этой сцены. Граф строится автоматически на основе атрибутов.")]
+        public List<GameObject> windowPrefabs = new List<GameObject>();
+
+        [Header("Auto-Scan Settings")]
+        [Tooltip("Метки (labels) для автоматического поиска prefab'ов окон. Prefab'ы с любой из этих меток будут добавлены.")]
+        public List<string> windowPrefabLabels = new List<string> { "UIWindow", "KM_UIWindow" };
+
         [Header("Animation Defaults")]
         [Tooltip("Длительность анимации по умолчанию")]
         public float defaultAnimationDuration = 0.25f;
@@ -72,6 +81,21 @@ namespace ProtoSystem.UI
         public static UISystemConfig CreateDefault()
         {
             return CreateInstance<UISystemConfig>();
+        }
+
+        /// <summary>
+        /// Получить все окна из prefab'ов (для построения графа)
+        /// </summary>
+        public IEnumerable<UIWindowBase> GetWindowComponents()
+        {
+            foreach (var prefab in windowPrefabs)
+            {
+                if (prefab == null) continue;
+                
+                var window = prefab.GetComponent<UIWindowBase>();
+                if (window != null)
+                    yield return window;
+            }
         }
     }
 

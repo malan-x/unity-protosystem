@@ -19,57 +19,98 @@ namespace ProtoSystem.UI
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
-            
+
             // Определяем путь для префабов
             string configPath = AssetDatabase.GetAssetPath(target);
             string configFolder = Path.GetDirectoryName(configPath);
-            _prefabFolderPath = Path.Combine(configFolder, "UI Prefabs").Replace("\\", "/");
-            
+            _prefabFolderPath = configFolder.Replace(System.IO.Path.DirectorySeparatorChar.ToString(), "/") + "/UI Prefabs";
+
+            // Window Prefabs - автосканирование
+            EditorGUILayout.LabelField("Window Prefabs", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("windowPrefabs"), true);
+
+            EditorGUILayout.Space(5);
+
+            // Auto-Scan Settings
+            EditorGUILayout.LabelField("Auto-Scan by Labels", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("windowPrefabLabels"), true);
+
+            EditorGUILayout.BeginHorizontal();
+
+            var config = (UISystemConfig)target;
+            int labelCount = config.windowPrefabLabels?.Count ?? 0;
+            GUI.enabled = labelCount > 0;
+
+            if (GUILayout.Button("Scan & Add Prefabs", GUILayout.Height(28)))
+            {
+                ScanAndAddPrefabsByLabels();
+            }
+
+            GUI.enabled = config.windowPrefabs.Count > 0;
+            if (GUILayout.Button("Clear All", GUILayout.Width(80), GUILayout.Height(28)))
+            {
+                if (EditorUtility.DisplayDialog("Clear Prefabs", "Remove all window prefabs from list?", "Yes", "No"))
+                {
+                    config.windowPrefabs.Clear();
+                    EditorUtility.SetDirty(target);
+                }
+            }
+            GUI.enabled = true;
+
+            EditorGUILayout.EndHorizontal();
+
+            if (labelCount == 0)
+            {
+                EditorGUILayout.HelpBox("Add labels to auto-scan (e.g. UIWindow, KM_UIWindow)", MessageType.Info);
+            }
+
+            EditorGUILayout.Space(10);
+
             // Animation Defaults
             EditorGUILayout.LabelField("Animation Defaults", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("defaultAnimationDuration"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("defaultShowAnimation"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("defaultHideAnimation"));
-            
+
             EditorGUILayout.Space(10);
-            
+
             // Modal Settings
             EditorGUILayout.LabelField("Modal Settings", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("modalOverlayColor"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("closeModalOnOverlayClick"));
-            
+
             EditorGUILayout.Space(10);
-            
+
             // Toast Settings
             EditorGUILayout.LabelField("Toast Settings", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("defaultToastDuration"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("maxToasts"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("toastPosition"));
-            
+
             EditorGUILayout.Space(10);
-            
+
             // Tooltip Settings
             EditorGUILayout.LabelField("Tooltip Settings", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("tooltipDelay"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("tooltipOffset"));
-            
+
             EditorGUILayout.Space(10);
-            
+
             // Dialog Prefabs
             EditorGUILayout.LabelField("Dialog Prefabs", EditorStyles.boldLabel);
             DrawPrefabField("confirmDialogPrefab", "Confirm Dialog Prefab", CreateConfirmDialogPrefab);
             DrawPrefabField("inputDialogPrefab", "Input Dialog Prefab", CreateInputDialogPrefab);
             DrawPrefabField("choiceDialogPrefab", "Choice Dialog Prefab", CreateChoiceDialogPrefab);
-            
+
             EditorGUILayout.Space(10);
-            
+
             // Common Prefabs
             EditorGUILayout.LabelField("Common Prefabs", EditorStyles.boldLabel);
             DrawPrefabField("toastPrefab", "Toast Prefab", CreateToastPrefab);
             DrawPrefabField("tooltipPrefab", "Tooltip Prefab", CreateTooltipPrefab);
             DrawPrefabField("progressPrefab", "Progress Prefab", CreateProgressPrefab);
             DrawPrefabField("modalOverlayPrefab", "Modal Overlay Prefab", CreateModalOverlayPrefab);
-            
+
             serializedObject.ApplyModifiedProperties();
         }
 
@@ -109,7 +150,8 @@ namespace ProtoSystem.UI
         {
             if (!AssetDatabase.IsValidFolder(_prefabFolderPath))
             {
-                string parentFolder = Path.GetDirectoryName(_prefabFolderPath).Replace("\\", "/");
+                string parentFolder = Path.GetDirectoryName(_prefabFolderPath);
+                parentFolder = parentFolder.Replace(Path.DirectorySeparatorChar, '/');
                 AssetDatabase.CreateFolder(parentFolder, "UI Prefabs");
             }
         }
@@ -677,6 +719,80 @@ namespace ProtoSystem.UI
             inputField.placeholder = placeholderTMP;
             
             return go;
+        }
+
+        #endregion
+
+        #region Auto-Scan
+
+        private void ScanAndAddPrefabsByLabels()
+        {
+            var config = (UISystemConfig)target;
+            
+            if (config.windowPrefabLabels == null || config.windowPrefabLabels.Count == 0)
+            {
+                Debug.LogWarning("[UISystemConfig] No labels configured for scanning");
+                return;
+            }
+
+            int addedCount = 0;
+            int skippedCount = 0;
+            var existingGuids = new System.Collections.Generic.HashSet<string>();
+            
+            // Собираем GUID'ы уже добавленных prefab'ов
+            foreach (var prefab in config.windowPrefabs)
+            {
+                if (prefab != null)
+                {
+                    string guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(prefab));
+                    existingGuids.Add(guid);
+                }
+            }
+
+            // Ищем по каждой метке
+            foreach (var label in config.windowPrefabLabels)
+            {
+                if (string.IsNullOrWhiteSpace(label)) continue;
+                
+                // Ищем все prefab'ы с этой меткой
+                string[] guids = AssetDatabase.FindAssets($"l:{label} t:Prefab");
+                
+                foreach (var guid in guids)
+                {
+                    if (existingGuids.Contains(guid))
+                    {
+                        skippedCount++;
+                        continue;
+                    }
+                    
+                    string path = AssetDatabase.GUIDToAssetPath(guid);
+                    var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                    
+                    if (prefab == null) continue;
+                    
+                    // Проверяем что это UI Window
+                    var windowComponent = prefab.GetComponent<UIWindowBase>();
+                    if (windowComponent == null)
+                    {
+                        Debug.LogWarning($"[UISystemConfig] Prefab '{prefab.name}' has label '{label}' but no UIWindowBase component - skipped");
+                        continue;
+                    }
+                    
+                    config.windowPrefabs.Add(prefab);
+                    existingGuids.Add(guid);
+                    addedCount++;
+                    
+                    Debug.Log($"[UISystemConfig] Added: {prefab.name} (label: {label})");
+                }
+            }
+
+            if (addedCount > 0)
+            {
+                EditorUtility.SetDirty(target);
+                AssetDatabase.SaveAssets();
+            }
+
+            Debug.Log($"[UISystemConfig] Scan complete. Added: {addedCount}, Skipped (duplicates): {skippedCount}, Total: {config.windowPrefabs.Count}");
         }
 
         #endregion

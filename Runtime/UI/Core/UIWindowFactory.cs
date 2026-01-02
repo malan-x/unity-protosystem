@@ -10,13 +10,15 @@ namespace ProtoSystem.UI
     public class UIWindowFactory
     {
         private readonly Transform _layerRoot;
+        private readonly UISystemConfig _config;
         private readonly Dictionary<WindowLayer, Transform> _layers = new();
         private readonly Dictionary<string, Queue<UIWindowBase>> _pool = new();
         private readonly Dictionary<string, WindowDefinition> _definitions = new();
 
-        public UIWindowFactory(Transform root)
+        public UIWindowFactory(Transform root, UISystemConfig config = null)
         {
             _layerRoot = root;
+            _config = config;
             CreateLayers();
         }
 
@@ -102,14 +104,10 @@ namespace ProtoSystem.UI
             // Помещаем в правильный слой
             window.transform.SetParent(GetLayer(definition.layer), false);
             
-            // Сброс RectTransform
+            // Только сбрасываем scale, НЕ трогаем anchors/offsets из prefab'а
             var rect = window.GetComponent<RectTransform>();
             if (rect != null)
             {
-                rect.anchorMin = Vector2.zero;
-                rect.anchorMax = Vector2.one;
-                rect.offsetMin = Vector2.zero;
-                rect.offsetMax = Vector2.zero;
                 rect.localScale = Vector3.one;
             }
 

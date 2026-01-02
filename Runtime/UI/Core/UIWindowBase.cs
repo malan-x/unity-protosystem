@@ -28,6 +28,9 @@ namespace ProtoSystem.UI
 
         // Состояние
         public WindowState State { get; private set; } = WindowState.Hidden;
+        
+        /// <summary>Окно открыто (Visible или Blurred)</summary>
+        public bool IsOpen => State == WindowState.Visible || State == WindowState.Blurred;
         public string WindowId { get; internal set; }
         public WindowType WindowType { get; internal set; }
         public WindowLayer Layer { get; internal set; }
@@ -76,38 +79,38 @@ namespace ProtoSystem.UI
         /// <summary>
         /// Показать окно
         /// </summary>
-        internal void Show(Action onComplete = null)
-        {
-            if (State == WindowState.Visible || State == WindowState.Showing)
-            {
-                onComplete?.Invoke();
-                return;
-            }
+        public virtual void Show(Action onComplete = null)
+                {
+                    if (State == WindowState.Visible || State == WindowState.Showing)
+                    {
+                        onComplete?.Invoke();
+                        return;
+                    }
 
-            gameObject.SetActive(true);
-            
-            if (_animationCoroutine != null)
-                StopCoroutine(_animationCoroutine);
+                    gameObject.SetActive(true);
 
-            _animationCoroutine = StartCoroutine(ShowRoutine(onComplete));
-        }
+                    if (_animationCoroutine != null)
+                        StopCoroutine(_animationCoroutine);
+
+                    _animationCoroutine = StartCoroutine(ShowRoutine(onComplete));
+                }
 
         /// <summary>
         /// Скрыть окно
         /// </summary>
-        internal void Hide(Action onComplete = null)
-        {
-            if (State == WindowState.Hidden || State == WindowState.Hiding)
-            {
-                onComplete?.Invoke();
-                return;
-            }
+        public virtual void Hide(Action onComplete = null)
+                {
+                    if (State == WindowState.Hidden || State == WindowState.Hiding)
+                    {
+                        onComplete?.Invoke();
+                        return;
+                    }
 
-            if (_animationCoroutine != null)
-                StopCoroutine(_animationCoroutine);
+                    if (_animationCoroutine != null)
+                        StopCoroutine(_animationCoroutine);
 
-            _animationCoroutine = StartCoroutine(HideRoutine(onComplete));
-        }
+                    _animationCoroutine = StartCoroutine(HideRoutine(onComplete));
+                }
 
         /// <summary>
         /// Окно потеряло фокус (открылось другое поверх)
@@ -265,10 +268,18 @@ namespace ProtoSystem.UI
         }
 
         private void OnBackButton()
-        {
-            if (AllowBack)
-                Close();
-        }
+                {
+                    if (AllowBack)
+                        OnBackPressed();
+                }
+
+                /// <summary>
+                /// Вызывается при нажатии Back/Escape. Переопределите для кастомного поведения.
+                /// </summary>
+                public virtual void OnBackPressed()
+                {
+                    Close();
+                }
 
         #endregion
 

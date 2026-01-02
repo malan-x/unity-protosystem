@@ -1,109 +1,164 @@
-# ProtoSystem Core — Быстрый старт
+# ProtoSystem — Quick Start Guide
 
-## Интеграция AI-инструкций
+Быстрая интеграция ProtoSystem в Unity проект.
 
-ProtoSystem включает инструкции для AI-ассистентов (GitHub Copilot, Claude и др.) в папке `Documentation~/`.
+## 1. Установка
 
-### Автоматическая интеграция с GitHub Copilot
-
-Для автоматической загрузки инструкций при работе с проектом, **скопируйте файл инструкций в корень проекта**:
-
-```bash
-# Из корня Unity-проекта
-cp Packages/com.protosystem.core/Documentation~/copilot-instructions.md .github/copilot-instructions.md
+Добавить пакет через Package Manager → Add package from git URL:
+```
+https://github.com/your-repo/ProtoSystem.git
 ```
 
-Или создайте `.github/copilot-instructions.md` и добавьте ссылку:
+Или скопировать папку `com.protosystem.core` в `Packages/`.
 
-```markdown
-# Project AI Instructions
+## 2. Базовая настройка
 
-This project uses ProtoSystem framework.
-See: Packages/com.protosystem.core/Documentation~/copilot-instructions.md
-
-<!-- Include the content from the package documentation -->
-```
-
-### Структура документации
-
-```
-Documentation~/
-├── ProtoSystem-Guide.md      — Полное руководство разработчика
-└── copilot-instructions.md   — Инструкции для AI-ассистентов
-```
-
-### Для VS Code / Cursor
-
-Добавьте в настройки проекта (`.vscode/settings.json`):
-
-```json
-{
-    "github.copilot.chat.codeGeneration.instructions": [
-        {
-            "file": "Packages/com.protosystem.core/Documentation~/copilot-instructions.md"
-        }
-    ]
-}
-```
-
-### Для других AI-инструментов
-
-При начале работы с проектом попросите AI прочитать:
-- `Packages/com.protosystem.core/Documentation~/copilot-instructions.md`
-- `Packages/com.protosystem.core/Documentation~/ProtoSystem-Guide.md`
-
-## Быстрый старт
-
-### 1. Создайте файл событий проекта
+### 2.1 Создать EventIds
 
 ```csharp
-// Assets/YourProject/Scripts/Events/EventIds.YourProject.cs
+// Assets/YourProject/Scripts/Events/EventIds.cs
 namespace YourProject
 {
     public static class Evt
     {
-        public static class Gameplay
+        public enum EventType
         {
-            public const int PlayerSpawned = 1001;
-            public const int EnemyKilled = 1002;
+            GameStarted,
+            PlayerSpawned,
+            EnemyKilled,
+        }
+
+        public static class Game
+        {
+            public const int Started = (int)EventType.GameStarted;
+        }
+        
+        public static class Player
+        {
+            public const int Spawned = (int)EventType.PlayerSpawned;
         }
     }
 }
 ```
 
-### 2. Создайте систему
+### 2.2 Добавить SystemInitializationManager
+
+1. Создать пустой GameObject "Systems"
+2. Add Component → ProtoSystem → System Initialization Manager
+3. В инспекторе нажать "Добавить ProtoSystem компоненты"
+
+### 2.3 Настроить UISystem
+
+1. **Create → ProtoSystem → UI System Config**
+2. Сгенерировать базовые префабы: **ProtoSystem → UI → Generate All Base Windows**
+3. В UISystemConfig нажать **Scan & Add Prefabs**
+4. Добавить UISystem на сцену (Add Component → UISystem)
+5. Назначить UISystemConfig
+
+## 3. Создание системы
 
 ```csharp
 using ProtoSystem;
 using YourProject;
 
-public class GameplaySystem : InitializableSystemBase
+public class GameSystem : InitializableSystemBase
 {
-    public override string SystemId => "gameplay_system";
+    public override string SystemId => "game";
+    public override string DisplayName => "Game System";
     
     protected override void InitEvents()
     {
-        AddEvent(Evt.Gameplay.PlayerSpawned, OnPlayerSpawned);
+        AddEvent(Evt.Player.Spawned, OnPlayerSpawned);
     }
     
     public override async Task<bool> InitializeAsync()
     {
+        ReportProgress(0.5f);
+        // Инициализация
         ReportProgress(1.0f);
         return true;
     }
     
-    private void OnPlayerSpawned(object payload) { }
+    private void OnPlayerSpawned(object payload)
+    {
+        Debug.Log("Player spawned!");
+    }
+    
+    public void StartGame()
+    {
+        EventBus.Publish(Evt.Game.Started, null);
+    }
 }
 ```
 
-### 3. Настройте сцену
+## 4. Создание UI окна
 
-1. Создайте GameObject с `SystemInitializationManager`
-2. Добавьте системы в список
-3. Нажмите "Анализировать зависимости"
+```csharp
+using ProtoSystem.UI;
+
+[UIWindow("my_dialog", WindowType.Modal, WindowLayer.Modals,
+    Level = 2, PauseGame = true, CursorMode = WindowCursorMode.Visible)]
+public class MyDialog : UIWindowBase
+{
+    [SerializeField] private Button closeButton;
+    
+    protected override void OnOpened(object context)
+    {
+        closeButton.onClick.AddListener(() => UISystem.Back());
+    }
+    
+    protected override void OnClosed()
+    {
+        closeButton.onClick.RemoveAllListeners();
+    }
+}
+```
+
+## 5. Навигация UI
+
+```csharp
+// Открыть окно
+UISystem.Open("settings");
+
+// С контекстом
+UISystem.Open("dialog", new { title = "Hello" });
+
+// Назад
+UISystem.Back();
+
+// Закрыть конкретное
+UISystem.Close("my_dialog");
+```
+
+## 6. Настройка переходов сцены
+
+```csharp
+public class GameplayInitializer : MonoBehaviour, IUISceneInitializer
+{
+    public string[] GetStartupWindows() => new[] { "game_hud" };
+    
+    public UITransition[] GetAdditionalTransitions() => new[]
+    {
+        new UITransition("game_hud", "pause_menu"),
+        new UITransition("pause_menu", "settings"),
+    };
+}
+```
+
+Назначить в UISystem.sceneInitializerComponent.
+
+## 7. Чеклист
+
+- [ ] Создан EventIds.cs с событиями проекта
+- [ ] SystemInitializationManager на сцене
+- [ ] UISystemConfig создан и настроен
+- [ ] UI префабы сгенерированы и добавлены
+- [ ] IUISceneInitializer настроен для каждой сцены
+- [ ] Системы добавлены и зарегистрированы
 
 ## Полезные ссылки
 
-- [Руководство разработчика](Documentation~/ProtoSystem-Guide.md)
-- [AI инструкции](Documentation~/copilot-instructions.md)
-- [Changelog](CHANGELOG.md)
+- [README.md](README.md) — Обзор пакета
+- [AI_INSTRUCTIONS.md](Documentation~/AI_INSTRUCTIONS.md) — Инструкции для ИИ
+- [UISystem.md](Documentation~/UISystem.md) — Документация UI
+- [CHANGELOG.md](CHANGELOG.md) — История изменений

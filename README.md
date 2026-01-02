@@ -1,71 +1,83 @@
 # ProtoSystem Core
 
-Universal Unity framework for system initialization and event-driven architecture.
+Модульный Unity фреймворк для быстрого прототипирования с системой инициализации, событийной архитектурой и UI.
 
-## Features
+## Возможности
 
-- **EventBus**: Global event dispatcher with grouped event IDs
-- **System Initialization**: Attribute-driven dependency injection and initialization ordering
-- **Network Support**: Built-in support for Netcode for GameObjects
-- **AI-Ready**: Includes instructions for GitHub Copilot and other AI assistants
+### Ядро
+- **EventBus** — Глобальная система событий с группировкой и автоподпиской
+- **System Initialization** — Атрибутивное внедрение зависимостей и управление порядком инициализации
+- **Network Support** — Встроенная поддержка Netcode for GameObjects
 
-## Quick Start
+### UI Система
+- **UISystem** — Граф-ориентированная навигация между окнами
+- **UINavigator** — Стековая навигация с историей (Back, CloseTopModal)
+- **Window Prefab Generator** — Автогенерация UI префабов из редактора
+- **UITimeManager** — Управление паузой игры для UI
+- **CursorManagerSystem** — Стек состояний курсора
 
-See [QUICKSTART.md](QUICKSTART.md) for fast integration guide.
+### Дополнительные системы
+- **SettingsSystem** — Управление настройками (INI формат)
+- **EffectsManager** — Система визуальных эффектов
+- **SceneFlowSystem** — Управление переходами между сценами
 
-## Documentation
+## Быстрый старт
 
-- [Developer Guide](Documentation~/ProtoSystem-Guide.md) — Full documentation
-- [AI Instructions](Documentation~/copilot-instructions.md) — For AI coding assistants
-- [Changelog](CHANGELOG.md) — Version history
+См. [QUICKSTART.md](QUICKSTART.md) для быстрой интеграции.
 
-### AI Assistant Integration
+## Документация
 
-ProtoSystem includes instructions for AI assistants. To enable automatic loading:
+- [ProtoSystem Guide](Documentation~/ProtoSystem-Guide.md) — Основная документация
+- [UISystem Guide](Documentation~/UISystem.md) — Документация UI системы
+- [SettingsSystem Guide](Documentation~/SettingsSystem.md) — Система настроек
+- [AI Instructions](Documentation~/AI_INSTRUCTIONS.md) — Инструкции для ИИ-ассистентов
+- [Changelog](CHANGELOG.md) — История изменений
 
-```bash
-# Copy to project root for GitHub Copilot
-cp Packages/com.protosystem.core/Documentation~/copilot-instructions.md .github/copilot-instructions.md
+## Установка
+
+### Package Manager (Git URL)
+```
+https://github.com/your-repo/ProtoSystem.git
 ```
 
-Or add to `.vscode/settings.json`:
-```json
-{
-    "github.copilot.chat.codeGeneration.instructions": [
-        { "file": "Packages/com.protosystem.core/Documentation~/copilot-instructions.md" }
-    ]
-}
-```
+### Локально (Packages/)
+Скопировать папку `com.protosystem.core` в `Packages/` проекта.
 
-## Installation
-
-Add this package to your Unity project via Package Manager:
+## Структура пакета
 
 ```
-https://github.com/wildforest/ProtoSystem.git
+com.protosystem.core/
+├── Runtime/
+│   ├── EventBus/          # Система событий
+│   ├── Initialization/    # Инициализация и DI
+│   ├── UI/                # UI система
+│   │   ├── Core/          # UISystem, UINavigator, Config
+│   │   ├── Windows/       # Базовые классы окон
+│   │   └── Attributes/    # UIWindowAttribute
+│   ├── Settings/          # Система настроек
+│   ├── Effects/           # Эффекты
+│   ├── Cursor/            # Управление курсором
+│   └── SceneFlow/         # Управление сценами
+├── Editor/
+│   ├── UI/                # UIWindowPrefabGenerator, редакторы
+│   └── Initialization/    # Инспекторы систем
+└── Documentation~/        # Документация
 ```
 
-## Usage
+## Основные компоненты
 
 ### EventBus
 
 ```csharp
-using ProtoSystem;
+// Публикация события
+EventBus.Publish(Evt.Combat.AttackPerformed, damage);
 
-// Publish an event
-EventBus.Publish(EventBus.Group.EventId, payload);
-
-// Subscribe in a MonoBehaviour
+// Подписка в MonoEventBus
 public class MyComponent : MonoEventBus
 {
-    internal override void InitEvents()
+    protected override void InitEvents()
     {
-        AddEvent(EventBus.Group.EventId, OnEvent);
-    }
-
-    private void OnEvent(object payload)
-    {
-        // Handle event
+        AddEvent(Evt.Combat.AttackPerformed, OnAttack);
     }
 }
 ```
@@ -73,57 +85,64 @@ public class MyComponent : MonoEventBus
 ### System Initialization
 
 ```csharp
-using ProtoSystem;
-
 public class MySystem : InitializableSystemBase
 {
-    [Dependency(required: true, description: "Required system")]
-    private OtherSystem otherSystem;
-
-    public override string SystemId => "MySystem";
+    [Dependency] private OtherSystem dependency;
+    
+    public override string SystemId => "my_system";
     public override string DisplayName => "My System";
-
+    
     public override async Task<bool> InitializeAsync()
     {
-        // Initialize system
+        ReportProgress(0.5f);
+        // Логика инициализации
         return true;
     }
-
-    internal override void InitEvents()
-    {
-        // Subscribe to events
-    }
 }
 ```
 
-## Extending EventBus
-
-Create a separate EventIds class in your project for event constants:
+### UISystem
 
 ```csharp
-// Assets/YourProject/Scripts/Events/EventIds.YourProject.cs
-namespace YourProject
+// Открытие окна
+UISystem.Open("pause_menu");
+
+// Навигация назад
+UISystem.Back();
+
+// Кастомное окно
+[UIWindow("my_window", WindowType.Normal, WindowLayer.Windows, 
+    Level = 1, PauseGame = true, CursorMode = WindowCursorMode.Visible)]
+public class MyWindow : UIWindowBase
 {
-    public static class Evt
-    {
-        public static class MyGroup
-        {
-            public const int MyEvent = 1000;
-        }
-    }
+    protected override void OnOpened(object context) { }
+    protected override void OnClosed() { }
 }
 ```
 
-Then use with `using YourProject;`:
-```csharp
-EventBus.Publish(Evt.MyGroup.MyEvent, payload);
-```
+### Генерация UI префабов
 
-## Dependencies
+В Unity Editor: **ProtoSystem → UI → Generate Window → [тип окна]**
+
+Доступные генераторы:
+- MainMenu, PauseMenu, Settings
+- GameHUD, GameOver, Statistics
+- Credits, Loading
+
+## Зависимости
 
 - Unity 2021.3+
 - Netcode for GameObjects 2.4.4
+- TextMeshPro
 
-## License
+## Интеграция с ИИ
 
-See LICENSE file for details.
+Пакет включает инструкции для ИИ-ассистентов. Для автозагрузки в GitHub Copilot:
+
+```bash
+cp Packages/com.protosystem.core/Documentation~/AI_INSTRUCTIONS.md .github/copilot-instructions.md
+```
+
+## Лицензия
+
+См. файл LICENSE.

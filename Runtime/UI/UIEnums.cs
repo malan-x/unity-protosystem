@@ -13,7 +13,10 @@ namespace ProtoSystem.UI
         Modal,
         
         /// <summary>Оверлей, отображается поверх без блокировки</summary>
-        Overlay
+        Overlay,
+        
+        /// <summary>Popup - временное окно без стека</summary>
+        Popup
     }
 
     /// <summary>
@@ -39,7 +42,10 @@ namespace ProtoSystem.UI
         /// <summary>Уведомления (Toast)</summary>
         Notifications = 500,
         
-        /// <summary>Системные (Loading, Fade)</summary>
+        /// <summary>Экран загрузки</summary>
+        Loading = 900,
+        
+        /// <summary>Системные (Fade, Overlay)</summary>
         System = 1000
     }
 

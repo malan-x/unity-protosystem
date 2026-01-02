@@ -4,6 +4,21 @@ using System;
 namespace ProtoSystem.UI
 {
     /// <summary>
+    /// Режим курсора для окна
+    /// </summary>
+    public enum WindowCursorMode
+    {
+        /// <summary>Наследовать от предыдущего окна (не менять)</summary>
+        Inherit = 0,
+        /// <summary>Показать и разблокировать курсор</summary>
+        Visible = 1,
+        /// <summary>Скрыть и заблокировать в центре экрана</summary>
+        Locked = 2,
+        /// <summary>Видим, но ограничен границами окна</summary>
+        Confined = 3
+    }
+
+    /// <summary>
     /// Атрибут для декларации окна UI.
     /// Позволяет Editor-сканеру собрать граф переходов до запуска.
     /// </summary>
@@ -19,10 +34,22 @@ namespace ProtoSystem.UI
         /// <summary>Слой отображения</summary>
         public WindowLayer Layer { get; }
         
-        /// <summary>Ставить игру на паузу при открытии</summary>
-        public bool PauseGame { get; set; }
+        /// <summary>
+        /// Уровень иерархии окна.
+        /// При открытии окна уровня N все окна уровня ≤ N закрываются.
+        /// Level 0 = базовые окна (MainMenu, GameHUD) - взаимоисключающие.
+        /// Level 1+ = вложенные окна (Settings внутри меню).
+        /// Overlay и Modal игнорируют Level.
+        /// </summary>
+        public int Level { get; set; } = 0;
         
-        /// <summary>Скрывать окна ниже</summary>
+        /// <summary>Ставить игру на паузу при открытии</summary>
+        public bool PauseGame { get; set; } = false;
+        
+        /// <summary>Режим курсора при открытии окна</summary>
+        public WindowCursorMode CursorMode { get; set; } = WindowCursorMode.Visible;
+        
+        /// <summary>Скрывать окна ниже (deprecated, используйте Level)</summary>
         public bool HideBelow { get; set; } = true;
         
         /// <summary>Разрешить закрытие кнопкой Back/Escape</summary>

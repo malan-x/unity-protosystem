@@ -1,5 +1,7 @@
 // Packages/com.protosystem.core/Runtime/UI/UISystem.cs
 using System;
+using System.Linq;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
@@ -17,18 +19,34 @@ namespace ProtoSystem.UI
         public override string DisplayName => "UI System";
 
         [Header("Configuration")]
-        [SerializeField] private UIWindowGraph windowGraph;
         [SerializeField] private UISystemConfig config;
+        
+        [Header("Scene Initializer (optional)")]
+        [Tooltip("Скрипт инициализации UI для этой сцены. Определяет какие окна открывать и как.")]
+        [SerializeField] private MonoBehaviour sceneInitializerComponent;
+        
+        [Header("Graph Override (optional)")]
+        [Tooltip("Оставьте пустым для автогенерации из Config.windowPrefabs")]
+        [SerializeField] private UIWindowGraph windowGraphOverride;
+
+        [Header("Startup (if no Initializer)")]
+        [Tooltip("Автоматически открыть стартовое окно при инициализации")]
+        [SerializeField] private bool autoOpenStartWindow = true;
+        
+        [Tooltip("ID окна для открытия (если пусто — используется startWindowId из графа)")]
+        [SerializeField] private string overrideStartWindowId;
 
         [Header("Canvas Settings")]
         [SerializeField] private bool createCanvas = true;
         [SerializeField] private int canvasSortOrder = 100;
 
         // Компоненты
+        private UIWindowGraph _windowGraph;
         private Canvas _canvas;
         private CanvasScaler _canvasScaler;
         private UINavigator _navigator;
         private UIWindowFactory _factory;
+        private IUISceneInitializer _sceneInitializer;
 
         // Builders
         private DialogBuilder _dialogBuilder;
@@ -54,7 +72,7 @@ namespace ProtoSystem.UI
         #region Public Properties
 
         /// <summary>Граф окон</summary>
-        public UIWindowGraph Graph => windowGraph;
+        public UIWindowGraph Graph => _windowGraph;
         
         /// <summary>Навигатор</summary>
         public UINavigator Navigator => _navigator;
@@ -77,18 +95,24 @@ namespace ProtoSystem.UI
         /// <summary>Builder для тултипов</summary>
         public TooltipBuilder Tooltip => _tooltipBuilder;
 
-        /// <summary>Конфигурация системы (для внутреннего использования)</summary>
+        /// <summary>Конфигурация системы</summary>
         internal UISystemConfig Config => config;
+        
+        /// <summary>Canvas системы</summary>
+        public Canvas Canvas => _canvas;
+
+        /// <summary>Scene Initializer</summary>
+        public IUISceneInitializer SceneInitializer => _sceneInitializer;
 
         #endregion
 
-        #region Static API (shortcuts)
+        #region Static API
 
         /// <summary>Навигация по триггеру</summary>
         public static NavigationResult Navigate(string trigger)
             => Instance?._navigator?.Navigate(trigger) ?? NavigationResult.WindowNotFound;
 
-        /// <summary>Открыть окно напрямую</summary>
+        /// <summary>Открыть окно напрямую по ID</summary>
         public static NavigationResult Open(string windowId, TransitionAnimation animation = TransitionAnimation.Fade)
             => Instance?._navigator?.Open(windowId, animation) ?? NavigationResult.WindowNotFound;
 
@@ -100,6 +124,12 @@ namespace ProtoSystem.UI
         public static void Reset()
             => Instance?._navigator?.Reset();
 
+        /// <summary>Закрыть все окна</summary>
+        public static void CloseAll()
+        {
+            Instance?._navigator?.Reset();
+        }
+
         #endregion
 
         #region Initialization
@@ -108,11 +138,28 @@ namespace ProtoSystem.UI
         {
             base.Awake();
             _instance = this;
+            
+            // Получаем инициализатор если назначен
+            if (sceneInitializerComponent != null)
+            {
+                _sceneInitializer = sceneInitializerComponent as IUISceneInitializer;
+                if (_sceneInitializer == null)
+                {
+                    Debug.LogWarning($"[UISystem] {sceneInitializerComponent.name} does not implement IUISceneInitializer");
+                }
+                else
+                {
+                    Debug.Log($"[UISystem] SceneInitializer assigned: {sceneInitializerComponent.GetType().Name}");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[UISystem] No sceneInitializerComponent assigned in Inspector!");
+            }
         }
 
         protected override void InitEvents()
         {
-            // Подписка на системные события
             AddEvent(EventBus.UI.BackPressed, OnBackPressed);
         }
 
@@ -122,7 +169,11 @@ namespace ProtoSystem.UI
             {
                 LogMessage("Initializing UI System...");
 
-                // Создаём или находим Canvas
+                // Сбрасываем UITimeManager при старте
+                UITimeManager.Instance.Reset();
+                LogMessage("UITimeManager reset");
+
+                // Создаём Canvas
                 if (!SetupCanvas())
                 {
                     LogError("Failed to setup Canvas");
@@ -136,41 +187,37 @@ namespace ProtoSystem.UI
                     LogWarning("UISystemConfig not assigned, using defaults");
                 }
 
-                // Загружаем или создаём граф
-                if (windowGraph == null)
-                {
-                    windowGraph = ScriptableObject.CreateInstance<UIWindowGraph>();
-                    LogWarning("UIWindowGraph not assigned, using empty graph");
-                }
+                // Загружаем или строим граф
+                _windowGraph = BuildOrLoadGraph();
 
-                // Собираем атрибуты из кода
-                CollectWindowAttributes();
-
-                // Валидируем граф
-                var validation = windowGraph.Validate();
-                if (!validation.isValid)
+                if (_windowGraph == null)
                 {
-                    LogError($"Window graph validation failed:\n{validation}");
-                    // Продолжаем работу, но с предупреждениями
+                    LogWarning("UIWindowGraph not available, creating empty");
+                    _windowGraph = ScriptableObject.CreateInstance<UIWindowGraph>();
                 }
-                else if (validation.warnings.Count > 0)
+                else
                 {
-                    LogWarning($"Window graph warnings:\n{validation}");
+                    LogMessage($"Graph ready: {_windowGraph.windowCount} windows, {_windowGraph.transitionCount} transitions");
                 }
 
                 // Создаём фабрику и навигатор
-                _factory = new UIWindowFactory(_canvas.transform);
-                _navigator = new UINavigator(windowGraph, _factory);
+                _factory = new UIWindowFactory(_canvas.transform, config);
+                _navigator = new UINavigator(_windowGraph, _factory);
 
                 // Создаём builders
                 _dialogBuilder = new DialogBuilder(this);
                 _toastBuilder = new ToastBuilder(this);
                 _tooltipBuilder = new TooltipBuilder(this);
 
-                // Открываем стартовое окно
-                if (!string.IsNullOrEmpty(windowGraph.startWindowId))
+                // Инициализация через SceneInitializer или стандартный flow
+                if (_sceneInitializer != null)
                 {
-                    _navigator.OpenStartWindow();
+                    LogMessage($"Using SceneInitializer: {sceneInitializerComponent.GetType().Name}");
+                    _sceneInitializer.Initialize(this);
+                }
+                else if (autoOpenStartWindow)
+                {
+                    OpenStartWindow();
                 }
 
                 LogMessage("UI System initialized successfully");
@@ -181,6 +228,192 @@ namespace ProtoSystem.UI
                 LogError($"Failed to initialize UI System: {ex.Message}");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Построить граф из Config.windowPrefabs или загрузить override/Resources
+        /// </summary>
+        private UIWindowGraph BuildOrLoadGraph()
+        {
+            Debug.Log($"[UISystem] BuildOrLoadGraph: config={config != null}, prefabs={config?.windowPrefabs?.Count ?? 0}, override={windowGraphOverride != null}");
+
+            // 1. Приоритет: строим из prefab'ов в Config (всегда актуальные ссылки)
+            if (config != null && config.windowPrefabs != null && config.windowPrefabs.Count > 0)
+            {
+                LogMessage($"Building graph from {config.windowPrefabs.Count} prefabs in Config");
+                return BuildGraphFromPrefabs();
+            }
+
+            // 2. Fallback: явно указанный override (может содержать устаревшие ссылки!)
+            if (windowGraphOverride != null)
+            {
+                LogMessage("Using windowGraphOverride (WARNING: may have stale prefab references)");
+                return windowGraphOverride;
+            }
+
+            // 3. Fallback: загружаем из Resources
+            var resourceGraph = UIWindowGraph.Instance;
+            if (resourceGraph != null)
+            {
+                LogMessage("Loaded graph from Resources (no SceneInitializer transitions!)");
+                return resourceGraph;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Построить граф на основе prefab'ов из Config + дополнительных переходов из Initializer
+        /// </summary>
+        private UIWindowGraph BuildGraphFromPrefabs()
+        {
+            Debug.Log($"[UISystem] BuildGraphFromPrefabs: _sceneInitializer = {(_sceneInitializer != null ? _sceneInitializer.GetType().Name : "NULL")}");
+
+            var graph = ScriptableObject.CreateInstance<UIWindowGraph>();
+            graph.ClearForRebuild();
+
+            // Диагностика prefabs
+            int totalPrefabs = config.windowPrefabs?.Count ?? 0;
+            int nullPrefabs = config.windowPrefabs?.Count(p => p == null) ?? 0;
+            Debug.Log($"[UISystem] Config has {totalPrefabs} prefabs, {nullPrefabs} are NULL");
+
+            if (nullPrefabs > 0)
+            {
+                Debug.LogWarning($"[UISystem] {nullPrefabs} prefabs are NULL! Open UISystemConfig and click 'Scan & Add Prefabs'");
+            }
+
+            // Сканируем prefab'ы
+            foreach (var prefab in config.windowPrefabs)
+            {
+                if (prefab == null) continue;
+
+                var windowComponent = prefab.GetComponent<UIWindowBase>();
+                if (windowComponent == null)
+                {
+                    Debug.LogWarning($"[UISystem] Prefab '{prefab.name}' has no UIWindowBase component");
+                    continue;
+                }
+
+                // Получаем атрибуты
+                var type = windowComponent.GetType();
+                var windowAttr = (UIWindowAttribute)Attribute.GetCustomAttribute(type, typeof(UIWindowAttribute));
+
+                if (windowAttr == null)
+                {
+                    Debug.LogWarning($"[UISystem] {type.Name} has no [UIWindow] attribute");
+                    continue;
+                }
+
+                Debug.Log($"[UISystem] Adding window '{windowAttr.WindowId}' from prefab '{prefab.name}'");
+
+                // Добавляем окно
+                graph.AddWindow(new WindowDefinition
+                {
+                    id = windowAttr.WindowId,
+                    prefab = prefab,
+                    type = windowAttr.Type,
+                    layer = windowAttr.Layer,
+                    level = windowAttr.Level,
+                    pauseGame = windowAttr.PauseGame,
+                    cursorMode = windowAttr.CursorMode,
+                    hideBelow = windowAttr.HideBelow,
+                    allowBack = windowAttr.AllowBack,
+                    typeName = type.FullName
+                });
+
+                // Добавляем переходы из атрибутов
+                var transitionAttrs = (UITransitionAttribute[])Attribute.GetCustomAttributes(type, typeof(UITransitionAttribute));
+                foreach (var trans in transitionAttrs)
+                {
+                    graph.AddTransition(new TransitionDefinition
+                    {
+                        fromWindowId = windowAttr.WindowId,
+                        toWindowId = trans.ToWindowId,
+                        trigger = trans.Trigger,
+                        animation = trans.Animation
+                    });
+                }
+
+                // Глобальные переходы
+                var globalAttrs = (UIGlobalTransitionAttribute[])Attribute.GetCustomAttributes(type, typeof(UIGlobalTransitionAttribute));
+                foreach (var global in globalAttrs)
+                {
+                    graph.AddTransition(new TransitionDefinition
+                    {
+                        fromWindowId = "", // глобальный (пустой = глобальный в AddTransition)
+                        toWindowId = global.ToWindowId,
+                        trigger = global.Trigger,
+                        animation = global.Animation
+                    });
+                }
+            }
+
+            // Добавляем переходы из SceneInitializer (с приоритетом над атрибутами)
+            if (_sceneInitializer != null)
+            {
+                Debug.Log($"[UISystem] Adding transitions from SceneInitializer: {sceneInitializerComponent?.GetType().Name}");
+
+                var additionalTransitions = _sceneInitializer.GetAdditionalTransitions();
+                int count = 0;
+                foreach (var trans in additionalTransitions)
+                {
+                    Debug.Log($"[UISystem] SceneInitializer transition: {trans.fromWindowId} --({trans.trigger})--> {trans.toWindowId}");
+                    graph.AddTransition(new TransitionDefinition
+                    {
+                        fromWindowId = trans.fromWindowId == "*" ? "" : trans.fromWindowId,
+                        toWindowId = trans.toWindowId,
+                        trigger = trans.trigger,
+                        animation = trans.animation
+                    }, allowOverride: true); // Переопределяем существующие переходы
+                    count++;
+                }
+                Debug.Log($"[UISystem] Added {count} transitions from SceneInitializer");
+
+                // Устанавливаем стартовое окно из инициализатора
+                if (!string.IsNullOrEmpty(_sceneInitializer.StartWindowId))
+                {
+                    graph.startWindowId = _sceneInitializer.StartWindowId;
+                    Debug.Log($"[UISystem] Start window from initializer: {graph.startWindowId}");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[UISystem] No SceneInitializer! Transitions from attributes only.");
+            }
+
+            graph.FinalizeBuild();
+            return graph;
+        }
+
+        /// <summary>
+        /// Открыть стартовое окно (можно вызвать вручную если autoOpenStartWindow = false)
+        /// </summary>
+        public void OpenStartWindow()
+        {
+            // Приоритет: overrideStartWindowId → initializer → graph.startWindowId
+            string windowId = overrideStartWindowId;
+            
+            if (string.IsNullOrEmpty(windowId) && _sceneInitializer != null)
+                windowId = _sceneInitializer.StartWindowId;
+            
+            if (string.IsNullOrEmpty(windowId))
+                windowId = _windowGraph?.startWindowId;
+
+            if (string.IsNullOrEmpty(windowId))
+            {
+                LogWarning("No start window configured");
+                return;
+            }
+
+            var window = _windowGraph?.GetWindow(windowId);
+            if (window == null || window.prefab == null)
+            {
+                LogWarning($"Start window '{windowId}' not found or has no prefab");
+                return;
+            }
+
+            _navigator.Open(windowId);
+            LogMessage($"Opened start window: {windowId}");
         }
 
         private bool SetupCanvas()
@@ -196,7 +429,6 @@ namespace ProtoSystem.UI
                 return true;
             }
 
-            // Создаём Canvas
             var canvasObj = new GameObject("UISystem_Canvas");
             canvasObj.transform.SetParent(transform, false);
 
@@ -214,93 +446,6 @@ namespace ProtoSystem.UI
             return true;
         }
 
-        private void CollectWindowAttributes()
-        {
-            LogMessage("Collecting window attributes from code...");
-
-            // Находим все типы с атрибутом UIWindow
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            int windowsFound = 0;
-            int transitionsFound = 0;
-
-            foreach (var assembly in assemblies)
-            {
-                // Пропускаем системные сборки
-                if (assembly.FullName.StartsWith("System") || 
-                    assembly.FullName.StartsWith("Unity") ||
-                    assembly.FullName.StartsWith("mscorlib"))
-                    continue;
-
-                try
-                {
-                    foreach (var type in assembly.GetTypes())
-                    {
-                        if (!typeof(UIWindowBase).IsAssignableFrom(type) || type.IsAbstract)
-                            continue;
-
-                        // Получаем атрибут окна
-                        var windowAttr = (UIWindowAttribute)Attribute.GetCustomAttribute(type, typeof(UIWindowAttribute));
-                        if (windowAttr == null)
-                            continue;
-
-                        // Проверяем, есть ли уже такое окно в графе
-                        var existing = windowGraph.GetWindow(windowAttr.WindowId);
-                        if (existing == null)
-                        {
-                            // Добавляем определение окна (без prefab - он должен быть в Inspector)
-                            windowGraph.RegisterWindow(new WindowDefinition
-                            {
-                                id = windowAttr.WindowId,
-                                type = windowAttr.Type,
-                                layer = windowAttr.Layer,
-                                pauseGame = windowAttr.PauseGame,
-                                hideBelow = windowAttr.HideBelow,
-                                allowBack = windowAttr.AllowBack,
-                                fromCode = true
-                            });
-                            windowsFound++;
-                        }
-
-                        // Получаем атрибуты переходов
-                        var transitionAttrs = (UITransitionAttribute[])Attribute.GetCustomAttributes(type, typeof(UITransitionAttribute));
-                        foreach (var transAttr in transitionAttrs)
-                        {
-                            windowGraph.RegisterTransition(new TransitionDefinition
-                            {
-                                fromWindowId = windowAttr.WindowId,
-                                toWindowId = transAttr.ToWindowId,
-                                trigger = transAttr.Trigger,
-                                animation = transAttr.Animation,
-                                fromCode = true
-                            });
-                            transitionsFound++;
-                        }
-
-                        // Глобальные переходы
-                        var globalAttrs = (UIGlobalTransitionAttribute[])Attribute.GetCustomAttributes(type, typeof(UIGlobalTransitionAttribute));
-                        foreach (var globalAttr in globalAttrs)
-                        {
-                            windowGraph.RegisterTransition(new TransitionDefinition
-                            {
-                                fromWindowId = "", // Глобальный
-                                toWindowId = globalAttr.ToWindowId,
-                                trigger = globalAttr.Trigger,
-                                animation = globalAttr.Animation,
-                                fromCode = true
-                            });
-                            transitionsFound++;
-                        }
-                    }
-                }
-                catch (Exception)
-                {
-                    // Игнорируем ошибки рефлексии
-                }
-            }
-
-            LogMessage($"Found {windowsFound} windows and {transitionsFound} transitions from attributes");
-        }
-
         #endregion
 
         #region Event Handlers
@@ -313,7 +458,6 @@ namespace ProtoSystem.UI
 
         private void Update()
         {
-            // Обработка Escape для Back
             if (Input.GetKeyDown(KeyCode.Escape))
             {
                 EventBus.Publish(EventBus.UI.BackPressed, null);

@@ -7,33 +7,72 @@ using UnityEngine;
 namespace ProtoSystem.UI
 {
     /// <summary>
-    /// Граф UI окон и переходов между ними.
-    /// Комбинирует данные из ScriptableObject и атрибутов в коде.
+    /// Автогенерируемый граф UI окон.
+    /// Создаётся и обновляется автоматически при компиляции.
+    /// Используется для навигации и визуализации связей.
     /// </summary>
-    [CreateAssetMenu(fileName = "UIWindowGraph", menuName = "ProtoSystem/UI/Window Graph")]
     public class UIWindowGraph : ScriptableObject
     {
-        [Header("Entry Point")]
-        [Tooltip("ID стартового окна")]
-        public string startWindowId = "MainMenu";
+        public const string RESOURCE_PATH = "ProtoSystem/UIWindowGraph";
+        public const string ASSET_PATH = "Assets/Resources/ProtoSystem/UIWindowGraph.asset";
 
-        [Header("Windows (from Inspector)")]
-        [Tooltip("Окна, определённые в Inspector")]
+        [Header("Auto-generated Data")]
         public List<WindowDefinition> windows = new();
-
-        [Header("Transitions (from Inspector)")]
-        [Tooltip("Переходы, определённые в Inspector")]
         public List<TransitionDefinition> transitions = new();
-
-        [Header("Global Transitions")]
-        [Tooltip("Переходы доступные из любого окна")]
         public List<TransitionDefinition> globalTransitions = new();
+        
+        [Header("Settings")]
+        [Tooltip("ID стартового окна")]
+        public string startWindowId = "";
+        
+        [Header("Build Info")]
+                [System.NonSerialized] public string lastBuildTime;
+        public int windowCount;
+        public int transitionCount;
 
-        // Кэш для быстрого доступа
+        // Runtime кэш
         private Dictionary<string, WindowDefinition> _windowCache;
         private Dictionary<string, List<TransitionDefinition>> _transitionCache;
-        private List<TransitionDefinition> _globalTransitionCache;
         private bool _cacheValid;
+
+        #region Static Access
+
+        private static UIWindowGraph _instance;
+
+        /// <summary>
+        /// Получить граф (загружает из Resources если нужно)
+        /// </summary>
+        public static UIWindowGraph Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    _instance = Resources.Load<UIWindowGraph>(RESOURCE_PATH);
+                    
+                    #if UNITY_EDITOR
+                    // В Editor создаём если не существует
+                    if (_instance == null)
+                    {
+                        _instance = CreateInstance<UIWindowGraph>();
+                        Debug.Log("[UIWindowGraph] Created new instance (will be saved on compilation)");
+                    }
+                    #endif
+                }
+                return _instance;
+            }
+        }
+
+        /// <summary>
+        /// Принудительно перезагрузить граф
+        /// </summary>
+        public static void Reload()
+        {
+            _instance = null;
+            var _ = Instance;
+        }
+
+        #endregion
 
         #region Public API
 
@@ -49,10 +88,9 @@ namespace ProtoSystem.UI
         /// <summary>
         /// Получить все окна
         /// </summary>
-        public IEnumerable<WindowDefinition> GetAllWindows()
+        public IReadOnlyList<WindowDefinition> GetAllWindows()
         {
-            EnsureCache();
-            return _windowCache.Values;
+            return windows;
         }
 
         /// <summary>
@@ -64,161 +102,40 @@ namespace ProtoSystem.UI
             
             var result = new List<TransitionDefinition>();
             
-            // Локальные переходы
             if (_transitionCache.TryGetValue(windowId, out var local))
                 result.AddRange(local);
             
-            // Глобальные переходы
-            result.AddRange(_globalTransitionCache);
+            result.AddRange(globalTransitions);
             
             return result;
         }
 
         /// <summary>
-        /// Найти переход по триггеру из текущего окна
+        /// Найти переход по триггеру
         /// </summary>
         public TransitionDefinition FindTransition(string fromWindowId, string trigger)
         {
             EnsureCache();
 
-            // Сначала ищем в локальных
+            // Сначала локальные
             if (_transitionCache.TryGetValue(fromWindowId, out var local))
             {
                 var found = local.FirstOrDefault(t => t.trigger == trigger);
                 if (found != null) return found;
             }
 
-            // Затем в глобальных
-            return _globalTransitionCache.FirstOrDefault(t => t.trigger == trigger);
+            // Затем глобальные
+            return globalTransitions.FirstOrDefault(t => t.trigger == trigger);
         }
 
         /// <summary>
-        /// Проверить, разрешён ли переход
+        /// Проверить существование окна
         /// </summary>
-        public bool IsTransitionAllowed(string fromWindowId, string toWindowId)
-        {
-            var transitions = GetTransitionsFrom(fromWindowId);
-            return transitions.Any(t => t.toWindowId == toWindowId);
-        }
-
-        /// <summary>
-        /// Зарегистрировать окно в runtime
-        /// </summary>
-        public void RegisterWindow(WindowDefinition window)
-        {
-            if (window == null || string.IsNullOrEmpty(window.id)) return;
-            
-            // Удаляем существующее с таким же ID
-            windows.RemoveAll(w => w.id == window.id);
-            windows.Add(window);
-            
-            InvalidateCache();
-        }
-
-        /// <summary>
-        /// Зарегистрировать переход в runtime
-        /// </summary>
-        public void RegisterTransition(TransitionDefinition transition)
-        {
-            if (transition == null) return;
-            
-            if (string.IsNullOrEmpty(transition.fromWindowId))
-            {
-                globalTransitions.Add(transition);
-            }
-            else
-            {
-                transitions.Add(transition);
-            }
-            
-            InvalidateCache();
-        }
-
-        /// <summary>
-        /// Валидация графа
-        /// </summary>
-        public ValidationResult Validate()
-        {
-            var result = new ValidationResult { isValid = true };
-
-            // Проверка стартового окна
-            if (string.IsNullOrEmpty(startWindowId))
-            {
-                result.errors.Add("Start window ID is empty");
-                result.isValid = false;
-            }
-            else if (GetWindow(startWindowId) == null)
-            {
-                result.errors.Add($"Start window '{startWindowId}' not found");
-                result.isValid = false;
-            }
-
-            // Проверка окон
-            var windowIds = new HashSet<string>();
-            foreach (var window in windows)
-            {
-                if (string.IsNullOrEmpty(window.id))
-                {
-                    result.errors.Add("Window with empty ID found");
-                    result.isValid = false;
-                    continue;
-                }
-
-                if (!windowIds.Add(window.id))
-                {
-                    result.errors.Add($"Duplicate window ID: {window.id}");
-                    result.isValid = false;
-                }
-
-                if (window.prefab == null)
-                {
-                    result.warnings.Add($"Window '{window.id}' has no prefab assigned");
-                }
-            }
-
-            // Проверка переходов
-            var triggerSet = new HashSet<string>();
-            foreach (var transition in transitions.Concat(globalTransitions))
-            {
-                if (string.IsNullOrEmpty(transition.toWindowId))
-                {
-                    result.errors.Add($"Transition with trigger '{transition.trigger}' has no target window");
-                    result.isValid = false;
-                    continue;
-                }
-
-                if (GetWindow(transition.toWindowId) == null)
-                {
-                    result.errors.Add($"Transition target '{transition.toWindowId}' not found");
-                    result.isValid = false;
-                }
-
-                // Проверка уникальности триггера в контексте окна
-                string key = $"{transition.fromWindowId ?? "global"}:{transition.trigger}";
-                if (!triggerSet.Add(key))
-                {
-                    result.warnings.Add($"Duplicate trigger '{transition.trigger}' from '{transition.fromWindowId ?? "global"}'");
-                }
-            }
-
-            // Проверка достижимости (все окна должны быть достижимы из startWindow)
-            var reachable = new HashSet<string>();
-            CollectReachable(startWindowId, reachable);
-            
-            foreach (var window in windows)
-            {
-                if (!reachable.Contains(window.id) && window.id != startWindowId)
-                {
-                    result.warnings.Add($"Window '{window.id}' is not reachable from start");
-                }
-            }
-
-            return result;
-        }
+        public bool HasWindow(string windowId) => GetWindow(windowId) != null;
 
         #endregion
 
-        #region Private Methods
+        #region Cache
 
         private void EnsureCache()
         {
@@ -226,16 +143,13 @@ namespace ProtoSystem.UI
 
             _windowCache = new Dictionary<string, WindowDefinition>();
             _transitionCache = new Dictionary<string, List<TransitionDefinition>>();
-            _globalTransitionCache = new List<TransitionDefinition>();
 
-            // Кэшируем окна
             foreach (var window in windows)
             {
                 if (!string.IsNullOrEmpty(window.id))
                     _windowCache[window.id] = window;
             }
 
-            // Кэшируем переходы
             foreach (var transition in transitions)
             {
                 if (string.IsNullOrEmpty(transition.fromWindowId)) continue;
@@ -248,31 +162,103 @@ namespace ProtoSystem.UI
                 list.Add(transition);
             }
 
-            // Глобальные переходы
-            _globalTransitionCache.AddRange(globalTransitions);
-
             _cacheValid = true;
         }
 
-        private void InvalidateCache()
+        public void InvalidateCache()
         {
             _cacheValid = false;
         }
 
-        private void CollectReachable(string windowId, HashSet<string> visited)
+        private void OnEnable()
         {
-            if (string.IsNullOrEmpty(windowId) || visited.Contains(windowId)) return;
-            
-            visited.Add(windowId);
+            InvalidateCache();
+        }
 
-            foreach (var transition in GetTransitionsFrom(windowId))
+        #endregion
+
+        #region Builder Methods
+
+        /// <summary>
+        /// Очистить данные перед пересборкой
+        /// </summary>
+        public void ClearForRebuild()
+        {
+            windows.Clear();
+            transitions.Clear();
+            globalTransitions.Clear();
+            InvalidateCache();
+        }
+
+        /// <summary>
+        /// Добавить определение окна
+        /// </summary>
+        public void AddWindow(WindowDefinition window)
+        {
+            windows.RemoveAll(w => w.id == window.id);
+            windows.Add(window);
+        }
+
+        /// <summary>
+        /// Добавить переход
+        /// </summary>
+        public void AddTransition(TransitionDefinition transition, bool allowOverride = false)
+        {
+            string context = Application.isPlaying ? "Runtime" : "Editor";
+
+            if (string.IsNullOrEmpty(transition.fromWindowId))
             {
-                CollectReachable(transition.toWindowId, visited);
+                // Глобальный переход
+                if (allowOverride)
+                {
+                    int removed = globalTransitions.RemoveAll(t => t.trigger == transition.trigger);
+                    if (removed > 0)
+                        Debug.Log($"[UIWindowGraph:{context}] Override: removed {removed} global transitions with trigger '{transition.trigger}'");
+                }
+                globalTransitions.Add(transition);
+                Debug.Log($"[UIWindowGraph:{context}] Added global transition: * --({transition.trigger})--> {transition.toWindowId}");
+            }
+            else
+            {
+                // Локальный переход
+                if (allowOverride)
+                {
+                    int removed = transitions.RemoveAll(t => 
+                        t.fromWindowId == transition.fromWindowId && 
+                        t.trigger == transition.trigger);
+                    if (removed > 0)
+                        Debug.Log($"[UIWindowGraph:{context}] Override: removed {removed} transitions from '{transition.fromWindowId}' with trigger '{transition.trigger}'");
+                }
+                transitions.Add(transition);
+                Debug.Log($"[UIWindowGraph:{context}] Added transition: {transition.fromWindowId} --({transition.trigger})--> {transition.toWindowId}");
             }
         }
 
-        private void OnValidate()
+        /// <summary>
+        /// Завершить сборку графа
+        /// </summary>
+        public void FinalizeBuild()
         {
+            lastBuildTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            windowCount = windows.Count;
+            transitionCount = transitions.Count + globalTransitions.Count;
+            
+            // Автоопределение startWindowId если не задан
+            if (string.IsNullOrEmpty(startWindowId) && windows.Count > 0)
+            {
+                var mainMenu = windows.FirstOrDefault(w => 
+                    w.id.Contains("MainMenu") || w.id.Contains("Main"));
+                    
+                if (mainMenu != null)
+                    startWindowId = mainMenu.id;
+                else
+                {
+                    var firstNormal = windows.FirstOrDefault(w => w.type == WindowType.Normal);
+                    if (firstNormal != null)
+                        startWindowId = firstNormal.id;
+                }
+            }
+            
             InvalidateCache();
         }
 
@@ -297,20 +283,26 @@ namespace ProtoSystem.UI
         [Tooltip("Слой отображения")]
         public WindowLayer layer = WindowLayer.Windows;
         
+        [Tooltip("Уровень иерархии. При открытии окна уровня N все Normal окна с level <= N закрываются.")]
+        public int level = 0;
+        
         [Tooltip("Ставить игру на паузу")]
         public bool pauseGame;
         
-        [Tooltip("Скрывать окна ниже")]
+        [Tooltip("Режим курсора при открытии окна")]
+        public WindowCursorMode cursorMode = WindowCursorMode.Visible;
+        
+        [Tooltip("Скрывать окна ниже (deprecated)")]
         public bool hideBelow = true;
         
         [Tooltip("Разрешить закрытие через Back")]
         public bool allowBack = true;
 
-        [HideInInspector]
-        public Vector2 editorPosition; // Для визуального редактора
-        
-        [HideInInspector]
-        public bool fromCode; // Помечает что окно из атрибутов
+        [Tooltip("Имя типа класса окна")]
+        public string typeName;
+
+        // Для визуального редактора
+        [HideInInspector] public Vector2 editorPosition;
     }
 
     /// <summary>
@@ -330,31 +322,5 @@ namespace ProtoSystem.UI
         
         [Tooltip("Анимация перехода")]
         public TransitionAnimation animation = TransitionAnimation.Fade;
-
-        [HideInInspector]
-        public bool fromCode; // Помечает что переход из атрибутов
-    }
-
-    /// <summary>
-    /// Результат валидации графа
-    /// </summary>
-    public class ValidationResult
-    {
-        public bool isValid = true;
-        public List<string> errors = new();
-        public List<string> warnings = new();
-
-        public override string ToString()
-        {
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine(isValid ? "✓ Graph is valid" : "✗ Graph has errors");
-            
-            foreach (var error in errors)
-                sb.AppendLine($"  ERROR: {error}");
-            foreach (var warning in warnings)
-                sb.AppendLine($"  WARNING: {warning}");
-            
-            return sb.ToString();
-        }
     }
 }

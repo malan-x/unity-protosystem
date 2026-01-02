@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2025-01-03
+
+### Added
+- **UISystem enhancements**
+  - **Window Levels** — Level 0 окна взаимоисключающие (MainMenu, GameHUD), Level 1+ стековые
+  - **IUISceneInitializer** — интерфейс для добавления переходов и стартовых окон при загрузке сцены
+  - **UITimeManager** — счётчик-based управление паузой для нескольких окон одновременно
+  - **CursorManagerSystem** — стековое управление состоянием курсора
+  - **WindowCursorMode** — атрибут для автоматического управления курсором при открытии окна
+
+- **UIWindowPrefabGenerator improvements**
+  - `CreateSettingsSlider()` — слайдер с текстовым полем значения
+  - `CreateDropdown()` — полностью корректная структура TMP_Dropdown с Toggle в Item
+  - `CreateWindowBase()` overload с кастомной альфой фона
+  - Генераторы: GameOver, Statistics
+  - Автоматическое присвоение метки "UIWindow" для автосканирования
+
+- **New window classes**
+  - `GameOverWindow` — окно победы/поражения с ShowVictory()/ShowDefeat()
+  - `StatisticsWindow` — окно статистики с AddStat()/ClearStats()
+
+- **Documentation**
+  - `AI_INSTRUCTIONS.md` — комплексные инструкции для ИИ-ассистентов
+  - Обновлённый README.md с описанием всех систем
+
+### Changed
+- **UINavigator** — интеграция с UITimeManager и CursorManagerSystem
+- **SettingsWindow generator** — увеличенные размеры (580×700), непрозрачный фон, улучшенная читаемость
+- **CreateDropdown** — исправлена структура Template для совместимости с TMP_Dropdown
+
+### Fixed
+- Ошибка "dropdown template is not valid" — добавлен Toggle компонент в Item
+- Курсор остаётся видимым после закрытия окна — исправлено через ForceApplyCursorMode
+- Переходы не работают после загрузки сцены — добавлена проверка sceneInitializer
+
 ## [1.4.0] - 2024-12-29
 
 ### Added
@@ -78,10 +113,10 @@ ProtoSystem включает следующие готовые системы (�
 | Приоритет | Система | Категория | Описание |
 |-----------|---------|-----------|----------|
 | 5 | ⚙️ **SettingsSystem** | Core | Настройки игры с персистентностью (INI/PlayerPrefs) |
-| 10 | 🖼️ **UISystem** | UI | Управление окнами, диалогами, тостами и тултипами |
+| 10 | 🖼️ **UISystem** | UI | Управление окнами, навигация, время, курсор |
 | 15 | 🎬 **SceneFlowSystem** | Core | Загрузка сцен с переходами и loading screen |
 | 20 | ✨ **EffectsManagerSystem** | Effects | Управление визуальными и звуковыми эффектами |
-| 25 | 🖱️ **CursorManager** | UI | Управление курсором (Lock/Confine/Free) |
+| 25 | 🖱️ **CursorManagerSystem** | UI | Стековое управление курсором |
 | 30 | 🌐 **NetworkLobbySystem** | Network | Сетевое лобби для мультиплеера (Netcode) |
 
 ### Конфигурация систем
@@ -94,7 +129,20 @@ ProtoSystem включает следующие готовые системы (�
 | UISystem | `UISystemConfig` | `Assets/<NS>/Settings/UI/` |
 | SceneFlowSystem | `SceneFlowConfig` | `Assets/<NS>/Settings/SceneFlow/` |
 | EffectsManagerSystem | `EffectContainer` | `Assets/<NS>/Settings/Containers/` |
-| CursorManager | `CursorConfig` | `Assets/<NS>/Settings/Cursor/` |
+| CursorManagerSystem | `CursorConfig` | `Assets/<NS>/Settings/Cursor/` |
 | NetworkLobbySystem | `NetworkLobbyConfig` | `Assets/<NS>/Settings/NetworkLobby/` |
 
 > `<NS>` — namespace проекта из файла EventIds (например, `KM`)
+
+### UI Окна из коробки
+
+| Окно | Класс | Описание |
+|------|-------|----------|
+| MainMenu | `MainMenuWindow` | Главное меню (Level 0) |
+| GameHUD | `GameHUDWindow` | Игровой HUD (Level 0) |
+| PauseMenu | `PauseMenuWindow` | Меню паузы (Level 1) |
+| Settings | `SettingsWindow` | Настройки (Level 1) |
+| GameOver | `GameOverWindow` | Победа/Поражение (Level 1) |
+| Statistics | `StatisticsWindow` | Статистика (Level 1) |
+| Credits | `CreditsWindow` | Титры (Level 1) |
+| Loading | `LoadingWindow` | Экран загрузки (Overlay) |

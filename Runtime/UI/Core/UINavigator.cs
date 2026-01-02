@@ -1,5 +1,6 @@
 // Packages/com.protosystem.core/Runtime/UI/Core/UINavigator.cs
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -19,6 +20,9 @@ namespace ProtoSystem.UI
         
         // Стек модальных окон
         private readonly Stack<UIWindowBase> _modalStack = new();
+        
+        // Активные overlay окна (не в стеке)
+        private readonly Dictionary<string, UIWindowBase> _overlays = new();
         
         // Текущее активное окно (верхнее в стеке)
         public UIWindowBase CurrentWindow { get; private set; }
@@ -44,7 +48,7 @@ namespace ProtoSystem.UI
         #region Navigation
 
         /// <summary>
-        /// Навигация по триггеру
+        /// Навигация по триггеру (использует граф переходов)
         /// </summary>
         public NavigationResult Navigate(string trigger)
         {
@@ -53,9 +57,12 @@ namespace ProtoSystem.UI
 
             // Если есть модальное окно — проверяем его переходы
             string fromId = CurrentModal?.WindowId ?? CurrentWindow?.WindowId ?? "";
-            
+
             // Ищем переход в графе
-            var transition = _graph.FindTransition(fromId, trigger);
+            var transition = _graph?.FindTransition(fromId, trigger);
+
+            Debug.Log($"[UINavigator] Navigate('{trigger}') from '{fromId}' -> {(transition != null ? transition.toWindowId : "NOT FOUND")}");
+
             if (transition == null)
                 return Fail(NavigationResult.TriggerNotFound, fromId, null, trigger);
 
@@ -63,26 +70,20 @@ namespace ProtoSystem.UI
         }
 
         /// <summary>
-        /// Открыть окно напрямую (проверяет разрешённость в графе)
+        /// Открыть окно напрямую по ID
         /// </summary>
         public NavigationResult Open(string windowId, TransitionAnimation animation = TransitionAnimation.Fade)
         {
             string fromId = CurrentModal?.WindowId ?? CurrentWindow?.WindowId ?? "";
-            
-            // Проверяем разрешённость
-            if (!string.IsNullOrEmpty(fromId) && !_graph.IsTransitionAllowed(fromId, windowId))
-                return Fail(NavigationResult.TransitionNotAllowed, fromId, windowId, null);
-
             return OpenWindow(windowId, animation, fromId, null);
         }
 
         /// <summary>
-        /// Открыть окно без проверки графа (для системных окон)
+        /// Открыть окно без проверок (алиас для Open, для совместимости)
         /// </summary>
         public NavigationResult OpenDirect(string windowId, TransitionAnimation animation = TransitionAnimation.Fade)
         {
-            string fromId = CurrentModal?.WindowId ?? CurrentWindow?.WindowId ?? "";
-            return OpenWindow(windowId, animation, fromId, null);
+            return Open(windowId, animation);
         }
 
         /// <summary>
@@ -90,6 +91,8 @@ namespace ProtoSystem.UI
         /// </summary>
         public NavigationResult Back()
         {
+            Debug.Log($"[UINavigator] Back() called. WindowStack={_windowStack.Count}, ModalStack={_modalStack.Count}");
+
             // Сначала закрываем модальные
             if (_modalStack.Count > 0)
             {
@@ -98,10 +101,39 @@ namespace ProtoSystem.UI
 
             // Затем обычные окна
             if (_windowStack.Count <= 1)
+            {
+                Debug.Log("[UINavigator] Back() failed - stack has only 1 window");
                 return Fail(NavigationResult.StackEmpty, CurrentWindow?.WindowId, null, "Back");
+            }
 
             var closing = _windowStack.Pop();
             var opening = _windowStack.Peek();
+
+            Debug.Log($"[UINavigator] Back: closing '{closing.WindowId}', showing '{opening.WindowId}'");
+
+            // Получаем определения окон
+            var closingDef = _graph?.GetWindow(closing.WindowId);
+            var openingDef = _graph?.GetWindow(opening.WindowId);
+
+            // Восстанавливаем состояния при закрытии
+            if (closingDef != null)
+            {
+                if (closingDef.pauseGame)
+                {
+                    UITimeManager.Instance.ReleasePause(closing.WindowId);
+                }
+
+                if (closingDef.cursorMode != WindowCursorMode.Inherit)
+                {
+                    Cursor.CursorManagerSystem.RestoreWindowCursorMode(closingDef.cursorMode, closing.WindowId);
+                }
+            }
+
+            // Принудительно применяем режим курсора активного окна
+            if (openingDef != null && openingDef.cursorMode != WindowCursorMode.Inherit)
+            {
+                Cursor.CursorManagerSystem.ForceApplyCursorMode(openingDef.cursorMode);
+            }
 
             // Закрываем текущее
             closing.Hide(() =>
@@ -109,9 +141,9 @@ namespace ProtoSystem.UI
                 _factory.Release(closing);
             });
 
-            // Показываем предыдущее
+            // Показываем предыдущее (оно могло быть скрыто)
             CurrentWindow = opening;
-            opening.Focus();
+            opening.Show(); // Show вместо Focus - окно могло быть скрыто
 
             PublishEvent(new NavigationEventData
             {
@@ -151,6 +183,60 @@ namespace ProtoSystem.UI
             }
         }
 
+        /// <summary>
+        /// Закрыть конкретное окно
+        /// </summary>
+        public void Close(UIWindowBase window)
+        {
+            if (window == null) return;
+
+            // Получаем определение для восстановления состояний
+            var definition = _graph?.GetWindow(window.WindowId);
+
+            // Проверяем в стеке модальных
+            if (_modalStack.Contains(window))
+            {
+                // Создаём новый стек без этого окна
+                var temp = new Stack<UIWindowBase>();
+                while (_modalStack.Count > 0)
+                {
+                    var w = _modalStack.Pop();
+                    if (w != window)
+                        temp.Push(w);
+                }
+                while (temp.Count > 0)
+                    _modalStack.Push(temp.Pop());
+            }
+
+            // Восстанавливаем состояния
+            if (definition != null)
+            {
+                // Снимаем запрос паузы
+                if (definition.pauseGame)
+                {
+                    UITimeManager.Instance.ReleasePause(window.WindowId);
+                }
+
+                // Восстанавливаем курсор
+                if (definition.cursorMode != WindowCursorMode.Inherit)
+                {
+                    Cursor.CursorManagerSystem.RestoreWindowCursorMode(definition.cursorMode, window.WindowId);
+                }
+            }
+
+            // Определяем следующее активное окно
+            UIWindowBase nextWindow = _modalStack.Count > 0 ? _modalStack.Peek() : CurrentWindow;
+            var nextDef = nextWindow != null ? _graph?.GetWindow(nextWindow.WindowId) : null;
+
+            // Принудительно применяем режим курсора следующего окна
+            if (nextDef != null && nextDef.cursorMode != WindowCursorMode.Inherit)
+            {
+                Cursor.CursorManagerSystem.ForceApplyCursorMode(nextDef.cursorMode);
+            }
+
+            window.Hide(() => _factory.Release(window));
+        }
+
         #endregion
 
         #region Internal
@@ -158,9 +244,19 @@ namespace ProtoSystem.UI
         private NavigationResult OpenWindow(string windowId, TransitionAnimation animation, string fromId, string trigger)
         {
             // Получаем определение окна
-            var definition = _graph.GetWindow(windowId);
+            var definition = _graph?.GetWindow(windowId);
             if (definition == null)
+            {
+                // Диагностика: какие окна есть в графе?
+                Debug.LogError($"[UINavigator] Window '{windowId}' not found in graph. Available windows: {string.Join(", ", _graph?.GetAllWindows().Select(w => w.id) ?? System.Array.Empty<string>())}");
                 return Fail(NavigationResult.WindowNotFound, fromId, windowId, trigger);
+            }
+
+            // Диагностика prefab
+            if (definition.prefab == null)
+            {
+                Debug.LogError($"[UINavigator] Window '{windowId}' found but prefab is NULL! Check UISystemConfig.");
+            }
 
             // Проверяем что не открываем то же самое окно
             if (CurrentWindow?.WindowId == windowId && definition.type != WindowType.Modal)
@@ -187,9 +283,17 @@ namespace ProtoSystem.UI
                     break;
             }
 
-            // Пауза
+            // Пауза через UITimeManager
             if (definition.pauseGame)
-                Time.timeScale = 0f;
+            {
+                UITimeManager.Instance.RequestPause(windowId);
+            }
+
+            // Курсор через CursorManagerSystem
+            if (definition.cursorMode != WindowCursorMode.Inherit)
+            {
+                Cursor.CursorManagerSystem.ApplyWindowCursorMode(definition.cursorMode, windowId);
+            }
 
             PublishEvent(new NavigationEventData
             {
@@ -204,27 +308,86 @@ namespace ProtoSystem.UI
 
         private void OpenNormal(UIWindowBase window, WindowDefinition definition)
         {
-            // Скрываем/блюрим текущее
-            if (CurrentWindow != null)
+            Debug.Log($"[UINavigator] OpenNormal '{definition.id}' level={definition.level}");
+
+            // Level 0 окна взаимоисключающие - закрываем другие level 0
+            // Level 1+ просто добавляются в стек
+            if (definition.level == 0)
             {
-                if (definition.hideBelow)
-                {
-                    var current = CurrentWindow;
-                    current.Hide(() => { }); // Не освобождаем, остаётся в стеке
-                }
-                else
-                {
-                    CurrentWindow.Blur();
-                }
+                CloseLevel0Windows();
             }
 
             // Добавляем в стек
             _windowStack.Push(window);
             CurrentWindow = window;
-            
+
             // Показываем
             window.Show();
         }
+
+        /// <summary>
+        /// Закрыть все Normal окна с уровнем <= указанного
+        /// </summary>
+        /// <summary>
+        /// Закрывает все Normal окна с level 0 (базовые экраны взаимоисключающие)
+        /// </summary>
+        private void CloseLevel0Windows()
+        {
+            if (_windowStack.Count == 0) return;
+
+            var windowsToClose = new List<(UIWindowBase window, WindowDefinition def)>();
+            var windowsToKeep = new Stack<UIWindowBase>();
+
+            // Разбираем стек
+            while (_windowStack.Count > 0)
+            {
+                var w = _windowStack.Pop();
+                var def = _graph?.GetWindow(w.WindowId);
+                int windowLevel = def?.level ?? 0;
+
+                // Закрываем только Normal окна с level == 0
+                if (def != null && def.type == WindowType.Normal && windowLevel == 0)
+                {
+                    windowsToClose.Add((w, def));
+                    Debug.Log($"[UINavigator] Closing level 0 window '{w.WindowId}'");
+                }
+                else
+                {
+                    // Overlay/Modal или level 1+ - сохраняем
+                    windowsToKeep.Push(w);
+                }
+            }
+
+            // Восстанавливаем стек
+            while (windowsToKeep.Count > 0)
+            {
+                _windowStack.Push(windowsToKeep.Pop());
+            }
+
+            // Закрываем окна и восстанавливаем состояния
+            foreach (var (w, def) in windowsToClose)
+            {
+                // Восстанавливаем состояния
+                if (def != null)
+                {
+                    if (def.pauseGame)
+                    {
+                        UITimeManager.Instance.ReleasePause(w.WindowId);
+                    }
+
+                    if (def.cursorMode != WindowCursorMode.Inherit)
+                    {
+                        Cursor.CursorManagerSystem.RestoreWindowCursorMode(def.cursorMode, w.WindowId);
+                    }
+                }
+
+                w.Hide(() => _factory.Release(w));
+            }
+
+            // Обновляем CurrentWindow
+            CurrentWindow = _windowStack.Count > 0 ? _windowStack.Peek() : null;
+        }
+
 
         private void OpenModal(UIWindowBase window, WindowDefinition definition)
         {
@@ -247,8 +410,84 @@ namespace ProtoSystem.UI
 
         private void OpenOverlay(UIWindowBase window, WindowDefinition definition)
         {
-            // Overlay не блокирует и не добавляется в стек
+            // Overlay не блокирует и не добавляется в стек навигации
+            _overlays[window.WindowId] = window;
             window.Show();
+        }
+
+        #endregion
+
+        #region Get/Close by ID
+
+        /// <summary>
+        /// Получить открытое окно по ID
+        /// </summary>
+        public UIWindowBase GetWindow(string windowId)
+        {
+            if (string.IsNullOrEmpty(windowId)) return null;
+
+            // Проверяем overlay
+            if (_overlays.TryGetValue(windowId, out var overlay))
+                return overlay;
+
+            // Проверяем текущее окно
+            if (CurrentWindow?.WindowId == windowId)
+                return CurrentWindow;
+
+            // Проверяем стек окон
+            foreach (var window in _windowStack)
+            {
+                if (window.WindowId == windowId)
+                    return window;
+            }
+
+            // Проверяем модальные
+            foreach (var modal in _modalStack)
+            {
+                if (modal.WindowId == windowId)
+                    return modal;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Получить открытое окно по ID с кастом к типу
+        /// </summary>
+        public T GetWindow<T>(string windowId) where T : UIWindowBase
+        {
+            return GetWindow(windowId) as T;
+        }
+
+        /// <summary>
+        /// Закрыть окно по ID
+        /// </summary>
+        public NavigationResult Close(string windowId)
+        {
+            if (string.IsNullOrEmpty(windowId))
+                return NavigationResult.WindowNotFound;
+
+            // Проверяем overlay
+            if (_overlays.TryGetValue(windowId, out var overlay))
+            {
+                _overlays.Remove(windowId);
+                overlay.Hide(() => _factory.Release(overlay));
+                return NavigationResult.Success;
+            }
+
+            // Проверяем модальные - закрываем по порядку если это верхнее
+            if (_modalStack.Count > 0 && _modalStack.Peek().WindowId == windowId)
+            {
+                return CloseTopModal();
+            }
+
+            // Для обычных окон - только если это текущее
+            if (CurrentWindow?.WindowId == windowId && _windowStack.Count > 1)
+            {
+                return Back();
+            }
+
+            return NavigationResult.WindowNotFound;
         }
 
         private NavigationResult CloseTopModal()
@@ -257,11 +496,31 @@ namespace ProtoSystem.UI
                 return NavigationResult.StackEmpty;
 
             var closing = _modalStack.Pop();
-            
-            // Возвращаем паузу если это было последнее модальное с паузой
-            // (упрощённо — снимаем паузу при закрытии любого модального)
-            if (_modalStack.Count == 0)
-                Time.timeScale = 1f;
+            var closingDef = _graph?.GetWindow(closing.WindowId);
+
+            // Восстанавливаем состояния
+            if (closingDef != null)
+            {
+                if (closingDef.pauseGame)
+                {
+                    UITimeManager.Instance.ReleasePause(closing.WindowId);
+                }
+
+                if (closingDef.cursorMode != WindowCursorMode.Inherit)
+                {
+                    Cursor.CursorManagerSystem.RestoreWindowCursorMode(closingDef.cursorMode, closing.WindowId);
+                }
+            }
+
+            // Определяем следующее активное окно и его режим курсора
+            UIWindowBase nextWindow = _modalStack.Count > 0 ? _modalStack.Peek() : CurrentWindow;
+            var nextDef = nextWindow != null ? _graph?.GetWindow(nextWindow.WindowId) : null;
+
+            // Принудительно применяем режим курсора следующего окна
+            if (nextDef != null && nextDef.cursorMode != WindowCursorMode.Inherit)
+            {
+                Cursor.CursorManagerSystem.ForceApplyCursorMode(nextDef.cursorMode);
+            }
 
             closing.Hide(() =>
             {
@@ -281,7 +540,7 @@ namespace ProtoSystem.UI
             PublishEvent(new NavigationEventData
             {
                 FromWindowId = closing.WindowId,
-                ToWindowId = _modalStack.Count > 0 ? _modalStack.Peek().WindowId : CurrentWindow?.WindowId,
+                ToWindowId = nextWindow?.WindowId,
                 Trigger = "Back",
                 Result = NavigationResult.Success
             });
@@ -328,13 +587,13 @@ namespace ProtoSystem.UI
         /// </summary>
         public void OpenStartWindow()
         {
-            if (string.IsNullOrEmpty(_graph.startWindowId))
+            if (_graph == null || string.IsNullOrEmpty(_graph.startWindowId))
             {
-                Debug.LogError("[UINavigator] No start window defined in graph");
+                Debug.LogWarning("[UINavigator] No start window defined in graph");
                 return;
             }
 
-            OpenDirect(_graph.startWindowId);
+            Open(_graph.startWindowId);
         }
 
         #endregion
