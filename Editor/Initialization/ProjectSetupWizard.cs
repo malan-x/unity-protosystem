@@ -262,6 +262,10 @@ namespace ProtoSystem.Editor
                     "Create base window/panel/button prefabs", 
                     TaskType.GenerateUIPrefabs),
 
+                new SetupTask("Create UIWindowGraph", 
+                    "Create UIWindowGraph ScriptableObject asset", 
+                    TaskType.CreateUIWindowGraph),
+
                 new SetupTask("Create Bootstrap Scene", 
                     "Setup initial scene with managers", 
                     TaskType.CreateBootstrapScene),
@@ -310,6 +314,9 @@ namespace ProtoSystem.Editor
                         break;
                     case TaskType.GenerateUIPrefabs:
                         GenerateUIPrefabs();
+                        break;
+                    case TaskType.CreateUIWindowGraph:
+                        CreateUIWindowGraph();
                         break;
                     case TaskType.CreateBootstrapScene:
                         CreateBootstrapScene();
@@ -465,6 +472,41 @@ namespace ProtoSystem.Editor
                     }
                 }
         
+        private void CreateUIWindowGraph()
+        {
+            // Путь: Assets/Resources/ProtoSystem/UIWindowGraph.asset
+            const string RESOURCE_PATH = "Assets/Resources/ProtoSystem";
+            const string ASSET_PATH = "Assets/Resources/ProtoSystem/UIWindowGraph.asset";
+            
+            // Проверка существования
+            if (AssetDatabase.LoadAssetAtPath<UIWindowGraph>(ASSET_PATH) != null)
+            {
+                Debug.Log("UIWindowGraph already exists");
+                return;
+            }
+            
+            // Создать директории
+            if (!AssetDatabase.IsValidFolder("Assets/Resources"))
+            {
+                AssetDatabase.CreateFolder("Assets", "Resources");
+            }
+            
+            if (!AssetDatabase.IsValidFolder("Assets/Resources/ProtoSystem"))
+            {
+                AssetDatabase.CreateFolder("Assets/Resources", "ProtoSystem");
+            }
+            
+            // Создать asset
+            var graph = ScriptableObject.CreateInstance<UIWindowGraph>();
+            graph.startWindowId = ""; // Пустой по умолчанию
+            
+            AssetDatabase.CreateAsset(graph, ASSET_PATH);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            
+            Debug.Log($"✅ UIWindowGraph created: {ASSET_PATH}");
+        }
+        
         private void GenerateUISprites()
         {
             var outputPath = $"{_rootFolder}/Resources/UI/Sprites";
@@ -590,84 +632,107 @@ namespace ProtoSystem.Editor
         
         private void CreateBootstrapScene()
         {
+            // Создаём новую сцену
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            scene.name = "Bootstrap";
 
-            // Camera
-            var cameraGO = new GameObject("Main Camera");
-            cameraGO.tag = "MainCamera";
-            var camera = cameraGO.AddComponent<Camera>();
+            // === Main Camera ===
+            var camera = new GameObject("Main Camera");
+            camera.tag = "MainCamera";
+            var cam = camera.AddComponent<Camera>();
+            camera.AddComponent<AudioListener>();
 
+            // Настройка камеры в зависимости от типа
             if (_cameraType == CameraType.TwoD)
             {
-                camera.orthographic = true;
-                camera.orthographicSize = 5f;
-                cameraGO.transform.position = new Vector3(0, 0, -10);
+                cam.orthographic = true;
+                cam.orthographicSize = 5f;
+                camera.transform.position = new Vector3(0, 0, -10);
+                cam.clearFlags = CameraClearFlags.SolidColor;
             }
-            else // 3D
+            else // ThreeD
             {
-                camera.orthographic = false;
-                camera.fieldOfView = 60f;
-                cameraGO.transform.position = new Vector3(0, 1, -10);
+                cam.orthographic = false;
+                cam.fieldOfView = 60f;
+                camera.transform.position = new Vector3(0, 1, -10);
             }
 
-            // Background color зависит от pipeline
-            switch (_renderPipeline)
+            // Настройка в зависимости от pipeline
+            var detectedPipeline = _autoDetectPipeline ? DetectRenderPipeline() : _renderPipeline;
+
+            switch (detectedPipeline)
             {
                 case RenderPipeline.Standard:
-                    camera.clearFlags = CameraClearFlags.Skybox;
-                    camera.backgroundColor = new Color(0.49f, 0.67f, 0.85f);
+                    cam.clearFlags = _cameraType == CameraType.ThreeD ? 
+                        CameraClearFlags.Skybox : CameraClearFlags.SolidColor;
+                    cam.backgroundColor = new Color(0.49f, 0.67f, 0.85f);
                     break;
+
                 case RenderPipeline.URP:
-                    camera.clearFlags = CameraClearFlags.SolidColor;
-                    camera.backgroundColor = new Color(0.02f, 0.02f, 0.02f);
+                    cam.clearFlags = CameraClearFlags.SolidColor;
+                    cam.backgroundColor = new Color(0.02f, 0.02f, 0.02f);
                     break;
+
                 case RenderPipeline.HDRP:
-                    camera.clearFlags = CameraClearFlags.SolidColor;
-                    camera.backgroundColor = Color.black;
+                    cam.clearFlags = CameraClearFlags.SolidColor;
+                    cam.backgroundColor = Color.black;
                     break;
             }
 
-            cameraGO.AddComponent<AudioListener>();
-
-            // Lighting
+            // === Lighting (только для 3D) ===
             if (_cameraType == CameraType.ThreeD)
             {
-                var lightGO = new GameObject("Directional Light");
-                var light = lightGO.AddComponent<Light>();
-                light.type = LightType.Directional;
-                light.color = Color.white;
+                var light = new GameObject("Directional Light");
+                var lightComp = light.AddComponent<Light>();
+                lightComp.type = LightType.Directional;
 
-                switch (_renderPipeline)
-                {
-                    case RenderPipeline.Standard:
-                        light.intensity = 1f;
-                        lightGO.transform.rotation = Quaternion.Euler(50, -30, 0);
-                        break;
-                    case RenderPipeline.URP:
-                        light.intensity = 1f;
-                        lightGO.transform.rotation = Quaternion.Euler(50, -30, 0);
-                        break;
-                    case RenderPipeline.HDRP:
-                        light.intensity = 130000f; // HDRP uses physical light units
-                        lightGO.transform.rotation = Quaternion.Euler(50, -30, 0);
-                        break;
-                }
+                // Интенсивность зависит от pipeline
+                lightComp.intensity = detectedPipeline == RenderPipeline.HDRP ? 130000f : 1f;
+                light.transform.rotation = Quaternion.Euler(50, -30, 0);
             }
 
-            // SystemInitializationManager
-            var managerGO = new GameObject("SystemInitializationManager");
-            managerGO.AddComponent<SystemInitializationManager>();
+            // === SystemInitializationManager ===
+            var manager = new GameObject("SystemInitializationManager");
+            manager.AddComponent<SystemInitializationManager>();
 
-            // EventSystem для UI
-            var eventSystemGO = new GameObject("EventSystem");
-            eventSystemGO.AddComponent<UnityEngine.EventSystems.EventSystem>();
-            eventSystemGO.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+            // === EventSystem с правильным Input Module ===
+            var eventSystem = new GameObject("EventSystem");
+            eventSystem.AddComponent<UnityEngine.EventSystems.EventSystem>();
 
+            // Проверяем наличие Input System пакета
+            bool hasInputSystem = System.Type.GetType("UnityEngine.InputSystem.InputSystem, Unity.InputSystem") != null;
+
+            if (hasInputSystem)
+            {
+                // Используем InputSystemUIInputModule для нового Input System
+                var inputSystemModule = System.Type.GetType("UnityEngine.InputSystem.UI.InputSystemUIInputModule, Unity.InputSystem");
+                if (inputSystemModule != null)
+                {
+                    eventSystem.AddComponent(inputSystemModule);
+                }
+                else
+                {
+                    // Fallback на старый модуль
+                    eventSystem.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+                    Debug.LogWarning("InputSystemUIInputModule not found, using StandaloneInputModule as fallback");
+                }
+            }
+            else
+            {
+                // Используем старый StandaloneInputModule
+                eventSystem.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+            }
+
+            // Сохранение сцены
             var scenePath = $"{_rootFolder}/Scenes/Bootstrap.unity";
-            EditorSceneManager.SaveScene(scene, scenePath);
+            var scenesFolder = $"{_rootFolder}/Scenes";
 
-            Debug.Log($"Bootstrap scene created at: {scenePath}");
+            if (!AssetDatabase.IsValidFolder(scenesFolder))
+            {
+                AssetDatabase.CreateFolder(_rootFolder, "Scenes");
+            }
+
+            EditorSceneManager.SaveScene(scene, scenePath);
+            AssetDatabase.Refresh();
         }
         
         private void SetupCanvasStructure()
@@ -848,6 +913,7 @@ namespace ProtoSystem.Editor
         CreateEventBus,
         GenerateUISprites,
         GenerateUIPrefabs,
+        CreateUIWindowGraph,
         CreateBootstrapScene,
         SetupCanvas,
         AddNetcodeReferences,
