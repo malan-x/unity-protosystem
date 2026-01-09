@@ -457,7 +457,7 @@ namespace ProtoSystem.UI
             var contentGO = CreateTextElement("Content", root.transform, "Описание тултипа", 14);
             var contentText = contentGO.GetComponent<TextMeshProUGUI>();
             contentText.alignment = TextAlignmentOptions.TopLeft;
-            contentText.enableWordWrapping = true;
+            contentText.textWrappingMode = TMPro.TextWrappingModes.Normal;
             var contentLE = contentGO.AddComponent<LayoutElement>();
             contentLE.preferredWidth = 180;
             
@@ -735,19 +735,12 @@ namespace ProtoSystem.UI
                 return;
             }
 
+            // Очищаем список перед сканированием
+            config.windowPrefabs.Clear();
+
             int addedCount = 0;
             int skippedCount = 0;
             var existingGuids = new System.Collections.Generic.HashSet<string>();
-            
-            // Собираем GUID'ы уже добавленных prefab'ов
-            foreach (var prefab in config.windowPrefabs)
-            {
-                if (prefab != null)
-                {
-                    string guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(prefab));
-                    existingGuids.Add(guid);
-                }
-            }
 
             // Ищем по каждой метке
             foreach (var label in config.windowPrefabLabels)

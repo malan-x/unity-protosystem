@@ -95,7 +95,7 @@ namespace ProtoSystem.UI
                             continue;
 
                         var windowAttr = (UIWindowAttribute)Attribute.GetCustomAttribute(type, typeof(UIWindowAttribute));
-                        if (windowAttr != null)
+                        if (windowAttr != null && windowAttr.ShowInGraph)
                         {
                             windowTypes.Add((type, windowAttr));
                         }
@@ -162,10 +162,95 @@ namespace ProtoSystem.UI
 
             graph.FinalizeBuild();
 
+            // Сканируем все сцены на наличие Initializers с дополнительными переходами
+            ScanScenesForAdditionalTransitions(graph);
+
             EditorUtility.SetDirty(graph);
             AssetDatabase.SaveAssets();
 
             Debug.Log($"[UIWindowGraphBuilder] Rebuilt: {windowsFound} windows, {transitionsFound} transitions, {prefabsFound} prefabs found");
+        }
+
+        /// <summary>
+        /// Сканирует открытые сцены и префабы на наличие UISceneInitializerBase с GetAdditionalTransitions()
+        /// </summary>
+        private static void ScanScenesForAdditionalTransitions(UIWindowGraph graph)
+        {
+            int transitionsAdded = 0;
+            var processedTypes = new HashSet<System.Type>();
+
+            // 1. Ищем в открытых сценах
+            var sceneInitializers = UnityEngine.Object.FindObjectsByType<UISceneInitializerBase>(
+                FindObjectsInactive.Include, 
+                FindObjectsSortMode.None
+            );
+
+            foreach (var initializer in sceneInitializers)
+            {
+                var initType = initializer.GetType();
+                if (processedTypes.Contains(initType)) continue;
+                processedTypes.Add(initType);
+
+                transitionsAdded += ProcessInitializerTransitions(initializer, graph);
+            }
+
+            // 2. Ищем в префабах (для случаев когда сцена не открыта)
+            var prefabGuids = AssetDatabase.FindAssets("t:Prefab", new[] { "Assets" });
+            foreach (var guid in prefabGuids)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                
+                if (prefab == null) continue;
+
+                var initializerInPrefab = prefab.GetComponent<UISceneInitializerBase>();
+                if (initializerInPrefab == null) continue;
+
+                var initType = initializerInPrefab.GetType();
+                if (processedTypes.Contains(initType)) continue;
+                processedTypes.Add(initType);
+
+                transitionsAdded += ProcessInitializerTransitions(initializerInPrefab, graph);
+            }
+
+            if (transitionsAdded > 0)
+            {
+                Debug.Log($"[UIWindowGraphBuilder] Added {transitionsAdded} transitions from scene initializers");
+            }
+        }
+
+        /// <summary>
+        /// Обрабатывает переходы из одного initializer'а
+        /// </summary>
+        private static int ProcessInitializerTransitions(UISceneInitializerBase initializer, UIWindowGraph graph)
+        {
+            int count = 0;
+            var transitions = initializer.GetAdditionalTransitions();
+            if (transitions == null) return count;
+
+            foreach (var transition in transitions)
+            {
+                // Проверяем что целевое окно существует
+                if (graph.HasWindow(transition.toWindowId))
+                {
+                    var transitionDef = new TransitionDefinition
+                    {
+                        fromWindowId = transition.fromWindowId,
+                        toWindowId = transition.toWindowId,
+                        trigger = transition.trigger,
+                        animation = transition.animation
+                    };
+
+                    graph.AddTransition(transitionDef, allowOverride: true);
+                    count++;
+                }
+                else
+                {
+                    Debug.LogWarning($"[UIWindowGraphBuilder] Transition from initializer '{initializer.GetType().Name}' references unknown window: {transition.toWindowId}");
+                }
+            }
+
+            return count;
         }
 
         /// <summary>

@@ -8,32 +8,32 @@ namespace ProtoSystem.UI
     /// <summary>
     /// Игровой HUD - основной интерфейс во время игры
     /// </summary>
-    [UIWindow("GameHUD", WindowType.Normal, WindowLayer.HUD, Level = 0)]
+    [UIWindow("GameHUD", WindowType.Normal, WindowLayer.HUD, Level = 0, ShowInGraph = false)]
     [UITransition("pause", "PauseMenu")]
     public class GameHUDWindow : UIWindowBase
     {
         [Header("Health")]
-        [SerializeField] private Image healthFill;
-        [SerializeField] private TMP_Text healthText;
+        [SerializeField] protected Image healthFill;
+        [SerializeField] protected TMP_Text healthText;
 
         [Header("Stamina / Energy")]
-        [SerializeField] private Image staminaFill;
-        [SerializeField] private TMP_Text staminaText;
+        [SerializeField] protected Image staminaFill;
+        [SerializeField] protected TMP_Text staminaText;
 
         [Header("Score / Info")]
-        [SerializeField] private TMP_Text scoreText;
-        [SerializeField] private TMP_Text timerText;
-        [SerializeField] private TMP_Text objectiveText;
+        [SerializeField] protected TMP_Text scoreText;
+        [SerializeField] protected TMP_Text timerText;
+        [SerializeField] protected TMP_Text objectiveText;
 
         [Header("Interaction")]
-        [SerializeField] private GameObject interactionPrompt;
-        [SerializeField] private TMP_Text interactionText;
+        [SerializeField] protected GameObject interactionPrompt;
+        [SerializeField] protected TMP_Text interactionText;
 
         [Header("Pause Button (optional)")]
-        [SerializeField] private Button pauseButton;
+        [SerializeField] protected Button pauseButton;
 
-        private float _maxHealth = 100f;
-        private float _maxStamina = 100f;
+        protected float _maxHealth = 100f;
+        protected float _maxStamina = 100f;
 
         protected override void Awake()
         {

@@ -11,6 +11,9 @@ namespace ProtoSystem.UI
     [UIWindow("Credits", WindowType.Normal, WindowLayer.Windows, Level = 1)]
     public class CreditsWindow : UIWindowBase
     {
+        [Header("Data")]
+        [SerializeField] private CreditsData creditsData;
+
         [Header("Content")]
         [SerializeField] private TMP_Text creditsText;
         [SerializeField] private ScrollRect scrollRect;
@@ -38,12 +41,24 @@ namespace ProtoSystem.UI
         public override void Show(System.Action onComplete = null)
         {
             base.Show(onComplete);
-            
+
+            // Автозагрузка из Resources если не привязан
+            if (creditsData == null)
+            {
+                creditsData = Resources.Load<CreditsData>("Data/Credits/CreditsData");
+            }
+
+            // Загружаем данные из CreditsData если есть
+            if (creditsData != null)
+            {
+                LoadFromData();
+            }
+
             // Сброс скролла
             _scrollPosition = 1f;
             if (scrollRect != null)
                 scrollRect.verticalNormalizedPosition = 1f;
-            
+
             _isScrolling = autoScroll;
         }
 
@@ -63,7 +78,25 @@ namespace ProtoSystem.UI
         }
 
         /// <summary>
-        /// Установить текст титров
+        /// Загрузить текст из CreditsData
+        /// </summary>
+        public void LoadFromData()
+        {
+            if (creditsData == null || creditsText == null) return;
+            creditsText.text = creditsData.GenerateCreditsText();
+        }
+
+        /// <summary>
+        /// Загрузить данные из указанного CreditsData
+        /// </summary>
+        public void LoadFromData(CreditsData data)
+        {
+            creditsData = data;
+            LoadFromData();
+        }
+
+        /// <summary>
+        /// Установить текст титров напрямую
         /// </summary>
         public void SetCreditsText(string text)
         {

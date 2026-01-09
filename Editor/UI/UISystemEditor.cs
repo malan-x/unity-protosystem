@@ -32,6 +32,17 @@ namespace ProtoSystem.UI
                 if (prefabsProp != null)
                 {
                     EditorGUILayout.PropertyField(prefabsProp, new GUIContent("Window Prefabs"), true);
+                    
+                    // Кнопка Scan & Add Prefabs
+                    EditorGUILayout.BeginHorizontal();
+                    GUILayout.FlexibleSpace();
+                    if (GUILayout.Button("🔍 Scan & Add Prefabs", GUILayout.Height(22), GUILayout.Width(160)))
+                    {
+                        ScanAndAddPrefabs(configProp.objectReferenceValue as UISystemConfig);
+                    }
+                    GUILayout.FlexibleSpace();
+                    EditorGUILayout.EndHorizontal();
+                    
                     if (configObj.hasModifiedProperties)
                         configObj.ApplyModifiedProperties();
                 }
@@ -251,6 +262,73 @@ namespace ProtoSystem.UI
             EditorGUIUtility.PingObject(config);
             
             return config;
+        }
+
+        private void ScanAndAddPrefabs(UISystemConfig config)
+        {
+            if (config == null)
+            {
+                Debug.LogWarning("[UISystemEditor] Config is null");
+                return;
+            }
+
+            if (config.windowPrefabLabels == null || config.windowPrefabLabels.Count == 0)
+            {
+                Debug.LogWarning("[UISystemEditor] No labels configured for scanning in UISystemConfig");
+                return;
+            }
+
+            // Очищаем список перед сканированием
+            config.windowPrefabs.Clear();
+
+            int addedCount = 0;
+            int skippedCount = 0;
+            var existingGuids = new System.Collections.Generic.HashSet<string>();
+
+            // Ищем по каждой метке
+            foreach (var label in config.windowPrefabLabels)
+            {
+                if (string.IsNullOrWhiteSpace(label)) continue;
+                
+                // Ищем все prefab'ы с этой меткой
+                string[] guids = AssetDatabase.FindAssets($"l:{label} t:Prefab");
+                
+                foreach (var guid in guids)
+                {
+                    if (existingGuids.Contains(guid))
+                    {
+                        skippedCount++;
+                        continue;
+                    }
+                    
+                    string path = AssetDatabase.GUIDToAssetPath(guid);
+                    var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                    
+                    if (prefab == null) continue;
+                    
+                    // Проверяем что это UI Window
+                    var windowComponent = prefab.GetComponent<UIWindowBase>();
+                    if (windowComponent == null)
+                    {
+                        Debug.LogWarning($"[UISystemEditor] Prefab '{prefab.name}' has label '{label}' but no UIWindowBase component - skipped");
+                        continue;
+                    }
+                    
+                    config.windowPrefabs.Add(prefab);
+                    existingGuids.Add(guid);
+                    addedCount++;
+                    
+                    Debug.Log($"[UISystemEditor] Added: {prefab.name} (label: {label})");
+                }
+            }
+
+            if (addedCount > 0)
+            {
+                EditorUtility.SetDirty(config);
+                AssetDatabase.SaveAssets();
+            }
+
+            Debug.Log($"[UISystemEditor] Scan complete. Added: {addedCount}, Skipped (duplicates): {skippedCount}, Total: {config.windowPrefabs.Count}");
         }
     }
 }

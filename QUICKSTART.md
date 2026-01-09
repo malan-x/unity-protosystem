@@ -49,11 +49,57 @@ namespace YourProject
 
 ### 2.3 Настроить UISystem
 
-1. **Create → ProtoSystem → UI System Config**
-2. Сгенерировать базовые префабы: **ProtoSystem → UI → Generate All Base Windows**
-3. В UISystemConfig нажать **Scan & Add Prefabs**
-4. Добавить UISystem на сцену (Add Component → UISystem)
-5. Назначить UISystemConfig
+#### Шаг 1: Создать окна с атрибутами
+
+```csharp
+using ProtoSystem.UI;
+
+[UIWindow("main_menu", WindowType.Normal, WindowLayer.Windows, Level = 0)]
+[UITransition("play", "GameHUD")]
+[UITransition("settings", "Settings")]
+public class MainMenu : UIWindowBase
+{
+    [SerializeField] private Button playButton;
+    [SerializeField] private Button settingsButton;
+    
+    protected override void Awake()
+    {
+        base.Awake();
+        playButton?.onClick.AddListener(() => UISystem.Navigate("play"));
+        settingsButton?.onClick.AddListener(() => UISystem.Navigate("settings"));
+    }
+}
+```
+
+#### Шаг 2: Сгенерировать префабы
+
+**ProtoSystem → UI → Generate All Base Windows**
+
+Создаст базовые окна: MainMenu, GameHUD, PauseMenu, Settings, GameOver, Statistics, Credits, Loading.
+
+#### Шаг 3: Собрать граф
+
+**ProtoSystem → UI → Rebuild Window Graph**
+
+Автоматически:
+- Сканирует все `[UIWindow]` атрибуты
+- Собирает переходы из `[UITransition]`
+- Находит префабы окон
+- Создаёт UIWindowGraph в Resources/
+
+#### Шаг 4: Проверить граф визуально
+
+**ProtoSystem → UI → Window Graph Viewer**
+
+- Интерактивный редактор графа
+- Клик на ноду → информация об окне
+- Клик на линию → информация о переходе
+- Проверка достижимости окон
+
+#### Шаг 5: Добавить UISystem на сцену
+
+1. Add Component → UISystem
+2. UIWindowGraph назначается автоматически из Resources/
 
 ## 3. Создание системы
 
@@ -93,38 +139,90 @@ public class GameSystem : InitializableSystemBase
 
 ## 4. Создание UI окна
 
+### Класс окна с атрибутами
+
 ```csharp
 using ProtoSystem.UI;
+using UnityEngine;
+using UnityEngine.UI;
 
 [UIWindow("my_dialog", WindowType.Modal, WindowLayer.Modals,
     Level = 2, PauseGame = true, CursorMode = WindowCursorMode.Visible)]
+[UITransition("back", "MainMenu")]
 public class MyDialog : UIWindowBase
 {
     [SerializeField] private Button closeButton;
+    [SerializeField] private TMP_Text messageText;
     
-    protected override void OnOpened(object context)
+    protected override void Awake()
     {
-        closeButton.onClick.AddListener(() => UISystem.Back());
+        base.Awake();
+        closeButton?.onClick.AddListener(OnCloseClicked);
     }
     
-    protected override void OnClosed()
+    protected override void OnBeforeShow()
     {
-        closeButton.onClick.RemoveAllListeners();
+        base.OnBeforeShow();
+        // Подготовка перед показом
+    }
+    
+    protected override void OnAfterShow()
+    {
+        base.OnAfterShow();
+        // Действия после показа
+    }
+    
+    private void OnCloseClicked()
+    {
+        UISystem.Back();
+    }
+    
+    public override void OnBackPressed()
+    {
+        // Обработка Escape
+        UISystem.Back();
     }
 }
 ```
 
-## 5. Навигация UI
+### Создание префаба
+
+**Вариант 1: Автогенератор (для базовых окон)**
+```csharp
+// В Editor скрипте
+UIWindowPrefabGenerator.GenerateMyDialog();
+```
+
+**Вариант 2: Вручную**
+1. Создать Canvas с компонентом MyDialog
+2. Настроить UI элементы
+3. Сохранить в Assets/UI/Windows/
+
+После создания префаба: **Rebuild Window Graph**
+
+## 5. Навигация по графу
+
+### Переходы по триггерам (рекомендуется)
 
 ```csharp
-// Открыть окно
-UISystem.Open("settings");
+// Переход по триггеру
+UISystem.Navigate("play");        // MainMenu → GameHUD
+UISystem.Navigate("settings");    // MainMenu → Settings
 
-// С контекстом
-UISystem.Open("dialog", new { title = "Hello" });
+// Проверка возможности перехода
+if (UISystem.Instance.CanNavigate("play"))
+    UISystem.Navigate("play");
 
 // Назад
 UISystem.Back();
+```
+
+### Прямое открытие (legacy, не рекомендуется)
+
+```csharp
+// Прямое открытие окна
+UISystem.Open("settings");
+UISystem.Open("dialog", context);
 
 // Закрыть конкретное
 UISystem.Close("my_dialog");
@@ -133,32 +231,177 @@ UISystem.Close("my_dialog");
 ## 6. Настройка переходов сцены
 
 ```csharp
-public class GameplayInitializer : MonoBehaviour, IUISceneInitializer
+using ProtoSystem.UI;
+using System.Collections.Generic;
+
+public class GameplayInitializer : UISceneInitializerBase
 {
-    public string[] GetStartupWindows() => new[] { "game_hud" };
+    // Окна для автоматического открытия при старте сцены
+    public override string[] GetStartupWindows() => new[] { "game_hud" };
     
-    public UITransition[] GetAdditionalTransitions() => new[]
+    // Дополнительные переходы для этой сцены
+    public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()
     {
-        new UITransition("game_hud", "pause_menu"),
-        new UITransition("pause_menu", "settings"),
-    };
+        // GameHUD → PauseMenu
+        yield return new UITransitionDefinition(
+            "game_hud",
+            "pause_menu",
+            "pause",
+            TransitionAnimation.Fade
+        );
+        
+        // PauseMenu → Settings
+        yield return new UITransitionDefinition(
+            "pause_menu",
+            "settings",
+            "settings",
+            TransitionAnimation.Slide
+        );
+        
+        // Глобальный переход (из любого окна)
+        yield return new UITransitionDefinition(
+            "",
+            "loading",
+            "loading",
+            TransitionAnimation.Fade
+        );
+    }
 }
 ```
 
-Назначить в UISystem.sceneInitializerComponent.
+Назначить в `UISystem.sceneInitializerComponent` в инспекторе.
 
-## 7. Чеклист
+## 7. Работа с графом
 
-- [ ] Создан EventIds.cs с событиями проекта
+### Визуализация
+
+**ProtoSystem → UI → Window Graph Viewer**
+
+- **Zoom:** Колёсико мыши
+- **Pan:** Средняя кнопка мыши / ЛКМ на пустом месте
+- **Select Node:** Клик по ноде → инспектор справа
+- **Select Connection:** Клик по линии → информация о переходе
+- **Drag Node:** ЛКМ перетаскивание ноды
+
+### Валидация
+
+**ProtoSystem → UI → Validate Window Graph**
+
+Проверяет:
+- Дублирующиеся ID окон
+- Несуществующие целевые окна
+- Отсутствующие префабы
+- Недостижимые окна
+
+### Обновление графа
+
+После изменений окон/переходов:
+1. **ProtoSystem → UI → Rebuild Window Graph**
+2. **ProtoSystem → UI → Window Graph Viewer** — проверить визуально
+
+## 8. Диалоговые окна
+
+```csharp
+// Сообщение
+UISystem.Instance.Dialog.Message(
+    "Hello World!",
+    onClose: () => Debug.Log("Closed"),
+    title: "Info"
+);
+
+// Подтверждение
+UISystem.Instance.Dialog.Confirm(
+    "Are you sure?",
+    onYes: () => Debug.Log("Yes"),
+    onNo: () => Debug.Log("No")
+);
+
+// Выбор
+UISystem.Instance.Dialog.Choice(
+    "Choose option",
+    new[] { "A", "B", "C" },
+    (index) => Debug.Log($"Selected: {index}")
+);
+
+// Ввод текста
+UISystem.Instance.Dialog.Input(
+    "Enter name:",
+    (text) => Debug.Log($"Name: {text}"),
+    placeholder: "Player Name"
+);
+```
+
+## 9. Управление паузой и курсором
+
+### Автоматическое управление
+
+Через атрибут окна:
+```csharp
+[UIWindow("pause_menu", ..., 
+    PauseGame = true,                      // Ставит игру на паузу
+    CursorMode = WindowCursorMode.Visible  // Показывает курсор
+)]
+```
+
+### Ручное управление
+
+```csharp
+// Пауза
+UITimeManager.Instance.RequestPause();   // +1 к счётчику
+UITimeManager.Instance.ReleasePause();   // -1 от счётчика
+UITimeManager.Instance.ResetAllPauses(); // Сброс
+
+// Курсор
+CursorManagerSystem.Instance.ApplyWindowCursorMode(WindowCursorMode.Locked);
+CursorManagerSystem.Instance.RestoreWindowCursorMode();
+```
+
+## 10. Чеклист
+
+**Базовая настройка:**
+- [ ] EventIds.cs создан с событиями проекта
 - [ ] SystemInitializationManager на сцене
-- [ ] UISystemConfig создан и настроен
-- [ ] UI префабы сгенерированы и добавлены
-- [ ] IUISceneInitializer настроен для каждой сцены
 - [ ] Системы добавлены и зарегистрированы
+
+**UISystem:**
+- [ ] Классы окон с атрибутами [UIWindow] и [UITransition]
+- [ ] Префабы окон созданы
+- [ ] ProtoSystem → UI → Rebuild Window Graph выполнен
+- [ ] Window Graph Viewer проверен визуально
+- [ ] UISystem на сцене
+- [ ] UISceneInitializerBase настроен для каждой сцены
+
+**Проверка:**
+- [ ] Navigate() работает
+- [ ] Back() работает
+- [ ] Escape = Back
+- [ ] PauseGame работает
+- [ ] CursorMode переключается
+- [ ] Все окна достижимы (проверка в Graph Viewer)
 
 ## Полезные ссылки
 
 - [README.md](README.md) — Обзор пакета
+- [UISystem.md](Documentation~/UISystem.md) — Полная документация UI
+- [UISystem_TestScenarios.md](Documentation~/UISystem_TestScenarios.md) — Тестовые сценарии
 - [AI_INSTRUCTIONS.md](Documentation~/AI_INSTRUCTIONS.md) — Инструкции для ИИ
-- [UISystem.md](Documentation~/UISystem.md) — Документация UI
 - [CHANGELOG.md](CHANGELOG.md) — История изменений
+
+## Советы
+
+### Best Practices
+
+1. **Используйте Navigate() вместо Open()** — переходы по триггерам чётко определены
+2. **Всегда Rebuild Graph** после изменения атрибутов окон
+3. **Проверяйте визуально** — Graph Viewer помогает увидеть недостижимые окна
+4. **ShowInGraph = false** для базовых классов — скрывает их из графа
+
+### Частые проблемы
+
+| Проблема | Решение |
+|----------|---------|
+| Navigate() не работает | Rebuild Window Graph |
+| Окно не открывается | Проверить префаб в Resources |
+| Курсор не блокируется | Проверить CursorMode в атрибуте |
+| Пауза не снимается | UITimeManager.ResetAllPauses() |
+| Граф пустой | Rebuild Window Graph |

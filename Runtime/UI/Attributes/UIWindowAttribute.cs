@@ -54,6 +54,9 @@ namespace ProtoSystem.UI
         
         /// <summary>Разрешить закрытие кнопкой Back/Escape</summary>
         public bool AllowBack { get; set; } = true;
+        
+        /// <summary>Показывать в Window Graph Viewer (для базовых окон, которые переопределены)</summary>
+        public bool ShowInGraph { get; set; } = true;
 
         public UIWindowAttribute(string windowId, WindowType type = WindowType.Normal, WindowLayer layer = WindowLayer.Windows)
         {

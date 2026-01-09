@@ -104,6 +104,9 @@ namespace ProtoSystem.UI
             // Помещаем в правильный слой
             window.transform.SetParent(GetLayer(definition.layer), false);
             
+            // Новое окно всегда сверху в своём слое
+            window.transform.SetAsLastSibling();
+            
             // Только сбрасываем scale, НЕ трогаем anchors/offsets из prefab'а
             var rect = window.GetComponent<RectTransform>();
             if (rect != null)

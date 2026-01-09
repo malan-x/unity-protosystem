@@ -8,7 +8,7 @@ namespace ProtoSystem.UI
     /// <summary>
     /// Меню паузы
     /// </summary>
-    [UIWindow("PauseMenu", WindowType.Normal, WindowLayer.Windows, Level = 1, PauseGame = true)]
+    [UIWindow("PauseMenu", WindowType.Normal, WindowLayer.Windows, Level = 1, PauseGame = true, ShowInGraph = false)]
     [UITransition("settings", "Settings")]
     [UITransition("mainmenu", "MainMenu")]
     public class PauseMenuWindow : UIWindowBase

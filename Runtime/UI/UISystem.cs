@@ -62,7 +62,7 @@ namespace ProtoSystem.UI
             get
             {
                 if (_instance == null)
-                    _instance = FindObjectOfType<UISystem>();
+                    _instance = FindFirstObjectByType<UISystem>();
                 return _instance;
             }
         }

@@ -6,10 +6,10 @@
 
 ```
 UISystem (синглтон)
-├── UISystemConfig (ScriptableObject)
-│   ├── windowPrefabs[] — зарегистрированные окна
-│   ├── windowPrefabLabels[] — метки для автосканирования  
-│   └── allowedTransitions[] — граф переходов
+├── UIWindowGraph (ScriptableObject) — граф окон и переходов
+│   ├── windows[] — определения окон
+│   ├── transitions[] — локальные переходы
+│   └── globalTransitions[] — глобальные переходы
 ├── UINavigator — стековая навигация
 ├── UITimeManager — управление паузой (счётчик-based)
 ├── CursorManagerSystem — стек состояний курсора
@@ -18,22 +18,39 @@ UISystem (синглтон)
 
 ## Быстрый старт
 
-### 1. Создать UISystemConfig
+### 1. Создать окна с атрибутами
 
-**Create → ProtoSystem → UI System Config**
+```csharp
+[UIWindow("main_menu", WindowType.Normal, WindowLayer.Windows, Level = 0)]
+[UITransition("play", "GameHUD")]
+[UITransition("settings", "Settings")]
+public class MainMenu : UIWindowBase { }
+```
 
-### 2. Сгенерировать базовые окна
+### 2. Создать префабы окон
 
 **ProtoSystem → UI → Generate All Base Windows**
 
-### 3. Добавить префабы в конфиг
+### 3. Собрать граф
 
-В UISystemConfig нажать **Scan & Add Prefabs**
+**ProtoSystem → UI → Rebuild Window Graph**
 
-### 4. Настроить UISystem на сцене
+Автоматически сканирует все классы с `[UIWindow]` атрибутом и строит граф переходов.
+
+### 4. Визуализировать граф
+
+**ProtoSystem → UI → Window Graph Viewer**
+
+Интерактивный редактор графа с:
+- Визуализацией нод и связей
+- Кликабельными переходами
+- Детальной информацией в инспекторе
+- Проверкой достижимости окон
+
+### 5. Настроить UISystem на сцене
 
 1. Add Component → UISystem
-2. Назначить UISystemConfig
+2. UIWindowGraph создаётся автоматически в Resources/UIWindowGraph
 3. Назначить sceneInitializerComponent (опционально)
 
 ## Типы окон
@@ -66,7 +83,9 @@ UISystem (синглтон)
 - PauseMenu (Level 1) открывается поверх GameHUD
 - Settings (Level 1) открывается поверх PauseMenu
 
-## Атрибут UIWindow
+## Атрибуты
+
+### UIWindow
 
 ```csharp
 [UIWindow(
@@ -75,9 +94,36 @@ UISystem (синглтон)
     WindowLayer.Windows,                  // Слой отрисовки
     Level = 1,                            // Уровень (0 = главные)
     PauseGame = true,                     // Ставить на паузу
-    CursorMode = WindowCursorMode.Visible // Режим курсора
+    CursorMode = WindowCursorMode.Visible,// Режим курсора
+    ShowInGraph = true                    // Показывать в графе (default: true)
 )]
 public class MyWindow : UIWindowBase { }
+```
+
+**ShowInGraph** — скрывает базовые/абстрактные окна из графа (например, `GameHUDWindow`).
+
+### UITransition
+
+```csharp
+[UITransition(
+    "trigger_name",                       // Имя триггера
+    "target_window_id",                   // ID целевого окна
+    TransitionAnimation.Fade              // Анимация (опционально)
+)]
+```
+
+**Примеры:**
+```csharp
+[UIWindow("main_menu", WindowType.Normal, WindowLayer.Windows, Level = 0)]
+[UITransition("play", "GameHUD")]           // Local: MainMenu → GameHUD
+[UITransition("settings", "Settings")]      // Local: MainMenu → Settings
+[UITransition("credits", "Credits")]        // Local: MainMenu → Credits
+public class MainMenu : UIWindowBase { }
+```
+
+Для **глобальных переходов** (из любого окна):
+```csharp
+[UITransition("", "Loading")]  // Global: Any → Loading
 ```
 
 ## Создание окна
@@ -91,28 +137,50 @@ using ProtoSystem.UI;
 
 [UIWindow("my_window", WindowType.Normal, WindowLayer.Windows,
     Level = 1, PauseGame = true, CursorMode = WindowCursorMode.Visible)]
+[UITransition("back", "MainMenu")]
 public class MyWindow : UIWindowBase
 {
     [SerializeField] private Button closeButton;
     [SerializeField] private TMP_Text titleText;
     
-    protected override void OnOpened(object context)
+    protected override void Awake()
     {
-        // Вызывается при открытии
-        if (context is string title)
-            titleText.text = title;
-            
-        closeButton.onClick.AddListener(OnCloseClicked);
+        base.Awake();
+        closeButton?.onClick.AddListener(OnCloseClicked);
     }
     
-    protected override void OnClosed()
+    protected override void OnBeforeShow()
     {
-        // Вызывается при закрытии
-        closeButton.onClick.RemoveAllListeners();
+        // Вызывается перед показом окна
+        base.OnBeforeShow();
+    }
+    
+    protected override void OnAfterShow()
+    {
+        // Вызывается после показа окна
+        base.OnAfterShow();
+    }
+    
+    protected override void OnBeforeHide()
+    {
+        // Вызывается перед скрытием окна
+        base.OnBeforeHide();
+    }
+    
+    protected override void OnAfterHide()
+    {
+        // Вызывается после скрытия окна
+        base.OnAfterHide();
     }
     
     private void OnCloseClicked()
     {
+        UISystem.Back();
+    }
+    
+    public override void OnBackPressed()
+    {
+        // Обработка Back (Escape)
         UISystem.Back();
     }
 }
@@ -122,22 +190,28 @@ public class MyWindow : UIWindowBase
 
 1. Создать Canvas с компонентом окна
 2. Назначить ссылки в инспекторе
-3. Добавить метку "UIWindow" или вручную в UISystemConfig
+3. Префаб находится автоматически если в нём есть UIWindowBase компонент
 
 ## Навигация
 
-### Открытие окна
+### Открытие окна по триггеру
 
 ```csharp
-// Простое открытие
-UISystem.Open("settings");
-
-// С контекстом
-UISystem.Open("dialog", new DialogContext { Title = "Hello", Message = "World" });
+// По триггеру (из UITransition)
+UISystem.Navigate("play");        // Переход по триггеру "play"
+UISystem.Navigate("settings");    // Переход по триггеру "settings"
 
 // Проверка возможности перехода
-if (UISystem.Instance.CanTransitionTo("settings"))
-    UISystem.Open("settings");
+if (UISystem.Instance.CanNavigate("play"))
+    UISystem.Navigate("play");
+```
+
+### Открытие окна напрямую (legacy)
+
+```csharp
+// Прямое открытие (не рекомендуется, используйте Navigate)
+UISystem.Open("settings");
+UISystem.Open("dialog", context);
 ```
 
 ### Закрытие
@@ -163,27 +237,93 @@ string windowId = current?.WindowId;
 bool isOpen = UISystem.Instance.IsWindowOpen("settings");
 ```
 
-## IUISceneInitializer
+## UISceneInitializerBase
 
-Интерфейс для настройки UI при загрузке сцены:
+Базовый класс для настройки UI при загрузке сцены:
 
 ```csharp
-public class GameplayInitializer : MonoBehaviour, IUISceneInitializer
+public class GameplayInitializer : UISceneInitializerBase
 {
     // Окна для автоматического открытия при старте
-    public string[] GetStartupWindows() => new[] { "game_hud" };
+    public override string[] GetStartupWindows() => new[] { "game_hud" };
     
     // Дополнительные переходы для этой сцены
-    public UITransition[] GetAdditionalTransitions() => new[]
+    public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()
     {
-        new UITransition("game_hud", "pause_menu"),
-        new UITransition("pause_menu", "settings"),
-        new UITransition("pause_menu", "main_menu", allowOverride: true),
-    };
+        yield return new UITransitionDefinition(
+            "game_hud",
+            "pause_menu",
+            "pause",
+            TransitionAnimation.Fade
+        );
+        
+        yield return new UITransitionDefinition(
+            "pause_menu",
+            "settings",
+            "settings",
+            TransitionAnimation.Slide
+        );
+        
+        // Глобальный переход (из любого окна)
+        yield return new UITransitionDefinition(
+            "",
+            "loading",
+            "loading",
+            TransitionAnimation.Fade
+        );
+    }
 }
 ```
 
 Назначить компонент в `UISystem.sceneInitializerComponent` в инспекторе.
+
+## Граф окон (UIWindowGraph)
+
+### Автоматическая сборка
+
+**ProtoSystem → UI → Rebuild Window Graph**
+
+Сканирует:
+- Все классы с `[UIWindow]` атрибутом
+- Все `[UITransition]` атрибуты на классах
+- Все сцены с `UISceneInitializerBase` компонентами
+- Все префабы с `UISceneInitializerBase` компонентами
+
+### Визуализатор графа
+
+**ProtoSystem → UI → Window Graph Viewer**
+
+**Возможности:**
+- **Интерактивные ноды** — клик для выбора, перетаскивание мышью
+- **Цветовая кодировка:**
+  - Зелёный — стартовое окно
+  - Синий — выбранное окно
+  - Красный — модальное окно
+  - Серый полупрозрачный — недостижимое окно
+- **Толстые яркие линии** (10px) с большими стрелками (12px)
+- **Mindmap style** — линии выходят из разных точек нод
+- **Кликабельные связи** — клик по линии/лейблу для просмотра информации
+- **Инспектор:**
+  - Для нод: ID, тип, слой, префаб, входящие/исходящие переходы
+  - Для связей: направление, триггер, двусторонность, префабы окон
+- **Зум и навигация** — колёсико мыши, средняя кнопка для панорамирования
+- **Автоматическая группировка** по уровням
+- **Проверка достижимости** — помечает недостижимые окна
+
+**Горячие клавиши:**
+- **Rebuild** — пересобрать граф
+- **Arrange** — авторазмещение нод по уровням
+- **Validate** — проверить корректность графа
+
+### Валидация графа
+
+**ProtoSystem → UI → Validate Window Graph**
+
+Проверяет:
+- Дублирующиеся ID окон
+- Несуществующие целевые окна в переходах
+- Отсутствующие префабы
+- Недостижимые окна
 
 ## Управление паузой
 
@@ -258,16 +398,55 @@ CreateSectionLabel(name, parent, text)    // Заголовок секции
 
 ## Базовые окна
 
-| Окно | Level | PauseGame | CursorMode |
-|------|-------|-----------|------------|
-| MainMenu | 0 | false | Visible |
-| GameHUD | 0 | false | Locked |
-| PauseMenu | 1 | true | Visible |
-| Settings | 1 | true | Visible |
-| GameOver | 1 | true | Visible |
-| Statistics | 1 | true | Visible |
-| Credits | 1 | false | Visible |
-| Loading | Overlay | false | None |
+| Окно | Level | PauseGame | CursorMode | ShowInGraph |
+|------|-------|-----------|------------|-------------|
+| MainMenu | 0 | false | Visible | true |
+| GameHUD (base) | 0 | false | Locked | false |
+| PauseMenu | 1 | true | Visible | true |
+| Settings | 1 | true | Visible | true |
+| GameOver | 1 | true | Visible | true |
+| Statistics | 1 | true | Visible | true |
+| Credits | 1 | false | Visible | true |
+| Loading | Overlay | false | None | true |
+
+**Примечание:** `GameHUDWindow` — базовый класс с `ShowInGraph = false`, его наследники (например, `KM_GameHUD`) показываются в графе.
+
+## Диалоговые окна
+
+### Встроенные методы
+
+```csharp
+// Сообщение
+UISystem.Instance.Dialog.Message(
+    "Hello World!",
+    onClose: () => Debug.Log("Closed"),
+    title: "Info"
+);
+
+// Подтверждение
+UISystem.Instance.Dialog.Confirm(
+    "Are you sure?",
+    onYes: () => Debug.Log("Yes"),
+    onNo: () => Debug.Log("No"),
+    title: "Confirm"
+);
+
+// Выбор (Choice)
+UISystem.Instance.Dialog.Choice(
+    "Choose option",
+    new[] { "Option A", "Option B", "Option C" },
+    (index) => Debug.Log($"Selected: {index}"),
+    title: "Choice"
+);
+
+// Ввод текста
+UISystem.Instance.Dialog.Input(
+    "Enter your name:",
+    (text) => Debug.Log($"Entered: {text}"),
+    placeholder: "Name",
+    title: "Input"
+);
+```
 
 ## Отладка
 
@@ -277,6 +456,7 @@ CreateSectionLabel(name, parent, text)    // Заголовок секции
 // В UINavigator включён verbose logging
 Debug.Log($"[UINavigator] Opened '{windowId}'");
 Debug.Log($"[UINavigator] Back from '{windowId}'");
+Debug.Log($"[UINavigator] Navigate via trigger '{trigger}' → '{targetId}'");
 ```
 
 ### Проверка стека
@@ -291,16 +471,84 @@ Debug.Log($"Current: {nav.CurrentWindow?.WindowId}");
 
 | Проблема | Решение |
 |----------|---------|
-| Окно не открывается | Проверить UISystemConfig, Scan & Add Prefabs |
-| Переход не работает | Добавить в allowedTransitions или IUISceneInitializer |
+| Окно не открывается | Rebuild Window Graph, проверить префаб |
+| Переход не работает | Добавить [UITransition] атрибут или GetAdditionalTransitions() |
 | Курсор не блокируется | Проверить CursorMode в атрибуте, удалить legacy код |
 | Пауза не снимается | Вызвать UITimeManager.ResetAllPauses() |
-| Dropdown не работает | Пересоздать префаб (Item должен иметь Toggle) |
+| Граф пустой | ProtoSystem → UI → Rebuild Window Graph |
+| Недостижимые окна | Проверить в Graph Viewer, добавить переходы |
 
-## Миграция с OnGUI
+## Best Practices
 
-1. Создать класс окна с `[UIWindow]` атрибутом
-2. Перенести логику отрисовки в UGUI/TextMeshPro
-3. Удалить `OnGUI()` метод
-4. Добавить в UISystemConfig
-5. Использовать `UISystem.Open()` вместо флагов
+### 1. Используйте Navigate() вместо Open()
+
+```csharp
+// ✅ Хорошо - переход по триггеру
+UISystem.Navigate("settings");
+
+// ❌ Плохо - прямое открытие (устарело)
+UISystem.Open("Settings");
+```
+
+### 2. Всегда определяйте переходы через атрибуты
+
+```csharp
+[UIWindow("main_menu", ...)]
+[UITransition("play", "GameHUD")]        // ✅
+[UITransition("settings", "Settings")]   // ✅
+public class MainMenu : UIWindowBase { }
+```
+
+### 3. Используйте ShowInGraph для базовых классов
+
+```csharp
+// Базовый класс - скрыт из графа
+[UIWindow("GameHUD", ..., ShowInGraph = false)]
+public class GameHUDWindow : UIWindowBase { }
+
+// Конкретная реализация - видна в графе
+[UIWindow("KM_GameHUD", ...)]
+public class KM_GameHUD : GameHUDWindow { }
+```
+
+### 4. Проверяйте граф визуально
+
+После изменений окон/переходов:
+1. **Rebuild Window Graph**
+2. **Window Graph Viewer** — проверить визуально
+3. **Validate** — проверить ошибки
+
+### 5. Используйте UISceneInitializerBase для сцен-специфичных переходов
+
+```csharp
+public class BattleSceneInitializer : UISceneInitializerBase
+{
+    public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()
+    {
+        // Переходы только для боевой сцены
+        yield return new UITransitionDefinition("battle_hud", "victory_screen", "win");
+        yield return new UITransitionDefinition("battle_hud", "defeat_screen", "lose");
+    }
+}
+```
+
+## Миграция с UISystemConfig
+
+Старая система использовала `UISystemConfig` + ручная регистрация окон.
+
+### Новая система (граф-based):
+
+1. **Удалить** UISystemConfig (больше не нужен)
+2. **Добавить** атрибуты к классам окон
+3. **Rebuild** Window Graph
+4. **Заменить** Open() на Navigate()
+
+```csharp
+// Старый код
+UISystem.Open("settings");
+
+// Новый код
+UISystem.Navigate("settings");
+```
+
+UIWindowGraph создаётся автоматически и содержит всю информацию о графе.

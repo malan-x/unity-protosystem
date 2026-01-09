@@ -317,12 +317,45 @@ namespace ProtoSystem.UI
                 CloseLevel0Windows();
             }
 
+            // Level 1+ окна должны быть непрозрачными (чтобы не накладывались на другие)
+            if (definition.level > 0)
+            {
+                ApplyOpaqueBackground(window);
+            }
+
             // Добавляем в стек
             _windowStack.Push(window);
             CurrentWindow = window;
 
             // Показываем
             window.Show();
+        }
+
+        /// <summary>
+        /// Делает фон окна непрозрачным (для окон level 1+)
+        /// </summary>
+        private void ApplyOpaqueBackground(UIWindowBase window)
+        {
+            // Проверяем UITwoColorImage (приоритет)
+            var twoColor = window.GetComponent<UITwoColorImage>();
+            if (twoColor != null)
+            {
+                var fill = twoColor.FillColor;
+                fill.a = 1f;
+                twoColor.FillColor = fill;
+                Debug.Log($"[UINavigator] Made '{window.WindowId}' opaque via UITwoColorImage");
+                return;
+            }
+
+            // Fallback на обычный Image
+            var image = window.GetComponent<UnityEngine.UI.Image>();
+            if (image != null)
+            {
+                var color = image.color;
+                color.a = 1f;
+                image.color = color;
+                Debug.Log($"[UINavigator] Made '{window.WindowId}' opaque via Image.color");
+            }
         }
 
         /// <summary>
