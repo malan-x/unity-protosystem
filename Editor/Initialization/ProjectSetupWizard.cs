@@ -240,48 +240,48 @@ namespace ProtoSystem.Editor
                 new SetupTask("Create Folder Structure", 
                     "Create Scripts, Prefabs, Scenes, Resources folders", 
                     TaskType.CreateFolders),
-                    
+
                 new SetupTask("Generate Assembly Definition", 
                     "Create .asmdef with necessary references", 
                     TaskType.CreateAsmdef),
-                    
+
                 new SetupTask("Create ProjectConfig", 
                     "ScriptableObject with project namespace", 
                     TaskType.CreateProjectConfig),
-                    
-                new SetupTask("Generate EventCategories", 
-                    "Create base event categories (Core, Gameplay, UI)", 
-                    TaskType.CreateEventCategories),
-                    
+
+                new SetupTask("Generate EventBus File", 
+                    "Create EventBus static class for project events", 
+                    TaskType.CreateEventBus),
+
                 new SetupTask("Generate UI Sprites", 
                     "Generate default UI button/panel sprites", 
                     TaskType.GenerateUISprites),
-                    
+
                 new SetupTask("Generate UI Prefabs", 
                     "Create base window/panel/button prefabs", 
                     TaskType.GenerateUIPrefabs),
-                    
+
                 new SetupTask("Create Bootstrap Scene", 
                     "Setup initial scene with managers", 
                     TaskType.CreateBootstrapScene),
-                    
+
                 new SetupTask("Setup Canvas Structure", 
                     "Create UI canvas with panel hierarchy", 
                     TaskType.SetupCanvas)
             };
-            
+
             // Добавляем задачи для мультиплеера
             if (_projectType == ProjectType.Multiplayer)
             {
                 _tasks.Add(new SetupTask("Add Netcode References", 
                     "Add Unity.Netcode.Runtime to asmdef", 
                     TaskType.AddNetcodeReferences));
-                    
+
                 _tasks.Add(new SetupTask("Setup NetworkManager", 
                     "Add NetworkManager to Bootstrap scene", 
                     TaskType.SetupNetworkManager));
             }
-            
+
             // Загружаем статусы
             LoadTaskStatuses();
         }
@@ -301,8 +301,8 @@ namespace ProtoSystem.Editor
                     case TaskType.CreateProjectConfig:
                         CreateProjectConfig();
                         break;
-                    case TaskType.CreateEventCategories:
-                        CreateEventCategories();
+                    case TaskType.CreateEventBus:
+                        CreateEventBus();
                         break;
                     case TaskType.GenerateUISprites:
                         GenerateUISprites();
@@ -323,10 +323,11 @@ namespace ProtoSystem.Editor
                         SetupNetworkManager();
                         break;
                 }
-                
+
                 task.IsCompleted = true;
                 SaveTaskStatus(task);
-                
+                SaveSettings(); // Сохранить настройки после каждой задачи
+
                 Debug.Log($"✅ Task completed: {task.Name}");
             }
             catch (Exception ex)
@@ -448,36 +449,84 @@ namespace ProtoSystem.Editor
             AssetDatabase.SaveAssets();
         }
         
-        private void CreateEventCategories()
-        {
-            var template = $@"using ProtoSystem;
+                private void CreateEventBus()
+                {
+                    var template = $@"using ProtoSystem;
 
-namespace {_namespace}.Events
-{{
-    /// <summary>
-    /// Базовые категории событий проекта
-    /// </summary>
-    public static class EventCategories
-    {{
-        // Ядро системы
-        public static readonly EventCategory Core = new EventCategory(""Core"");
-        public static readonly EventCategory Initialization = new EventCategory(""Core.Initialization"");
-        
-        // Геймплей
-        public static readonly EventCategory Gameplay = new EventCategory(""Gameplay"");
-        public static readonly EventCategory Player = new EventCategory(""Gameplay.Player"");
-        public static readonly EventCategory Combat = new EventCategory(""Gameplay.Combat"");
-        
-        // UI
-        public static readonly EventCategory UI = new EventCategory(""UI"");
-        public static readonly EventCategory Windows = new EventCategory(""UI.Windows"");
-    }}
-}}";
-            
-            var path = $"{_rootFolder}/Scripts/Events/EventCategories.cs";
-            File.WriteAllText(path, template);
-            AssetDatabase.Refresh();
-        }
+        namespace {_namespace}.Events
+        {{
+            /// <summary>
+            /// Центральная шина событий проекта
+            /// Используйте эти события для коммуникации между системами
+            /// </summary>
+            public static class {_namespace}EventBus
+            {{
+                // ============================================================
+                // ИНИЦИАЛИЗАЦИЯ И СИСТЕМНЫЕ СОБЫТИЯ
+                // ============================================================
+
+                /// <summary>Игра полностью инициализирована</summary>
+                public static readonly EventCategory GameInitialized = new EventCategory(""Core.GameInitialized"");
+
+                /// <summary>Игра завершает работу</summary>
+                public static readonly EventCategory GameShutdown = new EventCategory(""Core.GameShutdown"");
+
+
+                // ============================================================
+                // ГЕЙМПЛЕЙНЫЕ СОБЫТИЯ
+                // ============================================================
+
+                /// <summary>Игрок заспавнился</summary>
+                public static readonly EventCategory PlayerSpawned = new EventCategory(""Gameplay.PlayerSpawned"");
+
+                /// <summary>Игрок умер</summary>
+                public static readonly EventCategory PlayerDied = new EventCategory(""Gameplay.PlayerDied"");
+
+
+                // ============================================================
+                // UI СОБЫТИЯ
+                // ============================================================
+
+                /// <summary>Открыто окно</summary>
+                public static readonly EventCategory WindowOpened = new EventCategory(""UI.WindowOpened"");
+
+                /// <summary>Закрыто окно</summary>
+                public static readonly EventCategory WindowClosed = new EventCategory(""UI.WindowClosed"");
+
+
+                // ============================================================
+                // ПРИМЕР ИСПОЛЬЗОВАНИЯ
+                // ============================================================
+
+                // Отправка события:
+                // MonoEventBus.RaiseEvent({_namespace}EventBus.PlayerSpawned);
+
+                // Подписка на событие (в InitializableSystemBase):
+                // protected override void InitEvents()
+                // {{
+                //     AddEvent({_namespace}EventBus.PlayerSpawned, OnPlayerSpawned);
+                // }}
+
+                // private void OnPlayerSpawned()
+                // {{
+                //     Debug.Log(""Player spawned!"");
+                // }}
+            }}
+        }}";
+
+                    var path = $"{_rootFolder}/Scripts/Events/{_namespace}EventBus.cs";
+
+                    // Создать папку Events если не существует
+                    var eventsFolder = $"{_rootFolder}/Scripts/Events";
+                    if (!AssetDatabase.IsValidFolder(eventsFolder))
+                    {
+                        var scriptsFolder = $"{_rootFolder}/Scripts";
+                        AssetDatabase.CreateFolder(scriptsFolder, "Events");
+                    }
+
+                    File.WriteAllText(path, template);
+                    AssetDatabase.Refresh();
+                }
         
         private void GenerateUISprites()
         {
@@ -859,7 +908,7 @@ namespace {_namespace}.Events
         CreateFolders,
         CreateAsmdef,
         CreateProjectConfig,
-        CreateEventCategories,
+        CreateEventBus,
         GenerateUISprites,
         GenerateUIPrefabs,
         CreateBootstrapScene,

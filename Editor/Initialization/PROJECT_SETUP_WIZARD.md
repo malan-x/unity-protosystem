@@ -70,11 +70,11 @@
    - ScriptableObject в Resources/ProjectConfig.asset
    - Хранит namespace проекта
 
-4. **Generate EventCategories**
-   - Создает EventCategories.cs с базовыми категориями:
-     - Core, Initialization
-     - Gameplay, Player, Combat
-     - UI, Windows
+4. **Generate EventBus File**
+   - Создает статический класс [ProjectName]EventBus
+   - Примеры событий для разных категорий
+   - Комментарии с примерами использования
+   - Namespace проекта автоматически подставляется
 
 5. **Generate UI Sprites**
    - Button_Default.png
