@@ -71,10 +71,11 @@
    - Хранит namespace проекта
 
 4. **Generate EventBus File**
-   - Создает статический класс [ProjectName]EventBus
-   - Примеры событий для разных категорий
-   - Комментарии с примерами использования
-   - Namespace проекта автоматически подставляется
+   - Использует встроенную функцию ProtoSystem
+   - Создаёт файл EventIds.[Namespace].cs
+   - Структура: enum EventType + статические классы категорий
+   - Namespace автоматически сохраняется в EditorPrefs
+   - Интегрируется с UI панелью "EventBus проекта"
 
 5. **Generate UI Sprites**
    - Button_Default.png

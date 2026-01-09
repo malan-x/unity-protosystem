@@ -7,6 +7,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using ProtoSystem;
 using ProtoSystem.UI;
 
 namespace ProtoSystem.Editor
@@ -451,81 +452,17 @@ namespace ProtoSystem.Editor
         
                 private void CreateEventBus()
                 {
-                    var template = $@"using ProtoSystem;
+                    // Используем встроенную функцию ProtoSystem
+                    string createdPath = EventBusEditorUtils.CreateEventBusFile(_namespace);
 
-        namespace {_namespace}.Events
-        {{
-            /// <summary>
-            /// Центральная шина событий проекта
-            /// Используйте эти события для коммуникации между системами
-            /// </summary>
-            public static class {_namespace}EventBus
-            {{
-                // ============================================================
-                // ИНИЦИАЛИЗАЦИЯ И СИСТЕМНЫЕ СОБЫТИЯ
-                // ============================================================
-
-                /// <summary>Игра полностью инициализирована</summary>
-                public static readonly EventCategory GameInitialized = new EventCategory(""Core.GameInitialized"");
-
-                /// <summary>Игра завершает работу</summary>
-                public static readonly EventCategory GameShutdown = new EventCategory(""Core.GameShutdown"");
-
-
-                // ============================================================
-                // ГЕЙМПЛЕЙНЫЕ СОБЫТИЯ
-                // ============================================================
-
-                /// <summary>Игрок заспавнился</summary>
-                public static readonly EventCategory PlayerSpawned = new EventCategory(""Gameplay.PlayerSpawned"");
-
-                /// <summary>Игрок умер</summary>
-                public static readonly EventCategory PlayerDied = new EventCategory(""Gameplay.PlayerDied"");
-
-
-                // ============================================================
-                // UI СОБЫТИЯ
-                // ============================================================
-
-                /// <summary>Открыто окно</summary>
-                public static readonly EventCategory WindowOpened = new EventCategory(""UI.WindowOpened"");
-
-                /// <summary>Закрыто окно</summary>
-                public static readonly EventCategory WindowClosed = new EventCategory(""UI.WindowClosed"");
-
-
-                // ============================================================
-                // ПРИМЕР ИСПОЛЬЗОВАНИЯ
-                // ============================================================
-
-                // Отправка события:
-                // MonoEventBus.RaiseEvent({_namespace}EventBus.PlayerSpawned);
-
-                // Подписка на событие (в InitializableSystemBase):
-                // protected override void InitEvents()
-                // {{
-                //     AddEvent({_namespace}EventBus.PlayerSpawned, OnPlayerSpawned);
-                // }}
-
-                // private void OnPlayerSpawned()
-                // {{
-                //     Debug.Log(""Player spawned!"");
-                // }}
-            }}
-        }}";
-
-                    var path = $"{_rootFolder}/Scripts/Events/{_namespace}EventBus.cs";
-
-                    // Создать папку Events если не существует
-                    var eventsFolder = $"{_rootFolder}/Scripts/Events";
-                    if (!AssetDatabase.IsValidFolder(eventsFolder))
+                    if (!string.IsNullOrEmpty(createdPath))
                     {
-                        var scriptsFolder = $"{_rootFolder}/Scripts";
-                        AssetDatabase.CreateFolder(scriptsFolder, "Events");
+                        Debug.Log($"✅ EventBus file created: {createdPath}");
                     }
-
-                    File.WriteAllText(path, template);
-                    AssetDatabase.Refresh();
+                    else
+                    {
+                        Debug.LogError("❌ Failed to create EventBus file");
+                    }
                 }
         
         private void GenerateUISprites()
