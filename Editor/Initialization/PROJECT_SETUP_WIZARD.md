@@ -62,7 +62,7 @@
 
 2. **Generate Assembly Definition**
    - Создает .asmdef с references:
-     - ProtoSystem
+     - ProtoSystem.Runtime (через GUID для стабильности)
      - Unity.TextMeshPro
      - Unity.Netcode.Runtime (для Multiplayer)
 

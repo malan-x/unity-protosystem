@@ -90,10 +90,19 @@ Required property 'name' not set (*.asmdef)
 {
     "name": "MyGame",
     "rootNamespace": "MyGame",
-    "references": ["ProtoSystem", "Unity.TextMeshPro"],
+    "references": [
+        "GUID:f0916efc0967ba241b646b3544bfe86b",  // ProtoSystem.Runtime
+        "Unity.TextMeshPro"
+    ],
     ...
 }
 ```
+
+**Важно:** Используются GUID-based references для стабильности:
+- ✅ Работают в любом проекте
+- ✅ Не зависят от порядка загрузки
+- ✅ Не конфликтуют при дубликатах
+- ✅ Рекомендуются Unity для пакетов
 
 ## 📝 Сохранение настроек
 

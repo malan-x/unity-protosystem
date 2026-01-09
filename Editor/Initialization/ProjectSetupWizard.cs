@@ -402,7 +402,7 @@ namespace ProtoSystem.Editor
 
             var references = new List<string>
             {
-                "ProtoSystem",
+                "GUID:f0916efc0967ba241b646b3544bfe86b", // ProtoSystem.Runtime
                 "Unity.TextMeshPro"
             };
 
