@@ -1,0 +1,209 @@
+# ProtoSystem Project Setup Wizard
+
+## 🎯 Назначение
+
+Визард автоматизирует первичную настройку нового проекта на базе ProtoSystem:
+- Создание структуры папок
+- Генерация Assembly Definition
+- Настройка namespace
+- Создание базовых UI элементов
+- Подготовка Bootstrap сцены
+
+## 🚀 Использование
+
+### Автоматический запуск
+При первом запуске Unity с ProtoSystem появится диалог с предложением запустить визард.
+
+### Ручной запуск
+**Меню:** `Tools → ProtoSystem → Project Setup Wizard`
+
+### Сброс флага первого запуска
+**Меню:** `Tools → ProtoSystem → Reset First Time Setup`
+
+## 📋 Настройка проекта
+
+### Project Type
+- **Single Player** - одиночная игра
+- **Multiplayer** - мультиплеер (добавляются Netcode компоненты)
+
+### Project Settings
+- **Project Name** - отображаемое имя проекта
+- **Namespace** - автогенерируется из имени, можно изменить
+- **Root Folder** - корневая папка проекта (по умолчанию Assets/ProjectName)
+
+## ✅ Список задач
+
+Каждая задача имеет:
+- ✅ или ⬜ - статус выполнения
+- Название и описание
+- Кнопку **Execute** (активна только для невыполненных)
+
+### Общие задачи
+
+1. **Create Folder Structure**
+   - Scripts/Systems
+   - Scripts/Events
+   - Scripts/Configs
+   - Scripts/UI
+   - Prefabs/UI
+   - Scenes
+   - Resources/UI/Sprites
+   - Resources/UI/Prefabs
+
+2. **Generate Assembly Definition**
+   - Создает .asmdef с references:
+     - ProtoSystem
+     - Unity.TextMeshPro
+     - Unity.Netcode.Runtime (для Multiplayer)
+
+3. **Create ProjectConfig**
+   - ScriptableObject в Resources/ProjectConfig.asset
+   - Хранит namespace проекта
+
+4. **Generate EventCategories**
+   - Создает EventCategories.cs с базовыми категориями:
+     - Core, Initialization
+     - Gameplay, Player, Combat
+     - UI, Windows
+
+5. **Generate UI Sprites**
+   - Button_Default.png
+   - Panel_Default.png
+   - Window_Default.png
+   - Использует UIIconGenerator для генерации
+
+6. **Generate UI Prefabs**
+   - DefaultButton.prefab (с TextMeshPro)
+   - DefaultPanel.prefab
+
+7. **Create Bootstrap Scene**
+   - Создает Scenes/Bootstrap.unity
+   - Добавляет SystemInitializationManager
+   - Добавляет EventSystem
+
+8. **Setup Canvas Structure**
+   - Canvas (Screen Space Overlay)
+   - Панели: Background, GameUI, Overlay
+   - Правильная иерархия sorting orders
+
+### Только для Multiplayer
+
+9. **Add Netcode References**
+   - Добавление Unity.Netcode.Runtime в asmdef
+
+10. **Setup NetworkManager**
+    - Добавление NetworkManager в Bootstrap сцену
+    - Требует ручной настройки транспорта
+
+## 🔧 Функции
+
+### Execute All Pending
+Выполняет все невыполненные задачи по порядку.
+
+### Reset Progress
+Сбрасывает статусы всех задач (можно выполнить заново).
+
+### Close
+Закрывает окно. Прогресс сохраняется автоматически.
+
+## 💾 Сохранение прогресса
+
+Все настройки и статусы задач сохраняются в EditorPrefs:
+- `ProtoSystem.Setup.[ProjectName].ProjectName`
+- `ProtoSystem.Setup.[ProjectName].Namespace`
+- `ProtoSystem.Setup.[ProjectName].RootFolder`
+- `ProtoSystem.Setup.[ProjectName].ProjectType`
+- `ProtoSystem.Setup.[ProjectName].Task.[TaskType]`
+
+Прогресс привязан к имени проекта - можно работать с несколькими проектами.
+
+## 📁 Результат работы
+
+После выполнения всех задач получаете:
+
+```
+Assets/
+└── [YourProject]/
+    ├── Scripts/
+    │   ├── [Namespace].asmdef
+    │   ├── Events/
+    │   │   └── EventCategories.cs
+    │   ├── Systems/
+    │   ├── Configs/
+    │   └── UI/
+    ├── Prefabs/
+    │   └── UI/
+    ├── Scenes/
+    │   └── Bootstrap.unity (с Canvas + Managers)
+    └── Resources/
+        ├── ProjectConfig.asset
+        └── UI/
+            ├── Sprites/
+            │   ├── Button_Default.png
+            │   ├── Panel_Default.png
+            │   └── Window_Default.png
+            └── Prefabs/
+                ├── DefaultButton.prefab
+                └── DefaultPanel.prefab
+```
+
+## ⚠️ Важные замечания
+
+1. **Setup Canvas** требует открытой Bootstrap сцены
+2. **Setup NetworkManager** требует открытой Bootstrap сцены
+3. Задачи можно выполнять независимо и в любом порядке
+4. При изменении Project Type задачи пересоздаются
+5. Изменение Project Name обновляет Namespace и Root Folder
+
+## 🔄 Интеграция с существующим проектом
+
+Визард проверяет существование папок/файлов и не перезаписывает их.
+Можно безопасно использовать на частично настроенном проекте.
+
+## 🎨 Кастомизация
+
+### Добавление новых задач
+
+1. Добавить в enum `TaskType`
+2. Создать задачу в `InitializeTasks()`
+3. Добавить case в `ExecuteTask()`
+4. Реализовать метод выполнения
+
+### Изменение генерируемых спрайтов
+
+Редактировать `GenerateUISprites()`:
+```csharp
+var sprites = new[]
+{
+    ("CustomSprite", ShapeType.Circle, Color.red),
+    // добавить свои...
+};
+```
+
+### Изменение структуры EventCategories
+
+Редактировать шаблон в `CreateEventCategories()`.
+
+## 📞 Troubleshooting
+
+**Визард не появляется при первом запуске**
+- Проверьте EditorPrefs: `ProtoSystem.FirstTimeSetup`
+- Используйте `Reset First Time Setup` из меню
+
+**Ошибка "Bootstrap scene not open"**
+- Откройте Scenes/Bootstrap.unity перед выполнением Setup Canvas/NetworkManager
+
+**Спрайты не генерируются**
+- Проверьте наличие UIIconGenerator в ProtoSystem
+- Убедитесь что папка Resources/UI/Sprites существует
+
+**Namespace содержит недопустимые символы**
+- Визард автоматически фильтрует символы
+- Можно вручную отредактировать поле Namespace
+
+## 🔗 Связанные компоненты
+
+- **UIIconGenerator** - генерация UI спрайтов
+- **SystemInitializationManager** - управление системами
+- **ProjectConfig** - хранение namespace
+- **ProtoSystemComponentsUtility** - работа с компонентами
