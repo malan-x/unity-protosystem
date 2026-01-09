@@ -17,9 +17,15 @@ namespace ProtoSystem.Editor
     public class ProjectSetupWizard : EditorWindow
     {
         private enum ProjectType { Single, Multiplayer }
+        private enum CameraType { ThreeD, TwoD }
+        private enum RenderPipeline { Standard, URP, HDRP }
         
         // Настройки проекта
         private ProjectType _projectType = ProjectType.Single;
+        private CameraType _cameraType = CameraType.ThreeD;
+        private RenderPipeline _renderPipeline = RenderPipeline.Standard;
+        private bool _autoDetectPipeline = true;
+        
         private string _projectName = "MyGame";
         private string _namespace = "MyGame";
         private string _rootFolder = "Assets/MyGame";
@@ -87,9 +93,9 @@ namespace ProtoSystem.Editor
         private void DrawProjectSettings()
         {
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            
+
             EditorGUILayout.LabelField("Project Settings", EditorStyles.boldLabel);
-            
+
             // Тип проекта
             var newType = (ProjectType)EditorGUILayout.EnumPopup("Project Type", _projectType);
             if (newType != _projectType)
@@ -97,7 +103,35 @@ namespace ProtoSystem.Editor
                 _projectType = newType;
                 InitializeTasks(); // Пересоздать задачи
             }
-            
+
+            // Тип камеры
+            var newCameraType = (CameraType)EditorGUILayout.EnumPopup("Camera Type", _cameraType);
+            if (newCameraType != _cameraType)
+            {
+                _cameraType = newCameraType;
+            }
+
+            // Render Pipeline
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Render Pipeline", GUILayout.Width(146));
+
+            if (_autoDetectPipeline)
+            {
+                _renderPipeline = DetectRenderPipeline();
+                EditorGUI.BeginDisabledGroup(true);
+                EditorGUILayout.EnumPopup(_renderPipeline);
+                EditorGUI.EndDisabledGroup();
+            }
+            else
+            {
+                _renderPipeline = (RenderPipeline)EditorGUILayout.EnumPopup(_renderPipeline);
+            }
+
+            _autoDetectPipeline = GUILayout.Toggle(_autoDetectPipeline, "Auto", GUILayout.Width(50));
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.Space(5);
+
             // Имя проекта
             var newName = EditorGUILayout.TextField("Project Name", _projectName);
             if (newName != _projectName)
@@ -106,10 +140,10 @@ namespace ProtoSystem.Editor
                 _namespace = MakeValidNamespace(_projectName);
                 _rootFolder = $"Assets/{_projectName}";
             }
-            
+
             // Namespace
             _namespace = EditorGUILayout.TextField("Namespace", _namespace);
-            
+
             // Root Folder
             EditorGUILayout.BeginHorizontal();
             _rootFolder = EditorGUILayout.TextField("Root Folder", _rootFolder);
@@ -122,7 +156,7 @@ namespace ProtoSystem.Editor
                 }
             }
             EditorGUILayout.EndHorizontal();
-            
+
             EditorGUILayout.EndVertical();
         }
         
@@ -365,36 +399,42 @@ namespace ProtoSystem.Editor
         private void CreateAssemblyDefinition()
         {
             var asmdefPath = $"{_rootFolder}/Scripts/{_namespace}.asmdef";
-            
+
             var references = new List<string>
             {
                 "ProtoSystem",
                 "Unity.TextMeshPro"
             };
-            
+
             if (_projectType == ProjectType.Multiplayer)
             {
                 references.Add("Unity.Netcode.Runtime");
             }
-            
-            var asmdef = new
+
+            // Ручная сериализация JSON для корректного формата
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("{");
+            sb.AppendLine($"    \"name\": \"{_namespace}\",");
+            sb.AppendLine($"    \"rootNamespace\": \"{_namespace}\",");
+            sb.Append("    \"references\": [");
+            for (int i = 0; i < references.Count; i++)
             {
-                name = _namespace,
-                rootNamespace = _namespace,
-                references = references.ToArray(),
-                includePlatforms = new string[0],
-                excludePlatforms = new string[0],
-                allowUnsafeCode = false,
-                overrideReferences = false,
-                precompiledReferences = new string[0],
-                autoReferenced = true,
-                defineConstraints = new string[0],
-                versionDefines = new string[0],
-                noEngineReferences = false
-            };
-            
-            var json = JsonUtility.ToJson(asmdef, true);
-            File.WriteAllText(asmdefPath, json);
+                sb.Append($"\"{references[i]}\"");
+                if (i < references.Count - 1) sb.Append(", ");
+            }
+            sb.AppendLine("],");
+            sb.AppendLine("    \"includePlatforms\": [],");
+            sb.AppendLine("    \"excludePlatforms\": [],");
+            sb.AppendLine("    \"allowUnsafeCode\": false,");
+            sb.AppendLine("    \"overrideReferences\": false,");
+            sb.AppendLine("    \"precompiledReferences\": [],");
+            sb.AppendLine("    \"autoReferenced\": true,");
+            sb.AppendLine("    \"defineConstraints\": [],");
+            sb.AppendLine("    \"versionDefines\": [],");
+            sb.AppendLine("    \"noEngineReferences\": false");
+            sb.AppendLine("}");
+
+            File.WriteAllText(asmdefPath, sb.ToString());
             AssetDatabase.Refresh();
         }
         
@@ -566,19 +606,81 @@ namespace {_namespace}.Events
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             scene.name = "Bootstrap";
-            
+
+            // Camera
+            var cameraGO = new GameObject("Main Camera");
+            cameraGO.tag = "MainCamera";
+            var camera = cameraGO.AddComponent<Camera>();
+
+            if (_cameraType == CameraType.TwoD)
+            {
+                camera.orthographic = true;
+                camera.orthographicSize = 5f;
+                cameraGO.transform.position = new Vector3(0, 0, -10);
+            }
+            else // 3D
+            {
+                camera.orthographic = false;
+                camera.fieldOfView = 60f;
+                cameraGO.transform.position = new Vector3(0, 1, -10);
+            }
+
+            // Background color зависит от pipeline
+            switch (_renderPipeline)
+            {
+                case RenderPipeline.Standard:
+                    camera.clearFlags = CameraClearFlags.Skybox;
+                    camera.backgroundColor = new Color(0.49f, 0.67f, 0.85f);
+                    break;
+                case RenderPipeline.URP:
+                    camera.clearFlags = CameraClearFlags.SolidColor;
+                    camera.backgroundColor = new Color(0.02f, 0.02f, 0.02f);
+                    break;
+                case RenderPipeline.HDRP:
+                    camera.clearFlags = CameraClearFlags.SolidColor;
+                    camera.backgroundColor = Color.black;
+                    break;
+            }
+
+            cameraGO.AddComponent<AudioListener>();
+
+            // Lighting
+            if (_cameraType == CameraType.ThreeD)
+            {
+                var lightGO = new GameObject("Directional Light");
+                var light = lightGO.AddComponent<Light>();
+                light.type = LightType.Directional;
+                light.color = Color.white;
+
+                switch (_renderPipeline)
+                {
+                    case RenderPipeline.Standard:
+                        light.intensity = 1f;
+                        lightGO.transform.rotation = Quaternion.Euler(50, -30, 0);
+                        break;
+                    case RenderPipeline.URP:
+                        light.intensity = 1f;
+                        lightGO.transform.rotation = Quaternion.Euler(50, -30, 0);
+                        break;
+                    case RenderPipeline.HDRP:
+                        light.intensity = 130000f; // HDRP uses physical light units
+                        lightGO.transform.rotation = Quaternion.Euler(50, -30, 0);
+                        break;
+                }
+            }
+
             // SystemInitializationManager
             var managerGO = new GameObject("SystemInitializationManager");
             managerGO.AddComponent<SystemInitializationManager>();
-            
+
             // EventSystem для UI
             var eventSystemGO = new GameObject("EventSystem");
             eventSystemGO.AddComponent<UnityEngine.EventSystems.EventSystem>();
             eventSystemGO.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
-            
+
             var scenePath = $"{_rootFolder}/Scenes/Bootstrap.unity";
             EditorSceneManager.SaveScene(scene, scenePath);
-            
+
             Debug.Log($"Bootstrap scene created at: {scenePath}");
         }
         
@@ -679,6 +781,9 @@ namespace {_namespace}.Events
             _namespace = EditorPrefs.GetString(GetPrefsKey("Namespace"), "MyGame");
             _rootFolder = EditorPrefs.GetString(GetPrefsKey("RootFolder"), "Assets/MyGame");
             _projectType = (ProjectType)EditorPrefs.GetInt(GetPrefsKey("ProjectType"), 0);
+            _cameraType = (CameraType)EditorPrefs.GetInt(GetPrefsKey("CameraType"), 0);
+            _renderPipeline = DetectRenderPipeline();
+            _autoDetectPipeline = EditorPrefs.GetBool(GetPrefsKey("AutoDetectPipeline"), true);
         }
         
         private void SaveSettings()
@@ -687,6 +792,8 @@ namespace {_namespace}.Events
             EditorPrefs.SetString(GetPrefsKey("Namespace"), _namespace);
             EditorPrefs.SetString(GetPrefsKey("RootFolder"), _rootFolder);
             EditorPrefs.SetInt(GetPrefsKey("ProjectType"), (int)_projectType);
+            EditorPrefs.SetInt(GetPrefsKey("CameraType"), (int)_cameraType);
+            EditorPrefs.SetBool(GetPrefsKey("AutoDetectPipeline"), _autoDetectPipeline);
         }
         
         private void LoadTaskStatuses()
@@ -714,11 +821,29 @@ namespace {_namespace}.Events
         private string MakeValidNamespace(string input)
         {
             if (string.IsNullOrEmpty(input)) return "MyGame";
-            
+
             var result = new string(input.Where(c => char.IsLetterOrDigit(c) || c == '_').ToArray());
             if (char.IsDigit(result[0])) result = "_" + result;
-            
+
             return result;
+        }
+
+        private RenderPipeline DetectRenderPipeline()
+        {
+            var currentPipeline = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;
+
+            if (currentPipeline == null)
+                return RenderPipeline.Standard;
+
+            var pipelineType = currentPipeline.GetType().Name;
+
+            if (pipelineType.Contains("Universal") || pipelineType.Contains("URP"))
+                return RenderPipeline.URP;
+
+            if (pipelineType.Contains("HDRenderPipeline") || pipelineType.Contains("HDRP"))
+                return RenderPipeline.HDRP;
+
+            return RenderPipeline.Standard;
         }
         
         private void OnDestroy()

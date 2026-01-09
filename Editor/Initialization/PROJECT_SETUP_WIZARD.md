@@ -26,6 +26,16 @@
 - **Single Player** - одиночная игра
 - **Multiplayer** - мультиплеер (добавляются Netcode компоненты)
 
+### Camera Type
+- **3D** - перспективная камера для 3D игр (FOV 60°)
+- **2D** - ортографическая камера для 2D игр
+
+### Render Pipeline
+- **Standard** - встроенный рендер (Skybox, стандартное освещение)
+- **URP** - Universal Render Pipeline (оптимизированный)
+- **HDRP** - High Definition Render Pipeline (высокое качество)
+- **Auto** - автоопределение текущего pipeline в проекте
+
 ### Project Settings
 - **Project Name** - отображаемое имя проекта
 - **Namespace** - автогенерируется из имени, можно изменить
