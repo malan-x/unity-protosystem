@@ -10,16 +10,33 @@
 
 ## ✅ Исправления
 
-### UISystem Input System Support
+### 1. UISystem Input System Support
+**Проблема:** Compilation error при использовании Input System
+```
+CS0234: The type or namespace name 'InputSystem' does not exist
+```
+
+**Причина:** `#if` директивы в блоке `using` не работают во всех версиях Unity компилятора.
+
+**Решение:** Используем **полные имена типов** вместо `using`:
 ```csharp
-#if ENABLE_LEGACY_INPUT_MANAGER
-    if (Input.GetKeyDown(KeyCode.Escape))
-#elif ENABLE_INPUT_SYSTEM
-    if (Keyboard.current?.escapeKey.wasPressedThisFrame == true)
+// НЕ используем using UnityEngine.InputSystem
+
+// Используем полное имя типа:
+#if ENABLE_INPUT_SYSTEM
+if (UnityEngine.InputSystem.Keyboard.current?.escapeKey.wasPressedThisFrame == true)
 #endif
 ```
 
-## 🎯 Задача: "Create Example UI Windows"
+**Преимущества:**
+- ✅ Работает в любой версии Unity
+- ✅ Не требует `using` директиву
+- ✅ Код компилируется даже без Input System пакета
+
+### 2. Удалены ненужные методы создания префабов
+Из ProjectSetupWizard.cs удалены методы создания UI элементов - ProtoSystem следует Code-First подходу.
+
+## 🎯 Задача: "Create Example UI Initializer"
 
 Создаёт **ExampleGameplayInitializer.cs** - готовый пример программной настройки UI.
 
@@ -33,6 +50,8 @@ Assets/{ProjectName}/Scripts/UI/ExampleGameplayInitializer.cs
 ### Структура файла (80 строк):
 
 ```csharp
+// Нет using UnityEngine.InputSystem - используем полное имя!
+
 public class ExampleGameplayInitializer : UISceneInitializerBase
 {
     [SerializeField] private bool skipMainMenu = false;
@@ -46,16 +65,19 @@ public class ExampleGameplayInitializer : UISceneInitializerBase
         yield return new UITransitionDefinition("MainMenuWindow", "SettingsWindow", "settings", Fade);
         yield return new UITransitionDefinition("MainMenuWindow", "GameHUDWindow", "start_game", SlideLeft);
         yield return new UITransitionDefinition("GameHUDWindow", "PauseMenuWindow", "pause", Instant);
-        yield return new UITransitionDefinition("PauseMenuWindow", "GameHUDWindow", "resume", Instant);
-        yield return new UITransitionDefinition("PauseMenuWindow", "MainMenuWindow", "quit", Fade);
         // ...
     }
     
-    // Обработка навигации
-    private void OnNavigated(NavigationEventData data) { }
-    
-    // Input handling (поддержка обоих Input System)
-    private void HandleEscape() { }
+    // Поддержка обоих Input System - используем полное имя типа!
+    private void Update()
+    {
+#if ENABLE_LEGACY_INPUT_MANAGER
+        if (Input.GetKeyDown(KeyCode.Escape))
+#elif ENABLE_INPUT_SYSTEM
+        if (UnityEngine.InputSystem.Keyboard.current?.escapeKey.wasPressedThisFrame == true)
+#endif
+            HandleEscape();
+    }
 }
 ```
 
@@ -88,17 +110,9 @@ Add Component → ExampleGameplayInitializer
 UISystem → Generate Base Windows
 ```
 
-**Или вручную:**
-- MainMenuWindow.prefab
-- SettingsWindow.prefab
-- CreditsWindow.prefab
-- GameHUDWindow.prefab
-- PauseMenuWindow.prefab
+**Или вручную.**
 
 ### 4. Play!
-- Откроется MainMenuWindow
-- UI flow работает из кода
-- Escape обрабатывается автоматически
 
 ## 💡 Философия: Code-First
 
@@ -115,21 +129,10 @@ yield return new UITransitionDefinition("From", "To", "trigger", Animation);
 
 ### Преимущества:
 
-**✅ Минимум кода:**
-- 6 строк = весь UI flow
-- Читаемо, декларативно
-
-**✅ Версионный контроль:**
-- Diff видит изменения
-- Нет конфликтов prefab'ов
-
-**✅ Типизация:**
-- IntelliSense автодополнение
-- Compile-time проверки
-
-**✅ DRY:**
-- Переиспользуемые паттерны
-- Шаблоны для разных проектов
+**✅ Минимум кода** - 6 строк = весь UI flow  
+**✅ Версионный контроль** - видны изменения в diff  
+**✅ Типизация** - IntelliSense, compile-time проверки  
+**✅ Универсальная совместимость** - работает во всех версиях Unity
 
 ## 🔄 UI Flow пример
 
@@ -141,8 +144,6 @@ yield return new UITransitionDefinition("MainMenuWindow", "SettingsWindow", "set
 UISystem.Instance.Navigate("settings");
 ```
 
-**Весь граф переходов в коде!**
-
 ## 🛠️ Расширение
 
 ### Добавить окно:
@@ -150,39 +151,24 @@ UISystem.Instance.Navigate("settings");
 yield return new UITransitionDefinition("GameHUD", "Shop", "open_shop", Fade);
 ```
 
-### Добавить логику:
-```csharp
-private void OnNavigated(NavigationEventData data)
-{
-    if (data.ToWindowId == "Shop")
-        LoadShopData();
-}
-```
-
 ### Обработать input:
 ```csharp
 private void Update()
 {
-    if (Keyboard.current?.f1Key.wasPressedThisFrame == true)
+#if ENABLE_INPUT_SYSTEM
+    if (UnityEngine.InputSystem.Keyboard.current?.f1Key.wasPressedThisFrame == true)
+#else
+    if (Input.GetKeyDown(KeyCode.F1))
+#endif
         _uiSystem.Navigate("help");
 }
 ```
 
-## 📦 Что НЕ создаётся
-
-**❌ Префабы окон** - создайте вручную или через генератор  
-**❌ Спрайты** - создаются в задаче "Generate UI Sprites"  
-**❌ Base prefabs** - создаются в задаче "Generate UI Prefabs"
-
-**✅ Только .cs файл** - пример программной настройки!
-
-## 🔍 Детектирование через рефлексию
-
-UISystemEditor ищет класс:
-- Наследует UISceneInitializerBase
-- Содержит "ExampleGameplayInitializer" или "ExampleInitializer"
-- Добавляет в меню "+ Create"
-
 ## 📝 Версия: 1.6.8
 
-**ProtoSystem - Code-First UI Framework!** 🚀
+**Критическое исправление:**
+- ✅ UISystem.cs - используется полное имя `UnityEngine.InputSystem.Keyboard`
+- ✅ ExampleGameplayInitializer шаблон - используется полное имя
+- ✅ Убраны `using` директивы для Input System
+
+**Теперь работает в любой версии Unity и любой конфигурации!** 🚀

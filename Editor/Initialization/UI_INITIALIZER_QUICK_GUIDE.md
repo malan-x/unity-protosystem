@@ -17,25 +17,15 @@ Tools → ProtoSystem → Project Setup Wizard
 Execute All Pending
 ```
 
-Создастся: `Assets/{ProjectName}/Scripts/UI/ExampleGameplayInitializer.cs`
-
 ### 2. Добавить к UISystem
-
-**Через меню:**
 ```
 UISystem → Scene Initializer → + Create → Create Example Initializer
 ```
 
-**Или через Add Component:**
-```
-UISystem → Add Component → ExampleGameplayInitializer
-```
-
 ### 3. Создать окна
-
-Используйте:
-- `UISystem → Generate Base Windows`
-- Или создайте префабы вручную
+```
+UISystem → Generate Base Windows
+```
 
 ### 4. Play!
 
@@ -57,6 +47,17 @@ public class ExampleGameplayInitializer : UISceneInitializerBase
         yield return new UITransitionDefinition("GameHUDWindow", "PauseMenuWindow", "pause", Instant);
         // ...
     }
+    
+    // Поддержка обоих Input System
+    private void Update()
+    {
+#if ENABLE_LEGACY_INPUT_MANAGER
+        if (Input.GetKeyDown(KeyCode.Escape))
+#elif ENABLE_INPUT_SYSTEM
+        if (UnityEngine.InputSystem.Keyboard.current?.escapeKey.wasPressedThisFrame == true)
+#endif
+            HandleEscape();
+    }
 }
 ```
 
@@ -64,17 +65,11 @@ public class ExampleGameplayInitializer : UISceneInitializerBase
 
 ## 🎨 Минимум кода = Максимум функциональности
 
-### Вместо Inspector:
-```
-20 кликов → настройка окон → transitions → кнопки → events
-```
+**Одна строка = полный transition!**
 
-### Пишем код:
 ```csharp
 yield return new UITransitionDefinition("From", "To", "trigger", Fade);
 ```
-
-**Одна строка = полный transition!**
 
 ---
 
@@ -90,54 +85,44 @@ public override string StartWindowId => "GameHUDWindow";
 yield return new UITransitionDefinition("GameHUD", "Shop", "open_shop", Fade);
 ```
 
-### Обработать навигацию:
+### Обработать input:
 ```csharp
-private void OnNavigated(NavigationEventData data)
-{
-    if (data.ToWindowId == "Shop") LoadShopData();
-}
-```
-
----
-
-## ✅ Поддержка Input System
-
-Автоматически работает с обоими:
-```csharp
-#if ENABLE_LEGACY_INPUT_MANAGER
-    Input.GetKeyDown(KeyCode.Escape)
-#elif ENABLE_INPUT_SYSTEM
-    Keyboard.current?.escapeKey.wasPressedThisFrame
+#if ENABLE_INPUT_SYSTEM
+if (UnityEngine.InputSystem.Keyboard.current?.f1Key.wasPressedThisFrame == true)
+#else
+if (Input.GetKeyDown(KeyCode.F1))
 #endif
 ```
 
 ---
 
-## 📋 Окна для примера
+## ⚠️ Важно!
 
-Создайте префабы:
-- **MainMenuWindow** - главное меню
-- **SettingsWindow** - настройки
-- **CreditsWindow** - титры
-- **GameHUDWindow** - игровой HUD
-- **PauseMenuWindow** - пауза
+### Используйте полные имена типов для Input System:
 
-Или используйте `UISystem → Generate Base Windows`
+**✅ Правильно:**
+```csharp
+UnityEngine.InputSystem.Keyboard.current
+```
+
+**❌ Неправильно:**
+```csharp
+using UnityEngine.InputSystem;  // НЕ работает во всех версиях
+Keyboard.current
+```
 
 ---
 
-## ⚠️ FAQ
+## 📋 FAQ
+
+### Ошибка компиляции Input System?
+✅ Используйте полное имя: `UnityEngine.InputSystem.Keyboard.current`
 
 ### ExampleGameplayInitializer не появляется в меню?
-✅ Перекомпилируйте проект (Ctrl+R)  
-✅ Проверьте путь: `{ProjectName}/Scripts/UI/`
+✅ Перекомпилируйте проект (Ctrl+R)
 
 ### Окна не открываются?
-⚠️ Создайте префабы окон  
-⚠️ Добавьте в UIWindowGraph
-
-### Input System ошибка?
-✅ Исправлено в v1.6.8
+⚠️ Создайте префабы окон
 
 ---
 
