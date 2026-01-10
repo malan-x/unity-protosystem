@@ -266,13 +266,13 @@ namespace ProtoSystem.Editor
                     "Create UIWindowGraph ScriptableObject asset", 
                     TaskType.CreateUIWindowGraph),
 
-                new SetupTask("Create Bootstrap Scene", 
-                    "Setup initial scene with managers", 
-                    TaskType.CreateBootstrapScene),
+                new SetupTask("Create Example UI Initializer", 
+                    "Generate ExampleGameplayInitializer.cs - code-first UI setup example", 
+                    TaskType.CreateExampleUIWindows),
 
-                new SetupTask("Setup Canvas Structure", 
-                    "Create UI canvas with panel hierarchy", 
-                    TaskType.SetupCanvas)
+                new SetupTask("Create Bootstrap Scene", 
+                    "Setup scene with managers", 
+                    TaskType.CreateBootstrapScene)
             };
 
             // Добавляем задачи для мультиплеера
@@ -318,11 +318,11 @@ namespace ProtoSystem.Editor
                     case TaskType.CreateUIWindowGraph:
                         CreateUIWindowGraph();
                         break;
+                    case TaskType.CreateExampleUIWindows:
+                        CreateExampleUIWindows();
+                        break;
                     case TaskType.CreateBootstrapScene:
                         CreateBootstrapScene();
-                        break;
-                    case TaskType.SetupCanvas:
-                        SetupCanvasStructure();
                         break;
                     case TaskType.AddNetcodeReferences:
                         AddNetcodeReferences();
@@ -786,6 +786,147 @@ namespace ProtoSystem.Editor
             rect.sizeDelta = Vector2.zero;
         }
         
+        private void CreateExampleUIWindows()
+        {
+            // Проверка существования папки Scripts
+            string scriptsFolder = $"{_rootFolder}/Scripts";
+            if (!AssetDatabase.IsValidFolder(scriptsFolder))
+            {
+                AssetDatabase.CreateFolder(_rootFolder, "Scripts");
+            }
+
+            // Создание только ExampleGameplayInitializer.cs
+            CreateExampleInitializerScript();
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            Debug.Log("✅ ExampleGameplayInitializer.cs created!");
+        }
+        
+        private void CreateExampleInitializerScript()
+        {
+            string scriptPath = $"{_rootFolder}/Scripts/UI/ExampleGameplayInitializer.cs";
+            string scriptFolder = $"{_rootFolder}/Scripts/UI";
+            
+            // Создать папку если не существует
+            if (!AssetDatabase.IsValidFolder(scriptFolder))
+            {
+                string scriptsFolder = $"{_rootFolder}/Scripts";
+                if (!AssetDatabase.IsValidFolder(scriptsFolder))
+                    AssetDatabase.CreateFolder(_rootFolder, "Scripts");
+                AssetDatabase.CreateFolder(scriptsFolder, "UI");
+            }
+            
+            // Проверить существование
+            if (File.Exists(scriptPath))
+            {
+                Debug.LogWarning("ExampleGameplayInitializer.cs already exists!");
+                return;
+            }
+            
+            string template = $@"// {scriptPath}
+using System.Collections.Generic;
+using UnityEngine;
+using ProtoSystem.UI;
+
+namespace {_namespace}.UI
+{{
+    /// <summary>
+    /// Пример инициализатора UI для {_projectName}.
+    /// Демонстрирует программную настройку UI flow с использованием ProtoSystem.
+    /// </summary>
+    [AddComponentMenu(""{_projectName}/UI/Example Gameplay Initializer"")]
+    public class ExampleGameplayInitializer : UISceneInitializerBase
+    {{
+        [Header(""Settings"")]
+        [SerializeField] private bool skipMainMenu = false;
+        
+        private UISystem _uiSystem;
+        private bool _gameStarted = false;
+
+        public override string StartWindowId => skipMainMenu ? ""GameHUDWindow"" : ""MainMenuWindow"";
+
+        public override IEnumerable<string> StartupWindowOrder
+        {{
+            get
+            {{
+                yield return skipMainMenu ? ""GameHUDWindow"" : ""MainMenuWindow"";
+            }}
+        }}
+
+        public override void Initialize(UISystem uiSystem)
+        {{
+            _uiSystem = uiSystem;
+            uiSystem.Navigator.OnNavigated += OnNavigated;
+
+            foreach (var windowId in StartupWindowOrder)
+            {{
+                var result = uiSystem.Navigator.Open(windowId);
+                if (result == NavigationResult.Success && windowId == ""GameHUDWindow"")
+                    OnGameStarted();
+            }}
+        }}
+
+        private void OnNavigated(NavigationEventData data)
+        {{
+            if (data.ToWindowId == ""GameHUDWindow"" && data.Result == NavigationResult.Success)
+                OnGameStarted();
+            else if (data.ToWindowId == ""MainMenuWindow"")
+                _gameStarted = false;
+        }}
+
+        private void OnGameStarted()
+        {{
+            if (_gameStarted) return;
+            _gameStarted = true;
+        }}
+
+        public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()
+        {{
+            yield return new UITransitionDefinition(""MainMenuWindow"", ""SettingsWindow"", ""settings"", TransitionAnimation.Fade);
+            yield return new UITransitionDefinition(""MainMenuWindow"", ""CreditsWindow"", ""credits"", TransitionAnimation.Fade);
+            yield return new UITransitionDefinition(""MainMenuWindow"", ""GameHUDWindow"", ""start_game"", TransitionAnimation.SlideLeft);
+            yield return new UITransitionDefinition(""GameHUDWindow"", ""PauseMenuWindow"", ""pause"", TransitionAnimation.Instant);
+            yield return new UITransitionDefinition(""PauseMenuWindow"", ""GameHUDWindow"", ""resume"", TransitionAnimation.Instant);
+            yield return new UITransitionDefinition(""PauseMenuWindow"", ""MainMenuWindow"", ""quit"", TransitionAnimation.Fade);
+        }}
+
+        private void Update()
+        {{
+            if (_uiSystem == null) return;
+
+#if ENABLE_LEGACY_INPUT_MANAGER
+            if (Input.GetKeyDown(KeyCode.Escape))
+#elif ENABLE_INPUT_SYSTEM
+            if (UnityEngine.InputSystem.Keyboard.current?.escapeKey.wasPressedThisFrame == true)
+#endif
+                HandleEscape();
+        }}
+
+        private void HandleEscape()
+        {{
+            var current = _uiSystem.Navigator.CurrentWindow;
+            if (current?.WindowId == ""GameHUDWindow"")
+                _uiSystem.Navigator.Navigate(""pause"");
+            else if (current?.WindowId == ""PauseMenuWindow"")
+                _uiSystem.Navigator.Navigate(""resume"");
+            else if (current?.WindowId != ""MainMenuWindow"")
+                UISystem.Back();
+        }}
+
+        private void OnDestroy()
+        {{
+            if (_uiSystem?.Navigator != null)
+                _uiSystem.Navigator.OnNavigated -= OnNavigated;
+        }}
+    }}
+}}
+";
+
+            File.WriteAllText(scriptPath, template, System.Text.Encoding.UTF8);
+        }
+        
         private void AddNetcodeReferences()
         {
             // Уже добавлено в CreateAssemblyDefinition
@@ -914,8 +1055,8 @@ namespace ProtoSystem.Editor
         GenerateUISprites,
         GenerateUIPrefabs,
         CreateUIWindowGraph,
+        CreateExampleUIWindows,
         CreateBootstrapScene,
-        SetupCanvas,
         AddNetcodeReferences,
         SetupNetworkManager
     }

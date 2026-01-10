@@ -192,12 +192,26 @@ namespace ProtoSystem.UI
         private void ShowCreateInitializerMenu()
         {
             var menu = new GenericMenu();
-            
+
             menu.AddItem(new GUIContent("Create Default Initializer"), false, () =>
             {
                 CreateInitializerOnTarget<DefaultUISceneInitializer>();
             });
-            
+
+            // Поиск ExampleGameplayInitializer через рефлексию
+            var exampleType = FindExampleInitializerType();
+            if (exampleType != null)
+            {
+                menu.AddItem(new GUIContent($"Create Example Initializer ({exampleType.Name})"), false, () =>
+                {
+                    CreateInitializerOnTargetByType(exampleType);
+                });
+            }
+            else
+            {
+                menu.AddDisabledItem(new GUIContent("Create Example Initializer (not found)"));
+            }
+
             menu.AddSeparator("");
             menu.AddItem(new GUIContent("Create Custom (Script)"), false, () =>
             {
@@ -212,8 +226,52 @@ namespace ProtoSystem.UI
                     "    }\n" +
                     "}", "OK");
             });
-            
+
             menu.ShowAsContext();
+        }
+
+        private System.Type FindExampleInitializerType()
+        {
+            // Ищем класс с названием *ExampleGameplayInitializer* или *ExampleInitializer*
+            var assemblies = System.AppDomain.CurrentDomain.GetAssemblies();
+            foreach (var assembly in assemblies)
+            {
+                try
+                {
+                    var types = assembly.GetTypes();
+                    foreach (var type in types)
+                    {
+                        if (typeof(UISceneInitializerBase).IsAssignableFrom(type) && 
+                            !type.IsAbstract &&
+                            (type.Name.Contains("ExampleGameplayInitializer") || type.Name.Contains("ExampleInitializer")))
+                        {
+                            return type;
+                        }
+                    }
+                }
+                catch { }
+            }
+            return null;
+        }
+
+        private void CreateInitializerOnTargetByType(System.Type initializerType)
+        {
+            var uiSystem = target as UISystem;
+            if (uiSystem == null) return;
+
+            var existing = uiSystem.GetComponent(initializerType);
+            if (existing != null)
+            {
+                serializedObject.FindProperty("sceneInitializerComponent").objectReferenceValue = existing as UISceneInitializerBase;
+                serializedObject.ApplyModifiedProperties();
+                return;
+            }
+
+            var component = uiSystem.gameObject.AddComponent(initializerType) as UISceneInitializerBase;
+            serializedObject.FindProperty("sceneInitializerComponent").objectReferenceValue = component;
+            serializedObject.ApplyModifiedProperties();
+
+            Debug.Log($"[UISystem] Created {initializerType.Name} on {uiSystem.name}");
         }
 
         private void CreateInitializerOnTarget<T>() where T : UISceneInitializerBase

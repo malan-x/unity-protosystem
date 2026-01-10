@@ -456,13 +456,23 @@ namespace ProtoSystem.UI
                 Back();
         }
 
-        private void Update()
-        {
-            if (Input.GetKeyDown(KeyCode.Escape))
-            {
-                EventBus.Publish(EventBus.UI.BackPressed, null);
-            }
-        }
+                private void Update()
+                {
+        #if ENABLE_LEGACY_INPUT_MANAGER
+                    // Старый Input Manager - Input.GetKeyDown
+                    if (Input.GetKeyDown(KeyCode.Escape))
+                    {
+                        EventBus.Publish(EventBus.UI.BackPressed, null);
+                    }
+        #elif ENABLE_INPUT_SYSTEM
+                    // Новый Input System - используем Keyboard.current
+                    if (UnityEngine.InputSystem.Keyboard.current != null && 
+                        UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame)
+                    {
+                        EventBus.Publish(EventBus.UI.BackPressed, null);
+                    }
+        #endif
+                }
 
         #endregion
 
