@@ -3,7 +3,8 @@
     "rootNamespace": "ProtoSystem",
     "references": [
         "Unity.Netcode.Runtime",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -12,6 +13,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "",
+            "define": "PROTO_HAS_INPUT_SYSTEM"
+        }
+    ],
     "noEngineReferences": false
 }

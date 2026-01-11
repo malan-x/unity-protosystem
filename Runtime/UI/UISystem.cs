@@ -456,23 +456,27 @@ namespace ProtoSystem.UI
                 Back();
         }
 
-                                private void Update()
-                                {
-                        #if ENABLE_LEGACY_INPUT_MANAGER
-                                    // Старый Input Manager - Input.GetKeyDown
-                                    if (Input.GetKeyDown(KeyCode.Escape))
-                                    {
-                                        EventBus.Publish(EventBus.UI.BackPressed, null);
-                                    }
-                        #elif ENABLE_INPUT_SYSTEM
-                                    // Новый Input System - используем полное имя типа
-                                    if (UnityEngine.InputSystem.Keyboard.current != null && 
-                                        UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame)
-                                    {
-                                        EventBus.Publish(EventBus.UI.BackPressed, null);
-                                    }
-                        #endif
-                                }
+                                        private void Update()
+                                        {
+                                            // Проверка Escape для навигации назад
+                                            bool escapePressed = false;
+
+                                #if PROTO_HAS_INPUT_SYSTEM
+                                            // Новый Input System (только если пакет установлен)
+                                            if (UnityEngine.InputSystem.Keyboard.current != null)
+                                            {
+                                                escapePressed = UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame;
+                                            }
+                                #else
+                                            // Legacy Input Manager (fallback)
+                                            escapePressed = Input.GetKeyDown(KeyCode.Escape);
+                                #endif
+
+                                            if (escapePressed)
+                                            {
+                                                EventBus.Publish(EventBus.UI.BackPressed, null);
+                                            }
+                                        }
 
         #endregion
 

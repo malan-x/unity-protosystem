@@ -5,7 +5,8 @@
         "ProtoSystem.Runtime",
         "ProtoSystem.Effects",
         "Unity.Netcode.Editor",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [
         "Editor"
@@ -16,6 +17,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "",
+            "define": "PROTO_HAS_INPUT_SYSTEM"
+        }
+    ],
     "noEngineReferences": false
 }

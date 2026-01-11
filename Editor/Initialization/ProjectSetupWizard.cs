@@ -896,11 +896,15 @@ namespace ProtoSystem.Editor
                                 {{
                                     if (_uiSystem == null) return;
 
-                        #if ENABLE_LEGACY_INPUT_MANAGER
-                                    if (Input.GetKeyDown(KeyCode.Escape))
-                        #elif ENABLE_INPUT_SYSTEM
-                                    if (UnityEngine.InputSystem.Keyboard.current?.escapeKey.wasPressedThisFrame == true)
-                        #endif
+                                    bool escapePressed = false;
+
+#if PROTO_HAS_INPUT_SYSTEM
+                                    escapePressed = UnityEngine.InputSystem.Keyboard.current?.escapeKey.wasPressedThisFrame == true;
+#else
+                                    escapePressed = Input.GetKeyDown(KeyCode.Escape);
+#endif
+
+                                    if (escapePressed)
                                         HandleEscape();
                                 }}
 
