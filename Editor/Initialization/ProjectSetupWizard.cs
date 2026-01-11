@@ -412,7 +412,8 @@ namespace ProtoSystem.Editor
             var references = new List<string>
             {
                 "GUID:f0916efc0967ba241b646b3544bfe86b", // ProtoSystem.Runtime
-                "Unity.TextMeshPro"
+                "Unity.TextMeshPro",
+                "Unity.InputSystem" // Опциональная ссылка на Input System
             };
 
             if (_projectType == ProjectType.Multiplayer)
@@ -439,7 +440,13 @@ namespace ProtoSystem.Editor
             sb.AppendLine("    \"precompiledReferences\": [],");
             sb.AppendLine("    \"autoReferenced\": true,");
             sb.AppendLine("    \"defineConstraints\": [],");
-            sb.AppendLine("    \"versionDefines\": [],");
+            sb.AppendLine("    \"versionDefines\": [");
+            sb.AppendLine("        {");
+            sb.AppendLine("            \"name\": \"com.unity.inputsystem\",");
+            sb.AppendLine("            \"expression\": \"\",");
+            sb.AppendLine("            \"define\": \"PROTO_HAS_INPUT_SYSTEM\"");
+            sb.AppendLine("        }");
+            sb.AppendLine("    ],");
             sb.AppendLine("    \"noEngineReferences\": false");
             sb.AppendLine("}");
 
