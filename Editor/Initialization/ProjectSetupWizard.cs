@@ -887,8 +887,8 @@ namespace ProtoSystem.Editor
                                     yield return new UITransitionDefinition(""MainMenuWindow"", ""SettingsWindow"", ""settings"", TransitionAnimation.Fade);
                                     yield return new UITransitionDefinition(""MainMenuWindow"", ""CreditsWindow"", ""credits"", TransitionAnimation.Fade);
                                     yield return new UITransitionDefinition(""MainMenuWindow"", ""GameHUDWindow"", ""start_game"", TransitionAnimation.SlideLeft);
-                                    yield return new UITransitionDefinition(""GameHUDWindow"", ""PauseMenuWindow"", ""pause"", TransitionAnimation.Instant);
-                                    yield return new UITransitionDefinition(""PauseMenuWindow"", ""GameHUDWindow"", ""resume"", TransitionAnimation.Instant);
+                                    yield return new UITransitionDefinition(""GameHUDWindow"", ""PauseMenuWindow"", ""pause"", TransitionAnimation.None);
+                                    yield return new UITransitionDefinition(""PauseMenuWindow"", ""GameHUDWindow"", ""resume"", TransitionAnimation.None);
                                     yield return new UITransitionDefinition(""PauseMenuWindow"", ""MainMenuWindow"", ""quit"", TransitionAnimation.Fade);
                                 }}
 
