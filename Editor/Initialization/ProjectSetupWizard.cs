@@ -482,7 +482,6 @@ namespace ProtoSystem.Editor
         private void CreateUIWindowGraph()
         {
             // Путь: Assets/Resources/ProtoSystem/UIWindowGraph.asset
-            const string RESOURCE_PATH = "Assets/Resources/ProtoSystem";
             const string ASSET_PATH = "Assets/Resources/ProtoSystem/UIWindowGraph.asset";
             
             // Проверка существования
@@ -810,107 +809,56 @@ namespace ProtoSystem.Editor
 
             Debug.Log("✅ ExampleGameplayInitializer.cs created!");
         }
-        
-                                private void CreateExampleInitializerScript()
-                                {
-                                    string scriptPath = $"{_rootFolder}/Scripts/UI/ExampleGameplayInitializer.cs";
-                                    string scriptFolder = $"{_rootFolder}/Scripts/UI";
 
-                                    // Создать папку если не существует
-                                    if (!AssetDatabase.IsValidFolder(scriptFolder))
-                                    {
-                                        string scriptsFolder = $"{_rootFolder}/Scripts";
-                                        if (!AssetDatabase.IsValidFolder(scriptsFolder))
-                                            AssetDatabase.CreateFolder(_rootFolder, "Scripts");
-                                        AssetDatabase.CreateFolder(scriptsFolder, "UI");
-                                    }
+        private void CreateExampleInitializerScript()
+        {
+            string scriptPath = $"{_rootFolder}/Scripts/UI/ExampleGameplayInitializer.cs";
+            string scriptFolder = $"{_rootFolder}/Scripts/UI";
 
-                                    // Проверить существование
-                                    if (File.Exists(scriptPath))
-                                    {
-                                        Debug.LogWarning("ExampleGameplayInitializer.cs already exists!");
-                                        return;
-                                    }
+            EnsureFolderPath($"{_rootFolder}/Scripts");
+            EnsureFolderPath(scriptFolder);
 
-                                    string template = $@"// {scriptPath}
-                        using System.Collections.Generic;
-                        using UnityEngine;
-                        using ProtoSystem.UI;
+            if (File.Exists(scriptPath))
+            {
+                Debug.LogWarning("ExampleGameplayInitializer.cs already exists!");
+                return;
+            }
 
-                        namespace {_namespace}.UI
-                        {{
-                            /// <summary>
-                            /// Пример инициализатора UI для {_projectName}.
-                            /// Демонстрирует программную настройку UI flow с использованием ProtoSystem.
-                            /// </summary>
-                            [AddComponentMenu(""{_projectName}/UI/Example Gameplay Initializer"")]
-                            public class ExampleGameplayInitializer : UISceneInitializerBase
-                            {{
-                                [Header(""Settings"")]
-                                [SerializeField] private bool skipMainMenu = false;
+            // Template lives in the package to keep generation stable and analyzable.
+            const string templateAssetPath = "Packages/com.protosystem.core/Editor/Initialization/Templates/ExampleGameplayInitializer.cs.txt";
+            var templateAsset = AssetDatabase.LoadAssetAtPath<TextAsset>(templateAssetPath);
+            if (templateAsset == null)
+                throw new FileNotFoundException($"Template not found at '{templateAssetPath}'.");
 
-                                private UINavigator _navigator;
-                                private bool _gameStarted = false;
+            string content = templateAsset.text
+                .Replace("{{NAMESPACE}}", _namespace)
+                .Replace("{{PROJECT_NAME}}", _projectName);
 
-                                public override string StartWindowId => skipMainMenu ? ""GameHUD"" : ""MainMenu"";
+            File.WriteAllText(scriptPath, content, System.Text.Encoding.UTF8);
+        }
 
-                                public override IEnumerable<string> StartupWindowOrder
-                                {{
-                                    get
-                                    {{
-                                        yield return skipMainMenu ? ""GameHUD"" : ""MainMenu"";
-                                    }}
-                                }}
+        private static void EnsureFolderPath(string folder)
+        {
+            if (string.IsNullOrEmpty(folder))
+                return;
 
-                                public override void Initialize(UISystem uiSystem)
-                                {{
-                                    _navigator = uiSystem.Navigator;
-                                    _navigator.OnNavigated += OnNavigated;
+            folder = folder.Replace('\\', '/');
+            if (AssetDatabase.IsValidFolder(folder))
+                return;
 
-                                    foreach (var windowId in StartupWindowOrder)
-                                    {{
-                                        var result = uiSystem.Navigator.Open(windowId);
-                                        if (result == NavigationResult.Success && windowId == ""GameHUD"")
-                                            OnGameStarted();
-                                    }}
-                                }}
+            string[] parts = folder.Split('/');
+            if (parts.Length == 0)
+                return;
 
-                                private void OnNavigated(NavigationEventData data)
-                                {{
-                                    if (data.ToWindowId == ""GameHUD"" && data.Result == NavigationResult.Success)
-                                        OnGameStarted();
-                                    else if (data.ToWindowId == ""MainMenu"")
-                                        _gameStarted = false;
-                                }}
-
-#endif
-
-                                    if (_navigator != null)
-                                        _navigator.OnNavigated -= OnNavigated;
-                                }}
-
-                                private void HandleEscape()
-                                {{
-                                    var current = _uiSystem.Navigator.CurrentWindow;
-                                    if (current?.WindowId == ""GameHUD"")
-                                        _uiSystem.Navigator.Navigate(""pause"");
-                                    else if (current?.WindowId == ""PauseMenu"")
-                                        UISystem.Back();
-                                    else if (current?.WindowId != ""MainMenu"")
-                                        UISystem.Back();
-                                }}
-
-                                private void OnDestroy()
-                                {{
-                                    if (UISystem.Instance?.Navigator != null)
-                                        UISystem.Instance.Navigator.OnNavigated -= OnNavigated;
-                                }}
-                            }}
-                        }}
-                        ";
-
-                                    File.WriteAllText(scriptPath, template, System.Text.Encoding.UTF8);
-                                }
+            string current = parts[0];
+            for (int i = 1; i < parts.Length; i++)
+            {
+                string next = $"{current}/{parts[i]}";
+                if (!AssetDatabase.IsValidFolder(next))
+                    AssetDatabase.CreateFolder(current, parts[i]);
+                current = next;
+            }
+        }
         
         private void AddNetcodeReferences()
         {

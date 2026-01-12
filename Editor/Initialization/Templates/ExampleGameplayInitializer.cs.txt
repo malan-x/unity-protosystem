@@ -1,0 +1,76 @@
+// This file is copied by ProjectSetupWizard into the target project as ExampleGameplayInitializer.cs
+// Placeholders:
+//   {{NAMESPACE}}    -> project namespace
+//   {{PROJECT_NAME}} -> project name (for AddComponentMenu)
+
+using System.Collections.Generic;
+using UnityEngine;
+using ProtoSystem.UI;
+
+namespace {{NAMESPACE}}.UI
+{
+    /// <summary>
+    /// Example UI scene initializer.
+    /// Sets initial window(s) and optional extra transitions.
+    /// </summary>
+    [AddComponentMenu("{{PROJECT_NAME}}/UI/Example Gameplay Initializer")]
+    public class ExampleGameplayInitializer : UISceneInitializerBase
+    {
+        [Header("Settings")]
+        [SerializeField] private bool skipMainMenu = false;
+
+        private UINavigator _navigator;
+        private bool _gameStarted;
+
+        // Window IDs are ids from [UIWindow("...")] attributes (graph ids), not prefab/class names.
+        public override string StartWindowId => skipMainMenu ? "GameHUD" : "MainMenu";
+
+        public override IEnumerable<string> StartupWindowOrder
+        {
+            get { yield return StartWindowId; }
+        }
+
+        public override void Initialize(UISystem uiSystem)
+        {
+            _navigator = uiSystem.Navigator;
+            _navigator.OnNavigated += OnNavigated;
+
+            foreach (var windowId in StartupWindowOrder)
+            {
+                var result = _navigator.Open(windowId);
+                if (result == NavigationResult.Success && windowId == "GameHUD")
+                    OnGameStarted();
+            }
+        }
+
+        private void OnNavigated(NavigationEventData data)
+        {
+            if (data.ToWindowId == "GameHUD" && data.Result == NavigationResult.Success)
+                OnGameStarted();
+            else if (data.ToWindowId == "MainMenu")
+                _gameStarted = false;
+        }
+
+        private void OnGameStarted()
+        {
+            if (_gameStarted) return;
+            _gameStarted = true;
+        }
+
+        public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()
+        {
+            // Base windows already declare these via attributes; this is a code-first example.
+            yield return new UITransitionDefinition("MainMenu", "Settings", "settings", TransitionAnimation.Fade);
+            yield return new UITransitionDefinition("MainMenu", "Credits", "credits", TransitionAnimation.Fade);
+            yield return new UITransitionDefinition("MainMenu", "GameHUD", "play", TransitionAnimation.SlideLeft);
+            yield return new UITransitionDefinition("GameHUD", "PauseMenu", "pause", TransitionAnimation.None);
+            yield return new UITransitionDefinition("PauseMenu", "MainMenu", "mainmenu", TransitionAnimation.Fade);
+        }
+
+        private void OnDestroy()
+        {
+            if (_navigator != null)
+                _navigator.OnNavigated -= OnNavigated;
+        }
+    }
+}
