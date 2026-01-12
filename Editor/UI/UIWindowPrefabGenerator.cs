@@ -16,6 +16,7 @@ namespace ProtoSystem.UI
     public static class UIWindowPrefabGenerator
     {
         private const string DEFAULT_PREFAB_PATH = "Assets/Prefabs/UI/Windows";
+        private const string OUTPUT_PATH_PREF_KEY = "ProtoSystem.UI.PrefabGenerator.OutputPath";
         
         // Текущая конфигурация стиля (может быть null для старого режима)
         private static UIStyleConfiguration currentStyleConfig;
@@ -33,6 +34,7 @@ namespace ProtoSystem.UI
         {
             currentStyleConfig = config;
             currentOutputPath = outputPath;
+            RememberOutputPath(outputPath);
             
             try
             {
@@ -48,7 +50,7 @@ namespace ProtoSystem.UI
         [MenuItem("ProtoSystem/UI/Prefabs/Generate Default UI Prefabs", priority = 100)]
         public static void GenerateAllBaseWindows()
         {
-            string prefabPath = string.IsNullOrEmpty(currentOutputPath) ? DEFAULT_PREFAB_PATH : currentOutputPath;
+            string prefabPath = ResolveOutputPath();
             EnsureFolder(prefabPath);
 
             int created = 0;
@@ -74,6 +76,58 @@ namespace ProtoSystem.UI
             UIWindowGraphBuilder.RebuildGraph();
 
             Debug.Log($"[UIWindowPrefabGenerator] Created {created} prefabs. Graph rebuilt.");
+        }
+        
+        private static string ResolveOutputPath()
+        {
+            if (!string.IsNullOrEmpty(currentOutputPath))
+            {
+                return NormalizeAssetPath(currentOutputPath);
+            }
+
+            var remembered = EditorPrefs.GetString(OUTPUT_PATH_PREF_KEY, string.Empty);
+            if (!string.IsNullOrEmpty(remembered))
+            {
+                remembered = NormalizeAssetPath(remembered);
+                if (remembered.StartsWith("Assets/"))
+                {
+                    return remembered;
+                }
+            }
+
+            return DEFAULT_PREFAB_PATH;
+        }
+
+        private static void RememberOutputPath(string outputPath)
+        {
+            outputPath = NormalizeAssetPath(outputPath);
+            if (string.IsNullOrEmpty(outputPath))
+            {
+                return;
+            }
+
+            if (!outputPath.StartsWith("Assets/"))
+            {
+                return;
+            }
+
+            EditorPrefs.SetString(OUTPUT_PATH_PREF_KEY, outputPath);
+        }
+
+        private static string NormalizeAssetPath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return path;
+            }
+
+            path = path.Replace('\\', '/');
+            while (path.EndsWith("/"))
+            {
+                path = path.Substring(0, path.Length - 1);
+            }
+
+            return path;
         }
 
         #region Individual Generators
@@ -2275,8 +2329,10 @@ namespace ProtoSystem.UI
 
         private static bool SavePrefab(GameObject instance, string name)
         {
-            string basePath = string.IsNullOrEmpty(currentOutputPath) ? DEFAULT_PREFAB_PATH : currentOutputPath;
+            string basePath = ResolveOutputPath();
+            EnsureFolder(basePath);
             string path = $"{basePath}/{name}.prefab";
+            path = path.Replace("\\", "/");
 
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (existing != null)
