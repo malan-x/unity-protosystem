@@ -62,6 +62,11 @@ namespace ProtoSystem.UI
             if (GenerateCredits()) created++;
             if (GenerateLoading()) created++;
 
+            // Dialog windows (modals) used by DialogBuilder
+            if (GenerateConfirmDialog()) created++;
+            if (GenerateInputDialog()) created++;
+            if (GenerateChoiceDialog()) created++;
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
@@ -289,6 +294,159 @@ namespace ProtoSystem.UI
             SetField(component, "titleText", titleText);
 
             return SavePrefab(root, "PauseMenuWindow");
+        }
+
+        [MenuItem("ProtoSystem/UI/Generate Window/Dialogs/Confirm Dialog", priority = 124)]
+        public static bool GenerateConfirmDialog()
+        {
+            var root = CreateDialogBase("ConfirmDialog", new Vector2(400, 200));
+            var content = root.transform.Find("Content");
+            var header = root.transform.Find("Header");
+
+            var titleText = header.Find("Title").GetComponent<TMP_Text>();
+
+            var messageGO = CreateText("Message", content, "Вы уверены?", 18);
+            var messageRect = messageGO.GetComponent<RectTransform>();
+            messageRect.anchorMin = new Vector2(0, 0.4f);
+            messageRect.anchorMax = new Vector2(1, 0.8f);
+            messageRect.offsetMin = new Vector2(20, 0);
+            messageRect.offsetMax = new Vector2(-20, 0);
+            var messageText = messageGO.GetComponent<TMP_Text>();
+
+            var buttonsContainer = CreateButtonsContainer(content);
+            var yesButtonGO = CreateButton("YesButton", buttonsContainer.transform, "Да", new Vector2(120, 40));
+            var noButtonGO = CreateButton("NoButton", buttonsContainer.transform, "Нет", new Vector2(120, 40));
+
+            var yesButton = yesButtonGO.GetComponent<Button>();
+            var noButton = noButtonGO.GetComponent<Button>();
+            var yesButtonText = yesButtonGO.transform.Find("Text").GetComponent<TMP_Text>();
+            var noButtonText = noButtonGO.transform.Find("Text").GetComponent<TMP_Text>();
+
+            var dialogComponent = root.AddComponent<ConfirmDialogWindow>();
+            SetField(dialogComponent, "titleText", titleText);
+            SetField(dialogComponent, "messageText", messageText);
+            SetField(dialogComponent, "yesButton", yesButton);
+            SetField(dialogComponent, "noButton", noButton);
+            SetField(dialogComponent, "yesButtonText", yesButtonText);
+            SetField(dialogComponent, "noButtonText", noButtonText);
+
+            return SavePrefab(root, "ConfirmDialog");
+        }
+
+        [MenuItem("ProtoSystem/UI/Generate Window/Dialogs/Input Dialog", priority = 125)]
+        public static bool GenerateInputDialog()
+        {
+            var root = CreateDialogBase("InputDialog", new Vector2(400, 250));
+            var content = root.transform.Find("Content");
+            var header = root.transform.Find("Header");
+
+            var titleText = header.Find("Title").GetComponent<TMP_Text>();
+
+            var messageGO = CreateText("Message", content, "Введите значение:", 18);
+            var messageRect = messageGO.GetComponent<RectTransform>();
+            messageRect.anchorMin = new Vector2(0, 0.65f);
+            messageRect.anchorMax = new Vector2(1, 0.85f);
+            messageRect.offsetMin = new Vector2(20, 0);
+            messageRect.offsetMax = new Vector2(-20, 0);
+            var messageText = messageGO.GetComponent<TMP_Text>();
+
+            var inputGO = CreateTMPInputField("InputField", content);
+            var inputRect = inputGO.GetComponent<RectTransform>();
+            inputRect.anchorMin = new Vector2(0, 0.4f);
+            inputRect.anchorMax = new Vector2(1, 0.6f);
+            inputRect.offsetMin = new Vector2(20, 0);
+            inputRect.offsetMax = new Vector2(-20, 0);
+            var inputField = inputGO.GetComponent<TMP_InputField>();
+
+            var errorGO = CreateText("ErrorText", content, "", 14);
+            var errorRect = errorGO.GetComponent<RectTransform>();
+            errorRect.anchorMin = new Vector2(0, 0.25f);
+            errorRect.anchorMax = new Vector2(1, 0.38f);
+            errorRect.offsetMin = new Vector2(20, 0);
+            errorRect.offsetMax = new Vector2(-20, 0);
+            var errorText = errorGO.GetComponent<TMP_Text>();
+            errorText.color = new Color(1f, 0.4f, 0.4f);
+            errorText.fontSize = 14;
+
+            var buttonsContainer = CreateButtonsContainer(content);
+            var submitButtonGO = CreateButton("SubmitButton", buttonsContainer.transform, "OK", new Vector2(120, 40));
+            var cancelButtonGO = CreateButton("CancelButton", buttonsContainer.transform, "Отмена", new Vector2(120, 40));
+
+            var submitButton = submitButtonGO.GetComponent<Button>();
+            var cancelButton = cancelButtonGO.GetComponent<Button>();
+            var submitButtonText = submitButtonGO.transform.Find("Text").GetComponent<TMP_Text>();
+            var cancelButtonText = cancelButtonGO.transform.Find("Text").GetComponent<TMP_Text>();
+
+            var dialogComponent = root.AddComponent<InputDialogWindow>();
+            SetField(dialogComponent, "titleText", titleText);
+            SetField(dialogComponent, "messageText", messageText);
+            SetField(dialogComponent, "inputField", inputField);
+            SetField(dialogComponent, "errorText", errorText);
+            SetField(dialogComponent, "submitButton", submitButton);
+            SetField(dialogComponent, "cancelButton", cancelButton);
+            SetField(dialogComponent, "submitButtonText", submitButtonText);
+            SetField(dialogComponent, "cancelButtonText", cancelButtonText);
+
+            return SavePrefab(root, "InputDialog");
+        }
+
+        [MenuItem("ProtoSystem/UI/Generate Window/Dialogs/Choice Dialog", priority = 126)]
+        public static bool GenerateChoiceDialog()
+        {
+            var root = CreateDialogBase("ChoiceDialog", new Vector2(400, 300));
+            var content = root.transform.Find("Content");
+            var header = root.transform.Find("Header");
+
+            var titleText = header.Find("Title").GetComponent<TMP_Text>();
+
+            var messageGO = CreateText("Message", content, "Выберите вариант:", 18);
+            var messageRect = messageGO.GetComponent<RectTransform>();
+            messageRect.anchorMin = new Vector2(0, 0.8f);
+            messageRect.anchorMax = new Vector2(1, 0.95f);
+            messageRect.offsetMin = new Vector2(20, 0);
+            messageRect.offsetMax = new Vector2(-20, 0);
+            var messageText = messageGO.GetComponent<TMP_Text>();
+
+            var choicesGO = new GameObject("ChoicesContainer");
+            choicesGO.transform.SetParent(content, false);
+            var choicesRect = choicesGO.AddComponent<RectTransform>();
+            choicesRect.anchorMin = new Vector2(0, 0.2f);
+            choicesRect.anchorMax = new Vector2(1, 0.75f);
+            choicesRect.offsetMin = new Vector2(20, 0);
+            choicesRect.offsetMax = new Vector2(-20, 0);
+
+            var vlg = choicesGO.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = 10;
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+
+            var choiceTemplate = CreateButton("ChoiceButtonTemplate", choicesGO.transform, "Вариант", new Vector2(0, 40));
+            var choiceLE = choiceTemplate.AddComponent<LayoutElement>();
+            choiceLE.preferredHeight = 40;
+            choiceTemplate.SetActive(false);
+            var choiceButton = choiceTemplate.GetComponent<Button>();
+
+            var cancelContainer = CreateButtonsContainer(content);
+            var cancelRect = cancelContainer.GetComponent<RectTransform>();
+            cancelRect.anchorMin = new Vector2(0, 0);
+            cancelRect.anchorMax = new Vector2(1, 0.18f);
+
+            var cancelButtonGO = CreateButton("CancelButton", cancelContainer.transform, "Отмена", new Vector2(120, 40));
+            var cancelButton = cancelButtonGO.GetComponent<Button>();
+            var cancelButtonText = cancelButtonGO.transform.Find("Text").GetComponent<TMP_Text>();
+
+            var dialogComponent = root.AddComponent<ChoiceDialogWindow>();
+            SetField(dialogComponent, "titleText", titleText);
+            SetField(dialogComponent, "messageText", messageText);
+            SetField(dialogComponent, "choicesContainer", choicesGO.transform);
+            SetField(dialogComponent, "choiceButtonTemplate", choiceButton);
+            SetField(dialogComponent, "cancelButton", cancelButton);
+            SetField(dialogComponent, "cancelButtonText", cancelButtonText);
+
+            return SavePrefab(root, "ChoiceDialog");
         }
 
         [MenuItem("ProtoSystem/UI/Generate Window/Settings", priority = 124)]
@@ -2000,6 +2158,119 @@ namespace ProtoSystem.UI
                 }
                 current = next;
             }
+        }
+
+        private static GameObject CreateDialogBase(string name, Vector2 size)
+        {
+            var root = new GameObject(name);
+            var rootRect = root.AddComponent<RectTransform>();
+            rootRect.sizeDelta = size;
+
+            root.AddComponent<CanvasGroup>();
+
+            // Background
+            var bg = root.AddComponent<Image>();
+            bg.color = new Color(0.2f, 0.2f, 0.2f, 1f);
+
+            // Header
+            var headerGO = new GameObject("Header");
+            headerGO.transform.SetParent(root.transform, false);
+            var headerRect = headerGO.AddComponent<RectTransform>();
+            headerRect.anchorMin = new Vector2(0, 0.85f);
+            headerRect.anchorMax = Vector2.one;
+            headerRect.offsetMin = Vector2.zero;
+            headerRect.offsetMax = Vector2.zero;
+
+            var headerBg = headerGO.AddComponent<Image>();
+            headerBg.color = new Color(0.15f, 0.15f, 0.15f, 1f);
+
+            var titleGO = CreateText("Title", headerGO.transform, "Dialog Title", 20);
+            var titleRect = titleGO.GetComponent<RectTransform>();
+            titleRect.anchorMin = Vector2.zero;
+            titleRect.anchorMax = Vector2.one;
+            titleRect.offsetMin = new Vector2(15, 0);
+            titleRect.offsetMax = new Vector2(-15, 0);
+            titleGO.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineLeft;
+
+            // Content
+            var contentGO = new GameObject("Content");
+            contentGO.transform.SetParent(root.transform, false);
+            var contentRect = contentGO.AddComponent<RectTransform>();
+            contentRect.anchorMin = Vector2.zero;
+            contentRect.anchorMax = new Vector2(1, 0.85f);
+            contentRect.offsetMin = Vector2.zero;
+            contentRect.offsetMax = Vector2.zero;
+
+            return root;
+        }
+
+        private static GameObject CreateButtonsContainer(Transform parent)
+        {
+            var go = new GameObject("Buttons");
+            go.transform.SetParent(parent, false);
+            var rect = go.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0, 0);
+            rect.anchorMax = new Vector2(1, 0.3f);
+            rect.offsetMin = new Vector2(20, 10);
+            rect.offsetMax = new Vector2(-20, -5);
+
+            var hlg = go.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 20;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childControlWidth = false;
+            hlg.childControlHeight = false;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+
+            return go;
+        }
+
+        private static GameObject CreateTMPInputField(string name, Transform parent)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.AddComponent<RectTransform>();
+
+            var img = go.AddComponent<Image>();
+            img.color = new Color(0.1f, 0.1f, 0.1f, 1f);
+
+            // Text Area
+            var textAreaGO = new GameObject("Text Area");
+            textAreaGO.transform.SetParent(go.transform, false);
+            var textAreaRect = textAreaGO.AddComponent<RectTransform>();
+            textAreaRect.anchorMin = Vector2.zero;
+            textAreaRect.anchorMax = Vector2.one;
+            textAreaRect.offsetMin = new Vector2(10, 5);
+            textAreaRect.offsetMax = new Vector2(-10, -5);
+            textAreaGO.AddComponent<RectMask2D>();
+
+            // Placeholder
+            var placeholderGO = CreateText("Placeholder", textAreaGO.transform, "Введите текст...", 16);
+            var placeholderRect = placeholderGO.GetComponent<RectTransform>();
+            placeholderRect.anchorMin = Vector2.zero;
+            placeholderRect.anchorMax = Vector2.one;
+            placeholderRect.offsetMin = Vector2.zero;
+            placeholderRect.offsetMax = Vector2.zero;
+            var placeholderTMP = placeholderGO.GetComponent<TMP_Text>();
+            placeholderTMP.alignment = TextAlignmentOptions.MidlineLeft;
+            placeholderTMP.color = new Color(0.5f, 0.5f, 0.5f, 0.5f);
+            placeholderTMP.fontStyle = FontStyles.Italic;
+
+            // Text
+            var textGO = CreateText("Text", textAreaGO.transform, "", 16);
+            var textRectT = textGO.GetComponent<RectTransform>();
+            textRectT.anchorMin = Vector2.zero;
+            textRectT.anchorMax = Vector2.one;
+            textRectT.offsetMin = Vector2.zero;
+            textRectT.offsetMax = Vector2.zero;
+            textGO.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineLeft;
+
+            var inputField = go.AddComponent<TMP_InputField>();
+            inputField.textViewport = textAreaRect;
+            inputField.textComponent = textGO.GetComponent<TMP_Text>();
+            inputField.placeholder = placeholderTMP;
+
+            return go;
         }
 
         private static bool SavePrefab(GameObject instance, string name)

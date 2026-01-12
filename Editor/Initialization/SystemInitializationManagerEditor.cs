@@ -572,12 +572,38 @@ namespace ProtoSystem
 
         private void DrawComponentRow(SystemInitializationManager manager, ProtoSystemComponentInfo component)
         {
-            EditorGUILayout.BeginHorizontal();
-            
-            // Иконка и имя
+            // GUILayout-верстка с ExpandWidth на описании может "выталкивать" кнопки вправо/на следующую строку.
+            // Делаем предсказуемую сетку: фиксированные колонки + зарезервированная область под кнопки.
+            var rowRect = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight);
+
+            const float nameWidth = 160f;
+            const float statusWidth = 25f;
+            const float buttonSmall = 25f;
+            const float buttonWide = 40f;
+            const float spacing = 4f;
+
+            bool showCreateInScene = !component.ExistsInScene;
+            bool showAddToManager = !component.ExistsInManager && component.ExistsInScene;
+            bool showCreateAndAdd = !component.ExistsInManager && !component.ExistsInScene;
+            bool showSelectInScene = component.ExistsInManager && component.SceneInstance != null;
+
+            float buttonsWidth = 0f;
+            int buttonCount = 0;
+            if (showCreateInScene) { buttonsWidth += buttonSmall; buttonCount++; }
+            if (showAddToManager) { buttonsWidth += buttonSmall; buttonCount++; }
+            if (showCreateAndAdd) { buttonsWidth += buttonWide; buttonCount++; }
+            if (showSelectInScene) { buttonsWidth += buttonSmall; buttonCount++; }
+            if (buttonCount > 1) buttonsWidth += spacing * (buttonCount - 1);
+
+            var nameRect = new Rect(rowRect.x, rowRect.y, nameWidth, rowRect.height);
+            var statusRect = new Rect(nameRect.xMax + spacing, rowRect.y, statusWidth, rowRect.height);
+            var buttonsRect = new Rect(rowRect.xMax - buttonsWidth, rowRect.y, buttonsWidth, rowRect.height);
+            var descRect = new Rect(statusRect.xMax + spacing, rowRect.y, buttonsRect.xMin - (statusRect.xMax + spacing * 2), rowRect.height);
+            if (descRect.width < 0) descRect.width = 0;
+
+            // Статус
             string statusIcon;
             Color statusColor;
-            
             if (component.ExistsInManager)
             {
                 statusIcon = "✅";
@@ -593,58 +619,52 @@ namespace ProtoSystem
                 statusIcon = "⭕";
                 statusColor = Color.gray;
             }
-            
+
             var oldColor = GUI.color;
             GUI.color = statusColor;
-            EditorGUILayout.LabelField($"{component.Icon} {component.DisplayName}", GUILayout.Width(160));
+            EditorGUI.LabelField(nameRect, $"{component.Icon} {component.DisplayName}");
             GUI.color = oldColor;
-            
-            // Статус
-            EditorGUILayout.LabelField(statusIcon, GUILayout.Width(25));
-            
-            // Описание (tooltip)
-            var descRect = GUILayoutUtility.GetRect(new GUIContent(component.Description), EditorStyles.miniLabel, GUILayout.ExpandWidth(true));
-            EditorGUI.LabelField(descRect, new GUIContent(TruncateString(component.Description, 35), component.Description), EditorStyles.miniLabel);
-            
-            // Кнопки действий
-            if (!component.ExistsInScene)
+
+            EditorGUI.LabelField(statusRect, statusIcon, EditorStyles.label);
+
+            var descContent = new GUIContent(TruncateString(component.Description, 35), component.Description);
+            EditorGUI.LabelField(descRect, descContent, EditorStyles.miniLabel);
+
+            // Кнопки справа (в фиксированной области)
+            float bx = buttonsRect.x;
+            if (showCreateInScene)
             {
-                if (GUILayout.Button(new GUIContent("🔨", "Создать в сцене"), GUILayout.Width(25)))
+                if (GUI.Button(new Rect(bx, rowRect.y, buttonSmall, rowRect.height), new GUIContent("🔨", "Создать в сцене")))
                 {
                     ProtoSystemComponentsUtility.CreateComponentInScene(component.Type, manager.transform);
                 }
+                bx += buttonSmall + spacing;
             }
-            
-            if (!component.ExistsInManager)
+
+            if (showAddToManager)
             {
-                if (component.ExistsInScene)
+                if (GUI.Button(new Rect(bx, rowRect.y, buttonSmall, rowRect.height), new GUIContent("➕", "Добавить в менеджер")))
                 {
-                    if (GUILayout.Button(new GUIContent("➕", "Добавить в менеджер"), GUILayout.Width(25)))
-                    {
-                        ProtoSystemComponentsUtility.AddToManager(manager, component);
-                    }
+                    ProtoSystemComponentsUtility.AddToManager(manager, component);
                 }
-                else
-                {
-                    if (GUILayout.Button(new GUIContent("➕🔨", "Создать и добавить"), GUILayout.Width(40)))
-                    {
-                        ProtoSystemComponentsUtility.CreateAndAddToManager(manager, component);
-                    }
-                }
+                bx += buttonSmall + spacing;
             }
-            else
+            else if (showCreateAndAdd)
             {
-                // Кнопка выбора в сцене
-                if (component.SceneInstance != null)
+                if (GUI.Button(new Rect(bx, rowRect.y, buttonWide, rowRect.height), new GUIContent("➕🔨", "Создать и добавить")))
                 {
-                    if (GUILayout.Button(new GUIContent("🎯", "Выбрать в сцене"), GUILayout.Width(25)))
-                    {
-                        Selection.activeGameObject = component.SceneInstance.gameObject;
-                    }
+                    ProtoSystemComponentsUtility.CreateAndAddToManager(manager, component);
                 }
+                bx += buttonWide + spacing;
             }
-            
-            EditorGUILayout.EndHorizontal();
+            else if (showSelectInScene)
+            {
+                if (GUI.Button(new Rect(bx, rowRect.y, buttonSmall, rowRect.height), new GUIContent("🎯", "Выбрать в сцене")))
+                {
+                    Selection.activeGameObject = component.SceneInstance.gameObject;
+                }
+                bx += buttonSmall + spacing;
+            }
         }
 
         private string TruncateString(string str, int maxLength)

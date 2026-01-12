@@ -593,15 +593,27 @@ namespace ProtoSystem.Editor
 
             // Также генерируем базовые окна ProtoSystem (MainMenu/GameHUD/PauseMenu/...) в стандартный путь.
             // Это важно для проектов, где нет своих наследников/замен и окна нужны "из коробки".
-            // Если уже существует MainMenuWindow.prefab — не трогаем, чтобы не спамить диалогами overwrite.
-            const string mainMenuPrefabPath = "Assets/Prefabs/UI/Windows/MainMenuWindow.prefab";
-            if (AssetDatabase.LoadAssetAtPath<GameObject>(mainMenuPrefabPath) == null)
+            // Генерируем в папку проекта, чтобы ассеты не терялись среди чужих префабов.
+            var windowsFolder = $"{_rootFolder}/Prefabs/UI/Windows";
+            var mainMenuPrefabPath = $"{windowsFolder}/MainMenuWindow.prefab";
+            var confirmDialogPrefabPath = $"{windowsFolder}/ConfirmDialog.prefab";
+            var inputDialogPrefabPath = $"{windowsFolder}/InputDialog.prefab";
+            var choiceDialogPrefabPath = $"{windowsFolder}/ChoiceDialog.prefab";
+
+            bool needWindows =
+                AssetDatabase.LoadAssetAtPath<GameObject>(mainMenuPrefabPath) == null ||
+                AssetDatabase.LoadAssetAtPath<GameObject>(confirmDialogPrefabPath) == null ||
+                AssetDatabase.LoadAssetAtPath<GameObject>(inputDialogPrefabPath) == null ||
+                AssetDatabase.LoadAssetAtPath<GameObject>(choiceDialogPrefabPath) == null;
+
+            if (needWindows)
             {
-                UIWindowPrefabGenerator.GenerateAllBaseWindows();
+                // Через GenerateWithSprites, чтобы generator уважал outputPath.
+                UIWindowPrefabGenerator.GenerateWithSprites(null, windowsFolder);
             }
             else
             {
-                Debug.Log($"[ProjectSetupWizard] Base windows already exist at '{mainMenuPrefabPath}', skipping generation.");
+                Debug.Log($"[ProjectSetupWizard] Base UI prefabs already exist in '{windowsFolder}', skipping generation.");
             }
             
             AssetDatabase.SaveAssets();
