@@ -55,11 +55,26 @@ namespace ProtoSystem.UI
             if (string.IsNullOrEmpty(trigger))
                 return Fail(NavigationResult.TriggerNotFound, null, null, trigger);
 
-            // Если есть модальное окно — проверяем его переходы
-            string fromId = CurrentModal?.WindowId ?? CurrentWindow?.WindowId ?? "";
+            // Если есть модальное окно — сначала проверяем переходы модального.
+            // Если в модальном перехода нет, обычно ожидаем, что триггер относится
+            // к "подложке" (CurrentWindow), например ConfirmDialog поверх PauseMenu.
+            string modalFromId = CurrentModal?.WindowId;
+            string windowFromId = CurrentWindow?.WindowId;
 
-            // Ищем переход в графе
-            var transition = _graph?.FindTransition(fromId, trigger);
+            TransitionDefinition transition = null;
+            string fromId = "";
+
+            if (!string.IsNullOrEmpty(modalFromId))
+            {
+                transition = _graph?.FindTransition(modalFromId, trigger);
+                fromId = modalFromId;
+            }
+
+            if (transition == null && !string.IsNullOrEmpty(windowFromId))
+            {
+                transition = _graph?.FindTransition(windowFromId, trigger);
+                fromId = windowFromId;
+            }
 
             Debug.Log($"[UINavigator] Navigate('{trigger}') from '{fromId}' -> {(transition != null ? transition.toWindowId : "NOT FOUND")}");
 
