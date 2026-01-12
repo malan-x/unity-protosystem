@@ -452,6 +452,25 @@ namespace ProtoSystem.UI
 
         private void OnBackPressed(object data)
         {
+            // Give the active window a chance to handle Back/Escape.
+            // This enables window-specific behavior (e.g. GameHUD -> open PauseMenu) and prevents
+            // generic stack back from overriding custom flows.
+            var modal = Navigator?.CurrentModal;
+            if (modal != null)
+            {
+                if (modal.AllowBack)
+                    modal.OnBackPressed();
+                return;
+            }
+
+            var current = Navigator?.CurrentWindow;
+            if (current != null)
+            {
+                if (current.AllowBack)
+                    current.OnBackPressed();
+                return;
+            }
+
             if (CanGoBack)
                 Back();
         }

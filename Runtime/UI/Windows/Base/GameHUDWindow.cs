@@ -50,6 +50,12 @@ namespace ProtoSystem.UI
             // Но можно добавить дополнительную логику здесь
         }
 
+        public override void OnBackPressed()
+        {
+            // In gameplay we treat Back/Escape as pause toggle.
+            UISystem.Navigate("pause");
+        }
+
         protected virtual void OnPauseClicked()
         {
             UISystem.Navigate("pause");

@@ -849,7 +849,7 @@ namespace ProtoSystem.Editor
                                 [Header(""Settings"")]
                                 [SerializeField] private bool skipMainMenu = false;
 
-                                private UISystem _uiSystem;
+                                private UINavigator _navigator;
                                 private bool _gameStarted = false;
 
                                 public override string StartWindowId => skipMainMenu ? ""GameHUD"" : ""MainMenu"";
@@ -864,8 +864,8 @@ namespace ProtoSystem.Editor
 
                                 public override void Initialize(UISystem uiSystem)
                                 {{
-                                    _uiSystem = uiSystem;
-                                    uiSystem.Navigator.OnNavigated += OnNavigated;
+                                    _navigator = uiSystem.Navigator;
+                                    _navigator.OnNavigated += OnNavigated;
 
                                     foreach (var windowId in StartupWindowOrder)
                                     {{
@@ -883,37 +883,10 @@ namespace ProtoSystem.Editor
                                         _gameStarted = false;
                                 }}
 
-                                private void OnGameStarted()
-                                {{
-                                    if (_gameStarted) return;
-                                    _gameStarted = true;
-                                }}
-
-                                public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()
-                                {{
-                                    // NOTE: Window IDs are taken from the [UIWindow] attribute (graph ids), NOT prefab/class names.
-                                    // Base windows already declare these transitions via attributes, but we keep them here as a readable code-first example.
-                                    yield return new UITransitionDefinition(""MainMenu"", ""Settings"", ""settings"", TransitionAnimation.Fade);
-                                    yield return new UITransitionDefinition(""MainMenu"", ""Credits"", ""credits"", TransitionAnimation.Fade);
-                                    yield return new UITransitionDefinition(""MainMenu"", ""GameHUD"", ""play"", TransitionAnimation.SlideLeft);
-                                    yield return new UITransitionDefinition(""GameHUD"", ""PauseMenu"", ""pause"", TransitionAnimation.None);
-                                    yield return new UITransitionDefinition(""PauseMenu"", ""MainMenu"", ""mainmenu"", TransitionAnimation.Fade);
-                                }}
-
-                                private void Update()
-                                {{
-                                    if (_uiSystem == null) return;
-
-                                    bool escapePressed = false;
-
-#if PROTO_HAS_INPUT_SYSTEM
-                                    escapePressed = UnityEngine.InputSystem.Keyboard.current?.escapeKey.wasPressedThisFrame == true;
-#else
-                                    escapePressed = Input.GetKeyDown(KeyCode.Escape);
 #endif
 
-                                    if (escapePressed)
-                                        HandleEscape();
+                                    if (_navigator != null)
+                                        _navigator.OnNavigated -= OnNavigated;
                                 }}
 
                                 private void HandleEscape()
@@ -929,8 +902,8 @@ namespace ProtoSystem.Editor
 
                                 private void OnDestroy()
                                 {{
-                                    if (_uiSystem?.Navigator != null)
-                                        _uiSystem.Navigator.OnNavigated -= OnNavigated;
+                                    if (UISystem.Instance?.Navigator != null)
+                                        UISystem.Instance.Navigator.OnNavigated -= OnNavigated;
                                 }}
                             }}
                         }}

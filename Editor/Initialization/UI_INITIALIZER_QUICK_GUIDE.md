@@ -49,16 +49,7 @@ public class ExampleGameplayInitializer : UISceneInitializerBase
         // ...
     }
     
-    // Поддержка обоих Input System
-    private void Update()
-    {
-#if ENABLE_LEGACY_INPUT_MANAGER
-        if (Input.GetKeyDown(KeyCode.Escape))
-#elif ENABLE_INPUT_SYSTEM
-        if (UnityEngine.InputSystem.Keyboard.current?.escapeKey.wasPressedThisFrame == true)
-#endif
-            HandleEscape();
-    }
+        // Back/Escape обрабатывается внутри UISystem и делегируется активному окну через OnBackPressed().
 }
 ```
 
@@ -86,14 +77,8 @@ public override string StartWindowId => "GameHUD";
 yield return new UITransitionDefinition("GameHUD", "Shop", "open_shop", Fade);
 ```
 
-### Обработать input:
-```csharp
-#if ENABLE_INPUT_SYSTEM
-if (UnityEngine.InputSystem.Keyboard.current?.f1Key.wasPressedThisFrame == true)
-#else
-if (Input.GetKeyDown(KeyCode.F1))
-#endif
-```
+### Обработать Back/Escape:
+✅ Переопределите `OnBackPressed()` в нужном окне (например, `GameHUDWindow` открывает PauseMenu).
 
 ---
 
