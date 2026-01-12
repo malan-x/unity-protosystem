@@ -45,7 +45,7 @@ namespace ProtoSystem.UI
             }
         }
 
-        [MenuItem("ProtoSystem/UI/Generate Base Windows", priority = 120)]
+        [MenuItem("ProtoSystem/UI/Prefabs/Generate Default UI Prefabs", priority = 100)]
         public static void GenerateAllBaseWindows()
         {
             string prefabPath = string.IsNullOrEmpty(currentOutputPath) ? DEFAULT_PREFAB_PATH : currentOutputPath;
@@ -78,7 +78,7 @@ namespace ProtoSystem.UI
 
         #region Individual Generators
 
-        [MenuItem("ProtoSystem/UI/Generate Window/Main Menu", priority = 121)]
+        [MenuItem("ProtoSystem/UI/Prefabs/Windows/Main Menu", priority = 110)]
         public static bool GenerateMainMenu()
         {
             var root = CreateWindowBase("MainMenu", new Vector2(500, 400));
@@ -138,7 +138,7 @@ namespace ProtoSystem.UI
             return SavePrefab(root, "MainMenuWindow");
         }
 
-        [MenuItem("ProtoSystem/UI/Generate Window/Game HUD", priority = 122)]
+        [MenuItem("ProtoSystem/UI/Prefabs/Windows/Game HUD", priority = 111)]
         public static bool GenerateGameHUD()
         {
             var root = CreateWindowBase("GameHUD", new Vector2(1920, 1080), true);
@@ -249,7 +249,7 @@ namespace ProtoSystem.UI
             return SavePrefab(root, "GameHUDWindow");
         }
 
-        [MenuItem("ProtoSystem/UI/Generate Window/Pause Menu", priority = 123)]
+        [MenuItem("ProtoSystem/UI/Prefabs/Windows/Pause Menu", priority = 112)]
         public static bool GeneratePauseMenu()
         {
             var root = CreateWindowBase("PauseMenu", new Vector2(400, 350));
@@ -296,7 +296,7 @@ namespace ProtoSystem.UI
             return SavePrefab(root, "PauseMenuWindow");
         }
 
-        [MenuItem("ProtoSystem/UI/Generate Window/Dialogs/Confirm Dialog", priority = 124)]
+        [MenuItem("ProtoSystem/UI/Prefabs/Dialogs/Confirm Dialog", priority = 120)]
         public static bool GenerateConfirmDialog()
         {
             var root = CreateDialogBase("ConfirmDialog", new Vector2(400, 200));
@@ -333,7 +333,7 @@ namespace ProtoSystem.UI
             return SavePrefab(root, "ConfirmDialog");
         }
 
-        [MenuItem("ProtoSystem/UI/Generate Window/Dialogs/Input Dialog", priority = 125)]
+        [MenuItem("ProtoSystem/UI/Prefabs/Dialogs/Input Dialog", priority = 121)]
         public static bool GenerateInputDialog()
         {
             var root = CreateDialogBase("InputDialog", new Vector2(400, 250));
@@ -390,7 +390,7 @@ namespace ProtoSystem.UI
             return SavePrefab(root, "InputDialog");
         }
 
-        [MenuItem("ProtoSystem/UI/Generate Window/Dialogs/Choice Dialog", priority = 126)]
+        [MenuItem("ProtoSystem/UI/Prefabs/Dialogs/Choice Dialog", priority = 122)]
         public static bool GenerateChoiceDialog()
         {
             var root = CreateDialogBase("ChoiceDialog", new Vector2(400, 300));
@@ -449,7 +449,7 @@ namespace ProtoSystem.UI
             return SavePrefab(root, "ChoiceDialog");
         }
 
-        [MenuItem("ProtoSystem/UI/Generate Window/Settings", priority = 124)]
+        [MenuItem("ProtoSystem/UI/Prefabs/Windows/Settings", priority = 113)]
         public static bool GenerateSettings()
                 {
                     var root = CreateWindowBase("Settings", new Vector2(500, 720), 1f);
@@ -583,7 +583,7 @@ namespace ProtoSystem.UI
                     return SavePrefab(root, "Settings");
                 }
 
-        [MenuItem("ProtoSystem/UI/Generate Window/Credits", priority = 125)]
+        [MenuItem("ProtoSystem/UI/Prefabs/Windows/Credits", priority = 114)]
         public static bool GenerateCredits()
         {
             var root = CreateWindowBase("Credits", new Vector2(450, 500));
@@ -684,7 +684,7 @@ namespace ProtoSystem.UI
             return SavePrefab(root, "CreditsWindow");
         }
 
-        [MenuItem("ProtoSystem/UI/Generate Window/Loading", priority = 126)]
+        [MenuItem("ProtoSystem/UI/Prefabs/Windows/Loading", priority = 115)]
         public static bool GenerateLoading()
         {
             var root = CreateWindowBase("Loading", new Vector2(1920, 1080), true);
@@ -739,7 +739,7 @@ namespace ProtoSystem.UI
             return SavePrefab(root, "LoadingWindow");
         }
 
-        [MenuItem("ProtoSystem/UI/Generate Window/GameOver", priority = 126)]
+        [MenuItem("ProtoSystem/UI/Prefabs/Windows/GameOver", priority = 116)]
         public static bool GenerateGameOver()
         {
             var root = CreateWindowBase("GameOver", new Vector2(450, 320), 0.92f);
@@ -805,7 +805,7 @@ namespace ProtoSystem.UI
             return SavePrefab(root, "GameOver");
         }
 
-        [MenuItem("ProtoSystem/UI/Generate Window/Statistics", priority = 127)]
+        [MenuItem("ProtoSystem/UI/Prefabs/Windows/Statistics", priority = 117)]
         public static bool GenerateStatistics()
         {
             var root = CreateWindowBase("Statistics", new Vector2(420, 450), 0.92f);

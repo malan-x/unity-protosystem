@@ -111,7 +111,7 @@ namespace ProtoSystem
     /// </summary>
     public class SystemMetricsSettingsWindow : UnityEditor.EditorWindow
     {
-        [MenuItem("Tools/ProtoSystem/Настройки метрик систем")]
+        [MenuItem("ProtoSystem/Diagnostics/Настройки метрик систем", false, 200)]
         public static void ShowWindow()
         {
             var window = GetWindow<SystemMetricsSettingsWindow>("Настройки метрик");

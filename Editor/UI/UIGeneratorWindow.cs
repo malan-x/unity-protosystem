@@ -24,7 +24,7 @@ namespace ProtoSystem.UI
         private Sprite previewArrowDown;
         private Sprite previewButton;
 
-        [MenuItem("ProtoSystem/UI/UI Generator", priority = 100)]
+        [MenuItem("ProtoSystem/UI/Tools/UI Generator", priority = 200)]
         public static void ShowWindow()
         {
             var window = GetWindow<UIGeneratorWindow>("UI Generator");

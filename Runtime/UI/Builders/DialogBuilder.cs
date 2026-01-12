@@ -47,10 +47,11 @@ namespace ProtoSystem.UI
 
         private void ShowConfirmDialog(ConfirmDialogConfig config)
         {
-            // Ищем зарегистрированное окно диалога или используем префаб из конфига
-            var dialogWindow = _system.Navigator.OpenDirect("ConfirmDialog");
-            
-            if (dialogWindow == NavigationResult.WindowNotFound)
+            // Открываем модальное окно. Важно: модальные окна НЕ являются CurrentWindow,
+            // поэтому для настройки нужно брать инстанс из навигатора.
+            var result = _system.Navigator.OpenDirect("ConfirmDialog");
+
+            if (result == NavigationResult.WindowNotFound)
             {
                 Debug.LogWarning("[DialogBuilder] ConfirmDialog window not found in graph. " +
                     "Register it or assign confirmDialogPrefab in UISystemConfig");
@@ -60,12 +61,10 @@ namespace ProtoSystem.UI
                 return;
             }
 
-            // Настраиваем диалог
-            var dialog = _system.CurrentWindow as IConfirmDialog;
-            if (dialog != null)
-            {
-                dialog.Setup(config);
-            }
+            // Настраиваем диалог (берём именно открытое окно по ID)
+            var dialogWindow = _system.Navigator.GetWindow("ConfirmDialog");
+            var dialog = dialogWindow as IConfirmDialog;
+            dialog?.Setup(config);
 
             EventBus.Publish(EventBus.UI.DialogShown, new DialogEventData
             {
@@ -123,7 +122,8 @@ namespace ProtoSystem.UI
                 return;
             }
 
-            var dialog = _system.CurrentWindow as IInputDialog;
+            var dialogWindow = _system.Navigator.GetWindow("InputDialog");
+            var dialog = dialogWindow as IInputDialog;
             dialog?.Setup(config);
 
             EventBus.Publish(EventBus.UI.DialogShown, new DialogEventData
@@ -165,7 +165,8 @@ namespace ProtoSystem.UI
                 return;
             }
 
-            var dialog = _system.CurrentWindow as IChoiceDialog;
+            var dialogWindow = _system.Navigator.GetWindow("ChoiceDialog");
+            var dialog = dialogWindow as IChoiceDialog;
             dialog?.Setup(config);
 
             EventBus.Publish(EventBus.UI.DialogShown, new DialogEventData

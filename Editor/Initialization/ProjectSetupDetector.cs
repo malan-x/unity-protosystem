@@ -38,7 +38,7 @@ namespace ProtoSystem.Editor
             EditorPrefs.SetBool(SETUP_KEY, true);
         }
         
-        [MenuItem("Tools/ProtoSystem/Reset First Time Setup", priority = 100)]
+        [MenuItem("ProtoSystem/Setup/Reset First Time Setup", priority = 1)]
         private static void ResetFirstTimeSetup()
         {
             if (EditorUtility.DisplayDialog(

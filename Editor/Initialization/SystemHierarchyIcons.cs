@@ -48,9 +48,9 @@ namespace ProtoSystem.ProEditor
             Menu.SetChecked(MenuPath, showIcons);
         }
 
-        private const string MenuPath = "Tools/System Icons/Show System Icons in Hierarchy";
-        private const string StatusTextMenuPath = "Tools/System Icons/Show Status Text";
-        private const string PlayModeOnlyMenuPath = "Tools/System Icons/Show Only in Play Mode";
+        private const string MenuPath = "ProtoSystem/Diagnostics/System Icons/Show System Icons in Hierarchy";
+        private const string StatusTextMenuPath = "ProtoSystem/Diagnostics/System Icons/Show Status Text";
+        private const string PlayModeOnlyMenuPath = "ProtoSystem/Diagnostics/System Icons/Show Only in Play Mode";
 
         [MenuItem(MenuPath)]
         private static void ToggleSystemIcons()
@@ -83,7 +83,7 @@ namespace ProtoSystem.ProEditor
             EditorPrefs.SetBool("SystemHierarchyIcons.PlayModeOnly", showOnlyInPlayMode);
         }
 
-        [MenuItem("Tools/System Icons/Clear Icon Cache")]
+        [MenuItem("ProtoSystem/Diagnostics/System Icons/Clear Icon Cache", false, 210)]
         private static void ClearCache()
         {
             systemCache.Clear();
@@ -91,7 +91,7 @@ namespace ProtoSystem.ProEditor
             Debug.Log("Кэш иконок систем очищен");
         }
 
-        [MenuItem("Tools/System Icons/Settings")]
+        [MenuItem("ProtoSystem/Diagnostics/System Icons/Settings", false, 211)]
         private static void ShowSettings()
         {
             SystemIconsSettingsWindow.ShowWindow();
@@ -430,7 +430,7 @@ namespace ProtoSystem.ProEditor
             {
                 EditorApplication.delayCall += () =>
                 {
-                    EditorApplication.ExecuteMenuItem("Tools/System Icons/Clear Icon Cache");
+                    EditorApplication.ExecuteMenuItem("ProtoSystem/Diagnostics/System Icons/Clear Icon Cache");
                 };
             }
 
@@ -451,9 +451,9 @@ namespace ProtoSystem.ProEditor
             EditorPrefs.SetBool("SystemHierarchyIcons.PlayModeOnly", showOnlyInPlayMode);
 
             // Обновляем меню
-            Menu.SetChecked("Tools/System Icons/Show System Icons in Hierarchy", showIcons);
-            Menu.SetChecked("Tools/System Icons/Show Status Text", showStatusText);
-            Menu.SetChecked("Tools/System Icons/Show Only in Play Mode", showOnlyInPlayMode);
+            Menu.SetChecked("ProtoSystem/Diagnostics/System Icons/Show System Icons in Hierarchy", showIcons);
+            Menu.SetChecked("ProtoSystem/Diagnostics/System Icons/Show Status Text", showStatusText);
+            Menu.SetChecked("ProtoSystem/Diagnostics/System Icons/Show Only in Play Mode", showOnlyInPlayMode);
         }
     }
 }

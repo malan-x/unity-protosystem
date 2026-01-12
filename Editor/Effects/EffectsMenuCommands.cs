@@ -12,7 +12,7 @@ namespace ProtoSystem.Effects.Editor
     {
         private const string EffectsFolder = "Assets/Settings/Effects";
 
-        [MenuItem("ProtoSystem/Effects/Create Effect Folder", false, 1)]
+        [MenuItem("ProtoSystem/Effects/Create/Effect Folder", false, 1)]
         private static void CreateEffectsFolder()
         {
             // Создать основную папку
@@ -47,7 +47,7 @@ namespace ProtoSystem.Effects.Editor
             AssetDatabase.Refresh();
         }
 
-        [MenuItem("ProtoSystem/Effects/Create Effect Container", false, 2)]
+        [MenuItem("ProtoSystem/Effects/Create/Effect Container", false, 2)]
         private static void CreateEffectContainer()
         {
             CreateEffectsFolder(); // Убедиться что папка существует
@@ -69,31 +69,31 @@ namespace ProtoSystem.Effects.Editor
             Debug.Log($"[EffectsMenu] Создан EffectContainer: {path}");
         }
 
-        [MenuItem("ProtoSystem/Effects/Create VFX Effect Config", false, 10)]
+        [MenuItem("ProtoSystem/Effects/Create/VFX Effect Config", false, 10)]
         private static void CreateVFXEffectConfig()
         {
             CreateEffectConfig("VFX_Effect", EffectConfig.EffectType.VFX);
         }
 
-        [MenuItem("ProtoSystem/Effects/Create Audio Effect Config", false, 11)]
+        [MenuItem("ProtoSystem/Effects/Create/Audio Effect Config", false, 11)]
         private static void CreateAudioEffectConfig()
         {
             CreateEffectConfig("Audio_Effect", EffectConfig.EffectType.Audio);
         }
 
-        [MenuItem("ProtoSystem/Effects/Create UI Effect Config", false, 12)]
+        [MenuItem("ProtoSystem/Effects/Create/UI Effect Config", false, 12)]
         private static void CreateUIEffectConfig()
         {
             CreateEffectConfig("UI_Effect", EffectConfig.EffectType.UI);
         }
 
-        [MenuItem("ProtoSystem/Effects/Create Combined Effect Config", false, 13)]
+        [MenuItem("ProtoSystem/Effects/Create/Combined Effect Config", false, 13)]
         private static void CreateCombinedEffectConfig()
         {
             CreateEffectConfig("Combined_Effect", EffectConfig.EffectType.Combined);
         }
 
-        [MenuItem("ProtoSystem/Effects/Create All Example Effects", false, 20)]
+        [MenuItem("ProtoSystem/Effects/Create/All Example Effects", false, 20)]
         private static void CreateAllExampleEffects()
         {
             CreateVFXEffectConfig();
@@ -103,7 +103,7 @@ namespace ProtoSystem.Effects.Editor
             Debug.Log("[EffectsMenu] Созданы все примеры эффектов");
         }
 
-        [MenuItem("ProtoSystem/Effects/Refresh Event Cache", false, 25)]
+        [MenuItem("ProtoSystem/Effects/Tools/Refresh Event Cache", false, 25)]
         private static void RefreshEventCache()
         {
             EventPathDrawer.ResetCache();
@@ -125,7 +125,7 @@ namespace ProtoSystem.Effects.Editor
             }
         }
 
-        [MenuItem("ProtoSystem/Effects/Validate Effects Folder", false, 30)]
+        [MenuItem("ProtoSystem/Effects/Tools/Validate Effects Folder", false, 30)]
         private static void ValidateEffectsFolder()
         {
             CreateEffectsFolder();

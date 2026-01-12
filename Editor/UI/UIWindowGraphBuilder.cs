@@ -55,7 +55,7 @@ namespace ProtoSystem.UI
         /// <summary>
         /// Принудительно пересобрать граф
         /// </summary>
-        [MenuItem("ProtoSystem/UI/Rebuild Window Graph", priority = 100)]
+        [MenuItem("ProtoSystem/UI/Graph/Rebuild Window Graph", priority = 100)]
         public static void RebuildGraph()
         {
             // Не пересобираем в Play mode!
@@ -358,7 +358,7 @@ namespace ProtoSystem.UI
         /// <summary>
         /// Открыть граф в Inspector
         /// </summary>
-        [MenuItem("ProtoSystem/UI/Select Window Graph", priority = 101)]
+        [MenuItem("ProtoSystem/UI/Graph/Select Window Graph Asset", priority = 110)]
         public static void SelectGraph()
         {
             var graph = GetOrCreateGraph();
@@ -369,7 +369,7 @@ namespace ProtoSystem.UI
         /// <summary>
         /// Валидация графа
         /// </summary>
-        [MenuItem("ProtoSystem/UI/Validate Window Graph", priority = 102)]
+        [MenuItem("ProtoSystem/UI/Graph/Validate Window Graph", priority = 120)]
         public static void ValidateGraph()
         {
             var graph = GetOrCreateGraph();

@@ -39,7 +39,7 @@ namespace ProtoSystem.UI
         private const float GRID_SIZE = 20;
         private const float INSPECTOR_WIDTH = 300;
 
-        [MenuItem("ProtoSystem/UI/Window Graph Viewer", priority = 110)]
+        [MenuItem("ProtoSystem/UI/Graph/Window Graph Viewer", priority = 130)]
         public static void ShowWindow()
         {
             var window = GetWindow<UIWindowGraphViewer>();

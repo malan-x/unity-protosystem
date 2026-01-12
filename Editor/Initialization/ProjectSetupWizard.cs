@@ -40,7 +40,7 @@ namespace ProtoSystem.Editor
         private GUIStyle _taskStyle;
         private GUIStyle _completedStyle;
         
-        [MenuItem("Tools/ProtoSystem/Project Setup Wizard", false, 0)]
+        [MenuItem("ProtoSystem/Setup/Project Setup Wizard", false, 0)]
         public static void ShowWindow()
         {
             var window = GetWindow<ProjectSetupWizard>("ProtoSystem Setup");

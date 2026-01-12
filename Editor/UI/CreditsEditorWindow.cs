@@ -24,7 +24,7 @@ namespace ProtoSystem.UI
         private int selectedTab = 0;
         private string[] tabNames = { "Роли", "Авторы", "Благодарности", "Предпросмотр" };
 
-        [MenuItem("ProtoSystem/UI/Credits Editor", priority = 130)]
+        [MenuItem("ProtoSystem/UI/Tools/Credits Editor", priority = 210)]
         public static void ShowWindow()
         {
             var window = GetWindow<CreditsEditorWindow>("Credits Editor");

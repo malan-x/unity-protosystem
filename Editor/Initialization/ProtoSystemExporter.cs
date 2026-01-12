@@ -104,7 +104,7 @@ namespace ProtoSystem.ProEditor
             EditorUtility.RevealInFinder(path);
         }
 
-        [MenuItem("Tools/ProtoSystem/Create Standalone Folder")]
+        [MenuItem("ProtoSystem/Tools/Create Standalone Folder", false, 10)]
         public static void CreateStandaloneFolder()
         {
             // Создаём отдельную папку ProtoSystem в корне Assets
@@ -217,7 +217,7 @@ namespace ProtoSystem.ProEditor
             }
         }
 
-        [MenuItem("Tools/ProtoSystem/Show ProtoSystem Info")]
+        [MenuItem("ProtoSystem/About/Show ProtoSystem Info", false, 1000)]
         public static void ShowProtoSystemInfo()
         {
             string info = @"ProtoSystem - Универсальная система для Unity
