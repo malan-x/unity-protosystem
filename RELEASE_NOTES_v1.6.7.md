@@ -198,7 +198,7 @@ Assets/{YourProject}/Prefabs/UI/Windows/
 
 **3. Использовать в коде:**
 ```csharp
-UISystem.Instance.OpenWindow("MainMenuWindow");
+UISystem.Instance.Open("MainMenu");
 UISystem.Instance.Navigate("settings"); // через trigger
 ```
 

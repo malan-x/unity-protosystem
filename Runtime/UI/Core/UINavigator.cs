@@ -245,10 +245,18 @@ namespace ProtoSystem.UI
         {
             // Получаем определение окна
             var definition = _graph?.GetWindow(windowId);
+            if (definition == null && TryResolveWindowId(windowId, out var resolvedId))
+            {
+                Debug.Log($"[UINavigator] Resolved window id '{windowId}' -> '{resolvedId}'");
+                windowId = resolvedId;
+                definition = _graph?.GetWindow(windowId);
+            }
+
             if (definition == null)
             {
                 // Диагностика: какие окна есть в графе?
-                Debug.LogError($"[UINavigator] Window '{windowId}' not found in graph. Available windows: {string.Join(", ", _graph?.GetAllWindows().Select(w => w.id) ?? System.Array.Empty<string>())}");
+                Debug.LogError($"[UINavigator] Window '{windowId}' not found in graph. Available windows: {string.Join(", ", _graph?.GetAllWindows().Select(w => w.id) ?? System.Array.Empty<string>())}. " +
+                               "Hint: Open expects UIWindowAttribute.WindowId (e.g. 'MainMenu'), not the class name (e.g. 'MainMenuWindow').");
                 return Fail(NavigationResult.WindowNotFound, fromId, windowId, trigger);
             }
 
@@ -304,6 +312,74 @@ namespace ProtoSystem.UI
             });
 
             return NavigationResult.Success;
+        }
+
+        private bool TryResolveWindowId(string requestedId, out string resolvedId)
+        {
+            resolvedId = null;
+            if (_graph == null || string.IsNullOrWhiteSpace(requestedId))
+                return false;
+
+            // 1) Common mismatch: callers pass class name like 'MainMenuWindow', while graph uses WindowId like 'MainMenu'
+            var withoutSuffix = StripWindowSuffix(requestedId);
+            if (!string.Equals(withoutSuffix, requestedId, StringComparison.Ordinal))
+            {
+                if (_graph.HasWindow(withoutSuffix))
+                {
+                    resolvedId = withoutSuffix;
+                    return true;
+                }
+            }
+
+            // 2) Some projects may do the opposite (rare): call 'MainMenu' while graph uses 'MainMenuWindow'
+            var withSuffix = EnsureWindowSuffix(requestedId);
+            if (!string.Equals(withSuffix, requestedId, StringComparison.Ordinal))
+            {
+                if (_graph.HasWindow(withSuffix))
+                {
+                    resolvedId = withSuffix;
+                    return true;
+                }
+            }
+
+            // 3) Match by window type name (simple or full) stored in graph
+            //    Allows calls like Open(nameof(MainMenuWindow)) to work.
+            foreach (var window in _graph.GetAllWindows() ?? Array.Empty<WindowDefinition>())
+            {
+                if (window == null) continue;
+                if (string.IsNullOrEmpty(window.typeName) || string.IsNullOrEmpty(window.id)) continue;
+
+                if (string.Equals(window.typeName, requestedId, StringComparison.Ordinal) ||
+                    string.Equals(GetSimpleTypeName(window.typeName), requestedId, StringComparison.Ordinal) ||
+                    string.Equals(GetSimpleTypeName(window.typeName), EnsureWindowSuffix(requestedId), StringComparison.Ordinal))
+                {
+                    resolvedId = window.id;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static string StripWindowSuffix(string id)
+        {
+            const string suffix = "Window";
+            if (string.IsNullOrEmpty(id)) return id;
+            return id.EndsWith(suffix, StringComparison.Ordinal) ? id.Substring(0, id.Length - suffix.Length) : id;
+        }
+
+        private static string EnsureWindowSuffix(string id)
+        {
+            const string suffix = "Window";
+            if (string.IsNullOrEmpty(id)) return id;
+            return id.EndsWith(suffix, StringComparison.Ordinal) ? id : id + suffix;
+        }
+
+        private static string GetSimpleTypeName(string fullTypeName)
+        {
+            if (string.IsNullOrEmpty(fullTypeName)) return fullTypeName;
+            int lastDot = fullTypeName.LastIndexOf('.');
+            return lastDot >= 0 && lastDot + 1 < fullTypeName.Length ? fullTypeName.Substring(lastDot + 1) : fullTypeName;
         }
 
         private void OpenNormal(UIWindowBase window, WindowDefinition definition)

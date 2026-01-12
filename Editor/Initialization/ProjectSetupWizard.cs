@@ -852,13 +852,13 @@ namespace ProtoSystem.Editor
                                 private UISystem _uiSystem;
                                 private bool _gameStarted = false;
 
-                                public override string StartWindowId => skipMainMenu ? ""GameHUDWindow"" : ""MainMenuWindow"";
+                                public override string StartWindowId => skipMainMenu ? ""GameHUD"" : ""MainMenu"";
 
                                 public override IEnumerable<string> StartupWindowOrder
                                 {{
                                     get
                                     {{
-                                        yield return skipMainMenu ? ""GameHUDWindow"" : ""MainMenuWindow"";
+                                        yield return skipMainMenu ? ""GameHUD"" : ""MainMenu"";
                                     }}
                                 }}
 
@@ -870,16 +870,16 @@ namespace ProtoSystem.Editor
                                     foreach (var windowId in StartupWindowOrder)
                                     {{
                                         var result = uiSystem.Navigator.Open(windowId);
-                                        if (result == NavigationResult.Success && windowId == ""GameHUDWindow"")
+                                        if (result == NavigationResult.Success && windowId == ""GameHUD"")
                                             OnGameStarted();
                                     }}
                                 }}
 
                                 private void OnNavigated(NavigationEventData data)
                                 {{
-                                    if (data.ToWindowId == ""GameHUDWindow"" && data.Result == NavigationResult.Success)
+                                    if (data.ToWindowId == ""GameHUD"" && data.Result == NavigationResult.Success)
                                         OnGameStarted();
-                                    else if (data.ToWindowId == ""MainMenuWindow"")
+                                    else if (data.ToWindowId == ""MainMenu"")
                                         _gameStarted = false;
                                 }}
 
@@ -891,12 +891,13 @@ namespace ProtoSystem.Editor
 
                                 public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()
                                 {{
-                                    yield return new UITransitionDefinition(""MainMenuWindow"", ""SettingsWindow"", ""settings"", TransitionAnimation.Fade);
-                                    yield return new UITransitionDefinition(""MainMenuWindow"", ""CreditsWindow"", ""credits"", TransitionAnimation.Fade);
-                                    yield return new UITransitionDefinition(""MainMenuWindow"", ""GameHUDWindow"", ""start_game"", TransitionAnimation.SlideLeft);
-                                    yield return new UITransitionDefinition(""GameHUDWindow"", ""PauseMenuWindow"", ""pause"", TransitionAnimation.None);
-                                    yield return new UITransitionDefinition(""PauseMenuWindow"", ""GameHUDWindow"", ""resume"", TransitionAnimation.None);
-                                    yield return new UITransitionDefinition(""PauseMenuWindow"", ""MainMenuWindow"", ""quit"", TransitionAnimation.Fade);
+                                    // NOTE: Window IDs are taken from the [UIWindow] attribute (graph ids), NOT prefab/class names.
+                                    // Base windows already declare these transitions via attributes, but we keep them here as a readable code-first example.
+                                    yield return new UITransitionDefinition(""MainMenu"", ""Settings"", ""settings"", TransitionAnimation.Fade);
+                                    yield return new UITransitionDefinition(""MainMenu"", ""Credits"", ""credits"", TransitionAnimation.Fade);
+                                    yield return new UITransitionDefinition(""MainMenu"", ""GameHUD"", ""play"", TransitionAnimation.SlideLeft);
+                                    yield return new UITransitionDefinition(""GameHUD"", ""PauseMenu"", ""pause"", TransitionAnimation.None);
+                                    yield return new UITransitionDefinition(""PauseMenu"", ""MainMenu"", ""mainmenu"", TransitionAnimation.Fade);
                                 }}
 
                                 private void Update()
@@ -918,11 +919,11 @@ namespace ProtoSystem.Editor
                                 private void HandleEscape()
                                 {{
                                     var current = _uiSystem.Navigator.CurrentWindow;
-                                    if (current?.WindowId == ""GameHUDWindow"")
+                                    if (current?.WindowId == ""GameHUD"")
                                         _uiSystem.Navigator.Navigate(""pause"");
-                                    else if (current?.WindowId == ""PauseMenuWindow"")
-                                        _uiSystem.Navigator.Navigate(""resume"");
-                                    else if (current?.WindowId != ""MainMenuWindow"")
+                                    else if (current?.WindowId == ""PauseMenu"")
+                                        UISystem.Back();
+                                    else if (current?.WindowId != ""MainMenu"")
                                         UISystem.Back();
                                 }}
 

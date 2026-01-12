@@ -57,14 +57,15 @@ public class ExampleGameplayInitializer : UISceneInitializerBase
     [SerializeField] private bool skipMainMenu = false;
     
     // Стартовое окно
-    public override string StartWindowId => "MainMenuWindow";
+    public override string StartWindowId => "MainMenu";
     
     // 6 строк = весь UI flow!
     public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()
     {
-        yield return new UITransitionDefinition("MainMenuWindow", "SettingsWindow", "settings", Fade);
-        yield return new UITransitionDefinition("MainMenuWindow", "GameHUDWindow", "start_game", SlideLeft);
-        yield return new UITransitionDefinition("GameHUDWindow", "PauseMenuWindow", "pause", Instant);
+        // NOTE: Use ids from [UIWindow("...")] (graph ids), not prefab/class names.
+        yield return new UITransitionDefinition("MainMenu", "Settings", "settings", Fade);
+        yield return new UITransitionDefinition("MainMenu", "GameHUD", "play", SlideLeft);
+        yield return new UITransitionDefinition("GameHUD", "PauseMenu", "pause", Instant);
         // ...
     }
     
@@ -138,7 +139,7 @@ yield return new UITransitionDefinition("From", "To", "trigger", Animation);
 
 ```csharp
 // MainMenu → Settings
-yield return new UITransitionDefinition("MainMenuWindow", "SettingsWindow", "settings", Fade);
+yield return new UITransitionDefinition("MainMenu", "Settings", "settings", Fade);
 
 // Использование:
 UISystem.Instance.Navigate("settings");

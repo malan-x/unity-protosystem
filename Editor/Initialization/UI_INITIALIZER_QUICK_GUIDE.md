@@ -37,14 +37,15 @@ UISystem → Generate Base Windows
 public class ExampleGameplayInitializer : UISceneInitializerBase
 {
     // Стартовое окно
-    public override string StartWindowId => "MainMenuWindow";
+    public override string StartWindowId => "MainMenu";
     
     // UI Flow - 6 строк!
     public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()
     {
-        yield return new UITransitionDefinition("MainMenuWindow", "SettingsWindow", "settings", Fade);
-        yield return new UITransitionDefinition("MainMenuWindow", "GameHUDWindow", "start_game", SlideLeft);
-        yield return new UITransitionDefinition("GameHUDWindow", "PauseMenuWindow", "pause", Instant);
+        // NOTE: используйте ids из [UIWindow("...")] (граф), а не имена prefab/классов.
+        yield return new UITransitionDefinition("MainMenu", "Settings", "settings", Fade);
+        yield return new UITransitionDefinition("MainMenu", "GameHUD", "play", SlideLeft);
+        yield return new UITransitionDefinition("GameHUD", "PauseMenu", "pause", Instant);
         // ...
     }
     
@@ -77,7 +78,7 @@ yield return new UITransitionDefinition("From", "To", "trigger", Fade);
 
 ### Изменить стартовое окно:
 ```csharp
-public override string StartWindowId => "GameHUDWindow";
+public override string StartWindowId => "GameHUD";
 ```
 
 ### Добавить transition:
