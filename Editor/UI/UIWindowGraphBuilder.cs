@@ -56,7 +56,6 @@ namespace ProtoSystem.UI
         /// Принудительно пересобрать граф
         /// </summary>
         [MenuItem("ProtoSystem/UI/Rebuild Window Graph", priority = 100)]
-        [MenuItem("ProtoSystem/UI/Rebuild Window Graph", priority = 100)]
         public static void RebuildGraph()
         {
             // Не пересобираем в Play mode!
@@ -95,7 +94,7 @@ namespace ProtoSystem.UI
                             continue;
 
                         var windowAttr = (UIWindowAttribute)Attribute.GetCustomAttribute(type, typeof(UIWindowAttribute));
-                        if (windowAttr != null && windowAttr.ShowInGraph)
+                        if (windowAttr != null)
                         {
                             windowTypes.Add((type, windowAttr));
                         }
@@ -113,6 +112,12 @@ namespace ProtoSystem.UI
                 // Ищем prefab
                 var prefab = FindPrefabForWindow(type, windowAttr.WindowId);
                 if (prefab != null) prefabsFound++;
+
+                // ShowInGraph = false для базовых окон: скрываем в графе, пока нет prefab'а.
+                // Это позволяет не засорять граф "шаблонными" окнами в проектах, где они не используются,
+                // но автоматически показывать их в проектах, где эти prefab'ы реально сгенерированы.
+                if (!windowAttr.ShowInGraph && prefab == null)
+                    continue;
 
                 // Создаём определение окна
                 var windowDef = new WindowDefinition

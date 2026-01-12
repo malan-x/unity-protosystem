@@ -1,6 +1,7 @@
 // Packages/com.protosystem.core/Editor/UI/UIWindowPrefabGenerator.cs
 using System.IO;
 using System.Reflection;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEditor;
@@ -2003,7 +2004,8 @@ namespace ProtoSystem.UI
 
         private static bool SavePrefab(GameObject instance, string name)
         {
-            string path = $"{DEFAULT_PREFAB_PATH}/{name}.prefab";
+            string basePath = string.IsNullOrEmpty(currentOutputPath) ? DEFAULT_PREFAB_PATH : currentOutputPath;
+            string path = $"{basePath}/{name}.prefab";
 
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (existing != null)
@@ -2015,7 +2017,10 @@ namespace ProtoSystem.UI
                         $"{name} already exists. Overwrite?", "Yes", "Skip"))
                     {
                         Object.DestroyImmediate(instance);
-                        return false;
+                        // Ensure label exists so UISystemConfig auto-scan can still find the prefab.
+                        EnsureUIWindowLabel(existing);
+                        Debug.Log($"[UIWindowPrefabGenerator] Using existing (kept): {path}");
+                        return true;
                     }
                 }
                 AssetDatabase.DeleteAsset(path);
@@ -2025,10 +2030,19 @@ namespace ProtoSystem.UI
             Object.DestroyImmediate(instance);
 
             // Добавляем метку для автосканирования
-            AssetDatabase.SetLabels(prefab, new[] { "UIWindow" });
+            EnsureUIWindowLabel(prefab);
 
             Debug.Log($"[UIWindowPrefabGenerator] Created: {path}");
             return true;
+        }
+
+        private static void EnsureUIWindowLabel(Object asset)
+        {
+            if (asset == null) return;
+
+            var labels = new HashSet<string>(AssetDatabase.GetLabels(asset));
+            labels.Add("UIWindow");
+            AssetDatabase.SetLabels(asset, new List<string>(labels).ToArray());
         }
 
         #endregion

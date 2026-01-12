@@ -259,7 +259,7 @@ namespace ProtoSystem.Editor
                     TaskType.GenerateUISprites),
 
                 new SetupTask("Generate UI Prefabs", 
-                    "Create base window/panel/button prefabs", 
+                    "Create base window prefabs + DefaultButton/DefaultPanel", 
                     TaskType.GenerateUIPrefabs),
 
                 new SetupTask("Create UIWindowGraph", 
@@ -590,6 +590,19 @@ namespace ProtoSystem.Editor
             
             // Создаем Panel префаб
             CreatePanelPrefab(panelSprite, $"{prefabPath}/DefaultPanel.prefab");
+
+            // Также генерируем базовые окна ProtoSystem (MainMenu/GameHUD/PauseMenu/...) в стандартный путь.
+            // Это важно для проектов, где нет своих наследников/замен и окна нужны "из коробки".
+            // Если уже существует MainMenuWindow.prefab — не трогаем, чтобы не спамить диалогами overwrite.
+            const string mainMenuPrefabPath = "Assets/Prefabs/UI/Windows/MainMenuWindow.prefab";
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(mainMenuPrefabPath) == null)
+            {
+                UIWindowPrefabGenerator.GenerateAllBaseWindows();
+            }
+            else
+            {
+                Debug.Log($"[ProjectSetupWizard] Base windows already exist at '{mainMenuPrefabPath}', skipping generation.");
+            }
             
             AssetDatabase.SaveAssets();
         }
