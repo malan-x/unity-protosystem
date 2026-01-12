@@ -64,7 +64,23 @@ namespace ProtoSystem.UI
             // Настраиваем диалог (берём именно открытое окно по ID)
             var dialogWindow = _system.Navigator.GetWindow("ConfirmDialog");
             var dialog = dialogWindow as IConfirmDialog;
-            dialog?.Setup(config);
+            if (dialog == null && dialogWindow != null)
+            {
+                // Robust fallback: prefab might have the correct component not on the root,
+                // or window might be an older base class instance.
+                var component = dialogWindow.GetComponentInChildren<ConfirmDialogWindow>(true);
+                dialog = component;
+            }
+
+            if (dialog == null)
+            {
+                Debug.LogError("[DialogBuilder] ConfirmDialog opened but no IConfirmDialog found on the instance. " +
+                               "Your ConfirmDialog prefab is likely outdated. Regenerate/overwrite it so it has ConfirmDialogWindow with wired references.");
+            }
+            else
+            {
+                dialog.Setup(config);
+            }
 
             EventBus.Publish(EventBus.UI.DialogShown, new DialogEventData
             {
@@ -124,7 +140,21 @@ namespace ProtoSystem.UI
 
             var dialogWindow = _system.Navigator.GetWindow("InputDialog");
             var dialog = dialogWindow as IInputDialog;
-            dialog?.Setup(config);
+            if (dialog == null && dialogWindow != null)
+            {
+                var component = dialogWindow.GetComponentInChildren<InputDialogWindow>(true);
+                dialog = component;
+            }
+
+            if (dialog == null)
+            {
+                Debug.LogError("[DialogBuilder] InputDialog opened but no IInputDialog found on the instance. " +
+                               "Your InputDialog prefab is likely outdated. Regenerate/overwrite it so it has InputDialogWindow with wired references.");
+            }
+            else
+            {
+                dialog.Setup(config);
+            }
 
             EventBus.Publish(EventBus.UI.DialogShown, new DialogEventData
             {
@@ -167,7 +197,21 @@ namespace ProtoSystem.UI
 
             var dialogWindow = _system.Navigator.GetWindow("ChoiceDialog");
             var dialog = dialogWindow as IChoiceDialog;
-            dialog?.Setup(config);
+            if (dialog == null && dialogWindow != null)
+            {
+                var component = dialogWindow.GetComponentInChildren<ChoiceDialogWindow>(true);
+                dialog = component;
+            }
+
+            if (dialog == null)
+            {
+                Debug.LogError("[DialogBuilder] ChoiceDialog opened but no IChoiceDialog found on the instance. " +
+                               "Your ChoiceDialog prefab is likely outdated. Regenerate/overwrite it so it has ChoiceDialogWindow with wired references.");
+            }
+            else
+            {
+                dialog.Setup(config);
+            }
 
             EventBus.Publish(EventBus.UI.DialogShown, new DialogEventData
             {

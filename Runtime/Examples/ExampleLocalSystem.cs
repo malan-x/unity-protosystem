@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using UnityEngine;
 using ProtoSystem;
+using ProtoSystem.UI;
 
 namespace ProtoSystem.Examples
 {
@@ -125,6 +126,10 @@ namespace ProtoSystem.Examples
             // Подписываемся на события
             AddEvent(ExampleLocalEvents.SystemInitialized, OnSystemInitialized);
             AddEvent(ExampleLocalEvents.StaminaStateChanged, OnStaminaStateChanged);
+
+            // UI Dialog events (works even if dialog was opened directly)
+            AddEvent(EventBus.UI.DialogConfirmed, OnDialogConfirmed);
+            AddEvent(EventBus.UI.DialogCancelled, OnDialogCancelled);
         }
 
         private void OnSystemInitialized(object data)
@@ -135,6 +140,22 @@ namespace ProtoSystem.Examples
         private void OnStaminaStateChanged(object data)
         {
             LogMessage($"Получено событие изменения выносливости: {data}");
+        }
+
+        private void OnDialogConfirmed(object data)
+        {
+            if (data is DialogEventData dialog)
+            {
+                LogMessage($"DialogConfirmed: {dialog.DialogId}, confirmed={dialog.Confirmed}, input='{dialog.InputValue}', index={dialog.SelectedIndex}");
+            }
+        }
+
+        private void OnDialogCancelled(object data)
+        {
+            if (data is DialogEventData dialog)
+            {
+                LogMessage($"DialogCancelled: {dialog.DialogId}, confirmed={dialog.Confirmed}");
+            }
         }
 
         #endregion
@@ -166,6 +187,34 @@ namespace ProtoSystem.Examples
 
             // Отправляем событие
             EventBus.Publish(ExampleLocalEvents.SystemInitialized, SystemId);
+        }
+
+        [ContextMenu("ProtoSystem/Examples/Show Confirm Dialog")]
+        public void ShowConfirmDialogExample()
+        {
+            var ui = UISystem.Instance;
+            if (ui == null || ui.Dialog == null)
+            {
+                Debug.LogWarning("[ExampleLocalSystem] UISystem or DialogBuilder not ready. Ensure UISystem is present and initialized.");
+                return;
+            }
+
+            ui.Dialog.Confirm(
+                message: "Подтвердить тестовое действие?",
+                onYes: () =>
+                {
+                    LogMessage("YES: подтверждено (пример действия)");
+                    EventBus.Publish(ExampleLocalEvents.StaminaStateChanged, "YES clicked");
+                },
+                onNo: () =>
+                {
+                    LogMessage("NO: отменено (пример действия)");
+                    EventBus.Publish(ExampleLocalEvents.StaminaStateChanged, "NO clicked");
+                },
+                title: "ConfirmDialog Example",
+                yesText: "Да",
+                noText: "Нет"
+            );
         }
 
         #endregion
