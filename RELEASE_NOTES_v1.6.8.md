@@ -63,9 +63,9 @@ public class ExampleGameplayInitializer : UISceneInitializerBase
     public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()
     {
         // NOTE: Use ids from [UIWindow("...")] (graph ids), not prefab/class names.
-        yield return new UITransitionDefinition("MainMenu", "Settings", "settings", Fade);
-        yield return new UITransitionDefinition("MainMenu", "GameHUD", "play", SlideLeft);
-        yield return new UITransitionDefinition("GameHUD", "PauseMenu", "pause", Instant);
+        yield return new UITransitionDefinition("MainMenu", "Settings", "settings", TransitionAnimation.Fade);
+        yield return new UITransitionDefinition("MainMenu", "GameHUD", "play", TransitionAnimation.SlideLeft);
+        yield return new UITransitionDefinition("GameHUD", "PauseMenu", "pause", TransitionAnimation.None);
         // ...
     }
     
@@ -139,7 +139,7 @@ yield return new UITransitionDefinition("From", "To", "trigger", Animation);
 
 ```csharp
 // MainMenu → Settings
-yield return new UITransitionDefinition("MainMenu", "Settings", "settings", Fade);
+yield return new UITransitionDefinition("MainMenu", "Settings", "settings", TransitionAnimation.Fade);
 
 // Использование:
 UISystem.Instance.Navigate("settings");
@@ -149,7 +149,7 @@ UISystem.Instance.Navigate("settings");
 
 ### Добавить окно:
 ```csharp
-yield return new UITransitionDefinition("GameHUD", "Shop", "open_shop", Fade);
+yield return new UITransitionDefinition("GameHUD", "Shop", "open_shop", TransitionAnimation.Fade);
 ```
 
 ### Обработать input:

@@ -8,6 +8,7 @@ ProtoSystem is a Unity framework with:
 - **EventBus**: Global event dispatcher (`EventBus.Publish/Subscribe`)
 - **System Initialization**: Attribute-driven DI with `[Dependency]` and `[PostDependency]`
 - **Base Classes**: `InitializableSystemBase`, `NetworkInitializableSystem`, `MonoEventBus`
+- **UISystem**: Graph-based navigation between UI windows (see `Documentation~/UISystem.md`)
 
 ## Architecture Rules
 
@@ -167,6 +168,21 @@ Assets/ProjectName/Scripts/
 ```
 
 ## Common Patterns
+
+### UISystem (Windows + Navigation)
+
+**Rules of thumb:**
+- Prefer `UISystem.Navigate("trigger")` (graph transitions) over direct `Open()`.
+- `UISystem.Open("WindowId")` does **not** accept context/payload in the current API.
+- To close a specific open window, use `UISystem.Instance.Navigator.Close("WindowId")`.
+
+**Scene-specific UI flow:**
+- Implement `IUISceneInitializer` (or inherit `UISceneInitializerBase`) and assign it to `UISystem.sceneInitializerComponent`.
+- Provide extra transitions via `IEnumerable<UITransitionDefinition> GetAdditionalTransitions()`.
+
+Docs:
+- `Documentation~/UISystem.md`
+- `Editor/Initialization/UI_INITIALIZER_QUICK_GUIDE.md`
 
 ### Initialization Flow
 1. `SystemInitializationManager` collects all systems

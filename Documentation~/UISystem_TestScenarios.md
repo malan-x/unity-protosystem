@@ -101,17 +101,17 @@ public class MainMenu : UIWindowBase { }
 - Warning: "Navigation failed: Trigger 'nonexistent' not found"
 - Текущее окно остаётся открытым
 
-### 2.3 CanNavigate() проверка
+### 2.3 Проверка результата Navigate()
 
 **Шаги:**
 ```csharp
-bool canPlay = UISystem.Instance.CanNavigate("play");
-bool canInvalid = UISystem.Instance.CanNavigate("invalid");
+var ok = UISystem.Navigate("play");
+var bad = UISystem.Navigate("invalid");
 ```
 
 **Ожидаемый результат:**
-- `canPlay == true`
-- `canInvalid == false`
+- `ok == NavigationResult.Success`
+- `bad != NavigationResult.Success` (обычно `TriggerNotFound`)
 
 ### 2.4 Back навигация
 
@@ -143,7 +143,19 @@ bool canInvalid = UISystem.Instance.CanNavigate("invalid");
 ```csharp
 public class GameplayInitializer : UISceneInitializerBase
 {
-    public override string[] GetStartupWindows() => new[] { "game_hud" };
+    public override string StartWindowId => "game_hud";
+
+    public override IEnumerable<string> StartupWindowOrder
+    {
+        get { yield return StartWindowId; }
+    }
+
+    public override void Initialize(UISystem uiSystem)
+    {
+        var navigator = uiSystem.Navigator;
+        foreach (var windowId in StartupWindowOrder)
+            navigator.Open(windowId);
+    }
 }
 ```
 2. Назначить в UISystem.sceneInitializerComponent
@@ -322,7 +334,7 @@ public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()
 
 ## 8. Lifecycle методы
 
-### 8.1 OnBeforeShow / OnAfterShow
+### 8.1 OnBeforeShow / OnShow
 
 **Шаги:**
 1. Добавить логи в методы
@@ -332,10 +344,10 @@ public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()
 ```
 OnBeforeShow() — перед анимацией
 [Анимация показа]
-OnAfterShow() — после анимации
+OnShow() — после анимации
 ```
 
-### 8.2 OnBeforeHide / OnAfterHide
+### 8.2 OnBeforeHide / OnHide
 
 **Шаги:**
 1. Back() или Navigate к другому окну
@@ -344,7 +356,7 @@ OnAfterShow() — после анимации
 ```
 OnBeforeHide() — перед анимацией
 [Анимация скрытия]
-OnAfterHide() — после анимации
+OnHide() — после анимации
 ```
 
 ### 8.3 OnBackPressed()
@@ -542,7 +554,7 @@ UISystem.Instance.Dialog.Input(
 **Навигация:**
 - [ ] Navigate() по триггеру работает
 - [ ] Back() возвращает к предыдущему
-- [ ] CanNavigate() корректно проверяет
+- [ ] NavigationResult корректно возвращается
 - [ ] Level 0 окна взаимоисключающие
 
 **Атрибуты:**
@@ -557,8 +569,8 @@ UISystem.Instance.Dialog.Input(
 - [ ] Стеки паузы и курсора работают
 
 **Lifecycle:**
-- [ ] OnBeforeShow/AfterShow вызываются
-- [ ] OnBeforeHide/AfterHide вызываются
+- [ ] OnBeforeShow/OnShow вызываются
+- [ ] OnBeforeHide/OnHide вызываются
 - [ ] OnBackPressed обрабатывает Escape
 
 **Диалоги:**

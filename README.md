@@ -13,7 +13,7 @@
 - **UISystem** — Граф-ориентированная навигация между окнами с атрибутами
 - **UIWindowGraph** — Автоматическая сборка графа из атрибутов UIWindow и UITransition
 - **Window Graph Viewer** — Интерактивный визуальный редактор графа UI
-- **UINavigator** — Стековая навигация с историей (Back, CloseTopModal)
+- **UINavigator** — Стековая навигация с историей (Back, Close)
 - **Window Prefab Generator** — Автогенерация UI префабов из редактора
 - **UITimeManager** — Управление паузой игры для UI (счётчик-based)
 - **CursorManagerSystem** — Стек состояний курсора
@@ -161,10 +161,6 @@ public class MainMenu : UIWindowBase
 UISystem.Navigate("play");        // MainMenu → GameHUD
 UISystem.Navigate("settings");    // MainMenu → Settings
 
-// Проверка возможности перехода
-if (UISystem.Instance.CanNavigate("play"))
-    UISystem.Navigate("play");
-
 // Навигация назад
 UISystem.Back();
 ```
@@ -174,7 +170,19 @@ UISystem.Back();
 ```csharp
 public class GameplayInitializer : UISceneInitializerBase
 {
-    public override string[] GetStartupWindows() => new[] { "game_hud" };
+    public override string StartWindowId => "game_hud";
+
+    public override IEnumerable<string> StartupWindowOrder
+    {
+        get { yield return StartWindowId; }
+    }
+
+    public override void Initialize(UISystem uiSystem)
+    {
+        var navigator = uiSystem.Navigator;
+        foreach (var windowId in StartupWindowOrder)
+            navigator.Open(windowId);
+    }
     
     public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()
     {

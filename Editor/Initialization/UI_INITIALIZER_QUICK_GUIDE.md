@@ -38,14 +38,26 @@ public class ExampleGameplayInitializer : UISceneInitializerBase
 {
     // Стартовое окно
     public override string StartWindowId => "MainMenu";
+
+    public override IEnumerable<string> StartupWindowOrder
+    {
+        get { yield return StartWindowId; }
+    }
+
+    public override void Initialize(UISystem uiSystem)
+    {
+        var navigator = uiSystem.Navigator;
+        foreach (var windowId in StartupWindowOrder)
+            navigator.Open(windowId);
+    }
     
     // UI Flow - 6 строк!
     public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()
     {
         // NOTE: используйте ids из [UIWindow("...")] (граф), а не имена prefab/классов.
-        yield return new UITransitionDefinition("MainMenu", "Settings", "settings", Fade);
-        yield return new UITransitionDefinition("MainMenu", "GameHUD", "play", SlideLeft);
-        yield return new UITransitionDefinition("GameHUD", "PauseMenu", "pause", Instant);
+        yield return new UITransitionDefinition("MainMenu", "Settings", "settings", TransitionAnimation.Fade);
+        yield return new UITransitionDefinition("MainMenu", "GameHUD", "play", TransitionAnimation.SlideLeft);
+        yield return new UITransitionDefinition("GameHUD", "PauseMenu", "pause", TransitionAnimation.None);
         // ...
     }
     
@@ -60,7 +72,7 @@ public class ExampleGameplayInitializer : UISceneInitializerBase
 **Одна строка = полный transition!**
 
 ```csharp
-yield return new UITransitionDefinition("From", "To", "trigger", Fade);
+yield return new UITransitionDefinition("From", "To", "trigger", TransitionAnimation.Fade);
 ```
 
 ---
@@ -74,7 +86,7 @@ public override string StartWindowId => "GameHUD";
 
 ### Добавить transition:
 ```csharp
-yield return new UITransitionDefinition("GameHUD", "Shop", "open_shop", Fade);
+yield return new UITransitionDefinition("GameHUD", "Shop", "open_shop", TransitionAnimation.Fade);
 ```
 
 ### Обработать Back/Escape:

@@ -166,10 +166,10 @@ public class MyDialog : UIWindowBase
         // Подготовка перед показом
     }
     
-    protected override void OnAfterShow()
+    protected override void OnShow()
     {
-        base.OnAfterShow();
-        // Действия после показа
+        base.OnShow();
+        // Действия после завершения анимации показа
     }
     
     private void OnCloseClicked()
@@ -206,12 +206,9 @@ UIWindowPrefabGenerator.GenerateMyDialog();
 
 ```csharp
 // Переход по триггеру
-UISystem.Navigate("play");        // MainMenu → GameHUD
-UISystem.Navigate("settings");    // MainMenu → Settings
-
-// Проверка возможности перехода
-if (UISystem.Instance.CanNavigate("play"))
-    UISystem.Navigate("play");
+var result = UISystem.Navigate("play");        // MainMenu → GameHUD
+if (result != NavigationResult.Success)
+    Debug.LogWarning($"Navigate failed: {result}");
 
 // Назад
 UISystem.Back();
@@ -222,10 +219,10 @@ UISystem.Back();
 ```csharp
 // Прямое открытие окна
 UISystem.Open("settings");
-UISystem.Open("dialog", context);
+// Примечание: Open/Navigate не принимают context/payload в текущем API.
 
 // Закрыть конкретное
-UISystem.Close("my_dialog");
+UISystem.Instance.Navigator.Close("my_dialog");
 ```
 
 ## 6. Настройка переходов сцены
@@ -236,8 +233,20 @@ using System.Collections.Generic;
 
 public class GameplayInitializer : UISceneInitializerBase
 {
-    // Окна для автоматического открытия при старте сцены
-    public override string[] GetStartupWindows() => new[] { "game_hud" };
+    // Window IDs are ids from [UIWindow("...")] attributes (graph ids), not prefab/class names.
+    public override string StartWindowId => "game_hud";
+    
+    public override IEnumerable<string> StartupWindowOrder
+    {
+        get { yield return StartWindowId; }
+    }
+
+    public override void Initialize(UISystem uiSystem)
+    {
+        var navigator = uiSystem.Navigator;
+        foreach (var windowId in StartupWindowOrder)
+            navigator.Open(windowId);
+    }
     
     // Дополнительные переходы для этой сцены
     public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()

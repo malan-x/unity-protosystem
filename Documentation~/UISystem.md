@@ -155,10 +155,10 @@ public class MyWindow : UIWindowBase
         base.OnBeforeShow();
     }
     
-    protected override void OnAfterShow()
+    protected override void OnShow()
     {
-        // Вызывается после показа окна
-        base.OnAfterShow();
+        // Вызывается после завершения анимации показа
+        base.OnShow();
     }
     
     protected override void OnBeforeHide()
@@ -167,10 +167,10 @@ public class MyWindow : UIWindowBase
         base.OnBeforeHide();
     }
     
-    protected override void OnAfterHide()
+    protected override void OnHide()
     {
-        // Вызывается после скрытия окна
-        base.OnAfterHide();
+        // Вызывается после завершения анимации скрытия
+        base.OnHide();
     }
     
     private void OnCloseClicked()
@@ -198,12 +198,9 @@ public class MyWindow : UIWindowBase
 
 ```csharp
 // По триггеру (из UITransition)
-UISystem.Navigate("play");        // Переход по триггеру "play"
-UISystem.Navigate("settings");    // Переход по триггеру "settings"
-
-// Проверка возможности перехода
-if (UISystem.Instance.CanNavigate("play"))
-    UISystem.Navigate("play");
+var result = UISystem.Navigate("play");        // Переход по триггеру "play"
+if (result != NavigationResult.Success)
+    Debug.LogWarning($"Navigate failed: {result}");
 ```
 
 ### Открытие окна напрямую (legacy)
@@ -211,7 +208,9 @@ if (UISystem.Instance.CanNavigate("play"))
 ```csharp
 // Прямое открытие (не рекомендуется, используйте Navigate)
 UISystem.Open("settings");
-UISystem.Open("dialog", context);
+
+// Примечание: текущий API Open/Navigate не принимает context/payload.
+// Для диалогов используйте UISystem.Instance.Dialog, для данных — состояние/события.
 ```
 
 ### Закрытие
@@ -220,11 +219,8 @@ UISystem.Open("dialog", context);
 // Вернуться к предыдущему (стек)
 UISystem.Back();
 
-// Закрыть верхнее модальное
-UISystem.CloseTopModal();
-
-// Закрыть конкретное окно
-UISystem.Close("my_window");
+// Закрыть конкретное окно (overlay / верхнее modal / текущее в стеке)
+UISystem.Instance.Navigator.Close("my_window");
 ```
 
 ### Текущее состояние
@@ -234,7 +230,7 @@ var current = UISystem.Instance.CurrentWindow;
 string windowId = current?.WindowId;
 
 // Проверка открыто ли окно
-bool isOpen = UISystem.Instance.IsWindowOpen("settings");
+bool isOpen = UISystem.Instance.Navigator.GetWindow("settings") != null;
 ```
 
 ## UISceneInitializerBase
@@ -244,8 +240,20 @@ bool isOpen = UISystem.Instance.IsWindowOpen("settings");
 ```csharp
 public class GameplayInitializer : UISceneInitializerBase
 {
-    // Окна для автоматического открытия при старте
-    public override string[] GetStartupWindows() => new[] { "game_hud" };
+    // Window IDs are ids from [UIWindow("...")] attributes (graph ids), not prefab/class names.
+    public override string StartWindowId => "game_hud";
+    
+    public override IEnumerable<string> StartupWindowOrder
+    {
+        get { yield return StartWindowId; }
+    }
+
+    public override void Initialize(UISystem uiSystem)
+    {
+        var navigator = uiSystem.Navigator;
+        foreach (var windowId in StartupWindowOrder)
+            navigator.Open(windowId);
+    }
     
     // Дополнительные переходы для этой сцены
     public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()
@@ -536,12 +544,12 @@ public class BattleSceneInitializer : UISceneInitializerBase
 
 Старая система использовала `UISystemConfig` + ручная регистрация окон.
 
-### Новая система (граф-based):
+### Текущая система (граф-based):
 
-1. **Удалить** UISystemConfig (больше не нужен)
-2. **Добавить** атрибуты к классам окон
-3. **Rebuild** Window Graph
-4. **Заменить** Open() на Navigate()
+1. **Оставить** `UISystemConfig` — он хранит ссылки на prefab'ы окон и общие UI prefab'ы (dialog/toast/tooltip и т.д.)
+2. **Добавить** атрибуты к классам окон (`[UIWindow]`, `[UITransition]`, опционально `[UIGlobalTransition]`)
+3. **Rebuild** Window Graph в редакторе и/или убедиться, что `UISystemConfig.windowPrefabs` заполнен (Scan & Add Prefabs)
+4. **Предпочитать** `Navigate()` вместо прямого `Open()`
 
 ```csharp
 // Старый код
@@ -552,3 +560,6 @@ UISystem.Navigate("settings");
 ```
 
 UIWindowGraph создаётся автоматически и содержит всю информацию о графе.
+
+> Практический нюанс: в runtime `UISystem` в первую очередь строит граф из `UISystemConfig.windowPrefabs` (актуальные ссылки на prefab'ы).
+> Если список пустой — пытается использовать `windowGraphOverride`, затем Resources-граф.

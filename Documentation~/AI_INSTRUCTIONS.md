@@ -175,7 +175,9 @@ UISystem (синглтон)
 ├── UISystemConfig (ScriptableObject)
 │   ├── windowPrefabs[] — префабы окон
 │   ├── windowPrefabLabels[] — метки для автосканирования
-│   └── allowedTransitions[] — граф переходов
+│   └── common prefabs (dialogs/toast/tooltip/progress/modal overlay)
+├── UIWindowGraph (ScriptableObject) — граф окон и переходов (собирается из атрибутов на классах окон)
+├── UIWindowFactory — создание инстансов окон
 ├── UINavigator — стековая навигация
 ├── UITimeManager — управление паузой
 └── CursorManagerSystem — состояние курсора
@@ -194,8 +196,10 @@ UISystem (синглтон)
 )]
 public class MyWindow : UIWindowBase
 {
-    protected override void OnOpened(object context) { }
-    protected override void OnClosed() { }
+    protected override void OnBeforeShow() { }
+    protected override void OnShow() { }
+    protected override void OnBeforeHide() { }
+    protected override void OnHide() { }
 }
 ```
 
@@ -211,20 +215,24 @@ public class MyWindow : UIWindowBase
 ```csharp
 // Открыть окно
 UISystem.Open("settings");
-UISystem.Open("dialog", contextData);
+
+// Рекомендуемый путь: переход по триггеру из [UITransition]
+var result = UISystem.Navigate("settings");
+if (result != NavigationResult.Success)
+    Debug.LogWarning($"Navigate failed: {result}");
 
 // Закрыть и вернуться
 UISystem.Back();
 
-// Закрыть верхнее модальное
-UISystem.CloseTopModal();
-
-// Принудительно закрыть конкретное
-UISystem.Close("window_id");
+// Закрыть конкретное окно (если это overlay, верхнее modal или текущее в стеке)
+UISystem.Instance.Navigator.Close("window_id");
 
 // Получить текущее окно
 var current = UISystem.Instance.CurrentWindow;
 ```
+
+> Примечание про данные/"context": в текущем API `UISystem.Open()`/`Navigate()` не принимают payload.
+> Для передачи данных используйте состояние в системе/модели (DI) или EventBus и считывайте его в `OnShow()`.
 
 ### Создание кастомного окна
 
@@ -237,17 +245,16 @@ public class MyDialog : UIWindowBase
     [SerializeField] private Button confirmButton;
     [SerializeField] private Button cancelButton;
     
-    protected override void OnOpened(object context)
+    protected override void Awake()
     {
-        if (context is string title)
-            titleText.text = title;
-            
+        base.Awake();
         confirmButton.onClick.AddListener(OnConfirm);
         cancelButton.onClick.AddListener(OnCancel);
     }
-    
-    protected override void OnClosed()
+
+    protected override void OnDestroy()
     {
+        base.OnDestroy();
         confirmButton.onClick.RemoveAllListeners();
         cancelButton.onClick.RemoveAllListeners();
     }
@@ -267,15 +274,32 @@ public class MyDialog : UIWindowBase
 Для добавления переходов и окон при запуске сцены:
 
 ```csharp
-public class GameplayInitializer : MonoBehaviour, IUISceneInitializer
+using System.Collections.Generic;
+using UnityEngine;
+using ProtoSystem.UI;
+
+public class GameplayInitializer : UISceneInitializerBase
 {
-    public string[] GetStartupWindows() => new[] { "game_hud" };
-    
-    public UITransition[] GetAdditionalTransitions() => new[]
+    // Window IDs are ids from [UIWindow("...")] attributes (graph ids), not prefab/class names.
+    public override string StartWindowId => "GameHUD";
+
+    public override IEnumerable<string> StartupWindowOrder
     {
-        new UITransition("game_hud", "pause_menu"),
-        new UITransition("pause_menu", "settings"),
-    };
+        get { yield return StartWindowId; }
+    }
+
+    public override void Initialize(UISystem uiSystem)
+    {
+        var navigator = uiSystem.Navigator;
+        foreach (var windowId in StartupWindowOrder)
+            navigator.Open(windowId);
+    }
+
+    public override IEnumerable<UITransitionDefinition> GetAdditionalTransitions()
+    {
+        yield return new UITransitionDefinition("GameHUD", "PauseMenu", "pause", TransitionAnimation.None);
+        yield return new UITransitionDefinition("PauseMenu", "Settings", "settings", TransitionAnimation.Fade);
+    }
 }
 ```
 
