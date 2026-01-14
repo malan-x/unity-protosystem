@@ -509,9 +509,24 @@ namespace ProtoSystem.Publishing.Editor
                     var passStatus = _cache.hasSteamPassword ? "✓ Saved" : "Not set";
                     EditorGUILayout.LabelField(passStatus, GUILayout.Width(80));
 
-                    if (GUILayout.Button(_cache.hasSteamPassword ? "Change" : "Set"))
+                    if (GUILayout.Button(_cache.hasSteamPassword ? "Change" : "Set", GUILayout.Width(90)))
                     {
                         ShowPasswordDialog();
+                    }
+
+                    var canCheckAuth = !_isProcessing &&
+                                      _steamConfig != null &&
+                                      !string.IsNullOrEmpty(_steamConfig.username) &&
+                                      _cache.hasSteamPassword &&
+                                      !string.IsNullOrEmpty(_steamConfig.steamCmdPath) &&
+                                      File.Exists(_steamConfig.steamCmdPath);
+
+                    using (new EditorGUI.DisabledScope(!canCheckAuth))
+                    {
+                        if (GUILayout.Button("Check Auth", GUILayout.Width(90)))
+                        {
+                            CheckSteamAuthAsync();
+                        }
                     }
                     EditorGUILayout.EndHorizontal();
 
@@ -2051,6 +2066,51 @@ namespace ProtoSystem.Publishing.Editor
             _statusMessage = message;
             _statusColor = color;
             Repaint();
+        }
+
+        private async void CheckSteamAuthAsync()
+        {
+            if (_steamConfig == null)
+            {
+                EditorUtility.DisplayDialog("Steam Auth Check", "Steam config not set.", "OK");
+                return;
+            }
+
+            _isProcessing = true;
+            SetStatus("Checking Steam authentication...", Color.yellow);
+            Repaint();
+
+            try
+            {
+                var publisher = new SteamPublisher(_steamConfig);
+                var progress = new Progress<PublishProgress>(p =>
+                {
+                    SetStatus(p.Status, Color.yellow);
+                    Repaint();
+                });
+
+                var result = await publisher.CheckAuthenticationAsync(progress);
+                if (result.Success)
+                {
+                    SetStatus("✓ Steam authentication OK", Color.green);
+                    EditorUtility.DisplayDialog("Steam Auth Check", result.Message ?? "Authentication OK", "OK");
+                }
+                else
+                {
+                    SetStatus($"✗ {result.Error}", Color.red);
+                    EditorUtility.DisplayDialog("Steam Auth Check", result.Error ?? "Authentication failed.", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"✗ {ex.Message}", Color.red);
+                EditorUtility.DisplayDialog("Steam Auth Check", ex.Message, "OK");
+            }
+            finally
+            {
+                _isProcessing = false;
+                Repaint();
+            }
         }
 
         #endregion

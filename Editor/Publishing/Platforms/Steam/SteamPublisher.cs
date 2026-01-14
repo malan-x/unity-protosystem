@@ -65,7 +65,7 @@ namespace ProtoSystem.Publishing.Editor
                 }
 
                 progress?.Report(new PublishProgress { Status = "Starting SteamCMD...", Progress = 0.3f });
-                return await RunSteamCmdAsync(vdfPath, password, progress);
+                return await RunSteamCmdAsync(password, $"+run_app_build \"{vdfPath}\" ", progress);
             }
             catch (Exception ex)
             {
@@ -74,11 +74,34 @@ namespace ProtoSystem.Publishing.Editor
             }
         }
 
-        private async Task<PublishResult> RunSteamCmdAsync(string vdfPath, string password,
+        public async Task<PublishResult> CheckAuthenticationAsync(IProgress<PublishProgress> progress = null)
+        {
+            if (!ValidateConfig(out var error))
+            {
+                return PublishResult.Fail(error);
+            }
+
+            if (string.IsNullOrEmpty(_config.username))
+            {
+                return PublishResult.Fail("Steam username not set.");
+            }
+
+            var password = SecureCredentials.GetPassword("steam", _config.username);
+            if (string.IsNullOrEmpty(password))
+            {
+                return PublishResult.Fail("Steam password not set. Configure in Build Publisher window.");
+            }
+
+            progress?.Report(new PublishProgress { Status = "Checking Steam authentication...", Progress = 0.1f, IsIndeterminate = true });
+            // Just login + quit.
+            return await RunSteamCmdAsync(password, string.Empty, progress);
+        }
+
+        private async Task<PublishResult> RunSteamCmdAsync(string password, string steamCmdActionArgs,
             IProgress<PublishProgress> progress)
         {
             // First attempt without Steam Guard code; if required, prompt and retry once with code.
-            var firstAttempt = await RunSteamCmdOnceAsync(vdfPath, password, steamGuardCode: null, progress);
+            var firstAttempt = await RunSteamCmdOnceAsync(password, steamCmdActionArgs, steamGuardCode: null, progress);
             if (firstAttempt.Success)
             {
                 return firstAttempt;
@@ -100,10 +123,10 @@ namespace ProtoSystem.Publishing.Editor
                 return PublishResult.Fail("Upload cancelled (Steam Guard code not provided).");
             }
 
-            return await RunSteamCmdOnceAsync(vdfPath, password, code.Trim(), progress);
+            return await RunSteamCmdOnceAsync(password, steamCmdActionArgs, code.Trim(), progress);
         }
 
-        private async Task<PublishResult> RunSteamCmdOnceAsync(string vdfPath, string password, string steamGuardCode,
+        private async Task<PublishResult> RunSteamCmdOnceAsync(string password, string steamCmdActionArgs, string steamGuardCode,
             IProgress<PublishProgress> progress)
         {
             var tcs = new TaskCompletionSource<PublishResult>();
@@ -113,14 +136,23 @@ namespace ProtoSystem.Publishing.Editor
                 : $"+login \"{_config.username}\" \"{password}\" \"{steamGuardCode}\" ";
 
             var args = loginArgs +
-                       $"+run_app_build \"{vdfPath}\" " +
+                       (string.IsNullOrEmpty(steamCmdActionArgs) ? string.Empty : steamCmdActionArgs) +
                        "+quit";
 
             var (stdoutEncoding, stderrEncoding) = GetSteamCmdEncodings();
             var output = new StringBuilder();
             var buildId = "";
+            var steamGuardDetected = false;
+            Process process = null;
+            void TryResolveSteamGuard()
+            {
+                if (steamGuardDetected) return;
+                steamGuardDetected = true;
+                try { process.Kill(); } catch { }
+                tcs.TrySetResult(PublishResult.Fail("Steam Guard authentication required."));
+            }
 
-            var process = new Process
+            process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
@@ -140,10 +172,18 @@ namespace ProtoSystem.Publishing.Editor
             {
                 if (string.IsNullOrEmpty(e.Data)) return;
 
-                output.AppendLine(e.Data);
-                Debug.Log($"[SteamCMD] {e.Data}");
+                var line = SanitizeSteamCmdLine(e.Data);
 
-                if (e.Data.Contains("Uploading"))
+                output.AppendLine(line);
+                Debug.Log($"[SteamCMD] {line}");
+
+                if (line.IndexOf("Steam Guard", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    TryResolveSteamGuard();
+                    return;
+                }
+
+                if (line.Contains("Uploading"))
                 {
                     progress?.Report(new PublishProgress
                     {
@@ -152,14 +192,14 @@ namespace ProtoSystem.Publishing.Editor
                         IsIndeterminate = true
                     });
                 }
-                else if (e.Data.Contains("Successfully"))
+                else if (line.Contains("Successfully"))
                 {
                     progress?.Report(new PublishProgress { Status = "Upload complete!", Progress = 1f });
                 }
 
-                if (e.Data.Contains("BuildID"))
+                if (line.Contains("BuildID"))
                 {
-                    var match = System.Text.RegularExpressions.Regex.Match(e.Data, @"BuildID\s*(\d+)");
+                    var match = System.Text.RegularExpressions.Regex.Match(line, @"BuildID\s*(\d+)");
                     if (match.Success)
                     {
                         buildId = match.Groups[1].Value;
@@ -170,14 +210,26 @@ namespace ProtoSystem.Publishing.Editor
             process.ErrorDataReceived += (sender, e) =>
             {
                 if (string.IsNullOrEmpty(e.Data)) return;
-                output.AppendLine($"ERROR: {e.Data}");
-                Debug.LogError($"[SteamCMD] {e.Data}");
+
+                var line = SanitizeSteamCmdLine(e.Data);
+                output.AppendLine($"ERROR: {line}");
+                Debug.LogError($"[SteamCMD] {line}");
+
+                if (line.IndexOf("Steam Guard", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    TryResolveSteamGuard();
+                }
             };
 
             process.Exited += (sender, e) =>
             {
                 try
                 {
+                    if (steamGuardDetected)
+                    {
+                        return;
+                    }
+
                     var combined = output.ToString();
                     var success = process.ExitCode == 0 &&
                                   combined.IndexOf("FAILED", StringComparison.OrdinalIgnoreCase) < 0 &&
@@ -219,6 +271,38 @@ namespace ProtoSystem.Publishing.Editor
             }
 
             return await tcs.Task;
+        }
+
+        private static string SanitizeSteamCmdLine(string line)
+        {
+            if (string.IsNullOrEmpty(line)) return line;
+
+            // SteamCMD sometimes writes progress bars / box-drawing characters; keep logs readable.
+            var sb = new StringBuilder(line.Length);
+            foreach (var ch in line)
+            {
+                if (ch == '\t' || ch == ' ')
+                {
+                    sb.Append(ch);
+                    continue;
+                }
+
+                if (char.IsControl(ch))
+                {
+                    continue;
+                }
+
+                // Replace common box drawing/block elements with simple ASCII.
+                if ((ch >= '\u2500' && ch <= '\u259F') || (ch >= '\u2580' && ch <= '\u259F'))
+                {
+                    sb.Append('#');
+                    continue;
+                }
+
+                sb.Append(ch);
+            }
+
+            return sb.ToString();
         }
 
         private string ExtractError(string output)
@@ -270,13 +354,13 @@ namespace ProtoSystem.Publishing.Editor
 
         private static (Encoding stdout, Encoding stderr) GetSteamCmdEncodings()
         {
-            // SteamCMD on Windows typically writes using OEM codepage.
+            // When output is redirected (no console), most Windows apps emit using ANSI codepage (ACP).
             try
             {
                 if (Application.platform == RuntimePlatform.WindowsEditor)
                 {
-                    var oem = Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.OEMCodePage);
-                    return (oem, oem);
+                    var ansi = Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.ANSICodePage);
+                    return (ansi, ansi);
                 }
             }
             catch

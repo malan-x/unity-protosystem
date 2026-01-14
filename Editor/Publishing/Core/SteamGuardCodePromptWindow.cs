@@ -14,6 +14,7 @@ namespace ProtoSystem.Publishing.Editor
         private string _message;
         private string _code;
         private TaskCompletionSource<string> _tcs;
+        private bool _focusRequested;
 
         public static Task<string> PromptAsync(string title, string message)
         {
@@ -26,6 +27,7 @@ namespace ProtoSystem.Publishing.Editor
                 window._message = message;
                 window._code = string.Empty;
                 window._tcs = tcs;
+                window._focusRequested = true;
 
                 var center = new Vector2(Screen.currentResolution.width * 0.5f, Screen.currentResolution.height * 0.5f);
                 window.position = new Rect(center.x - DefaultWidth * 0.5f, center.y - DefaultHeight * 0.5f, DefaultWidth, DefaultHeight);
@@ -50,6 +52,13 @@ namespace ProtoSystem.Publishing.Editor
 
                 GUI.SetNextControlName("steam_guard_code_field");
                 _code = EditorGUILayout.TextField(new GUIContent("Code"), _code);
+
+                if (_focusRequested)
+                {
+                    EditorGUI.FocusTextInControl("steam_guard_code_field");
+                    _focusRequested = false;
+                    Repaint();
+                }
 
                 EditorGUILayout.Space(10);
 
@@ -88,13 +97,6 @@ namespace ProtoSystem.Publishing.Editor
                 }
             }
 
-            EditorApplication.delayCall += () =>
-            {
-                if (GetWindow<SteamGuardCodePromptWindow>() == this)
-                {
-                    EditorGUI.FocusTextInControl("steam_guard_code_field");
-                }
-            };
         }
 
         private void Submit()
