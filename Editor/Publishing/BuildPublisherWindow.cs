@@ -598,12 +598,32 @@ namespace ProtoSystem.Publishing.Editor
                 GUI.enabled = depot.enabled;
 
                 // Status icon
-                var pathExists = !string.IsNullOrEmpty(depot.buildPath) && Directory.Exists(depot.buildPath);
+                var fullBuildPath = GetFullBuildPath(depot);
+                var pathExists = !string.IsNullOrEmpty(depot.buildPath) && Directory.Exists(fullBuildPath);
                 var statusIcon = pathExists ? "✓" : "⚠";
                 var statusTooltip = pathExists ? "Build folder exists" : "Build folder not found";
 
                 EditorGUILayout.LabelField(new GUIContent($"{statusIcon} {depot.displayName}", statusTooltip), 
                     EditorStyles.boldLabel, GUILayout.Width(150));
+
+                // Quick actions next to each depot
+                if (!string.IsNullOrEmpty(depot.buildPath))
+                {
+                    if (!pathExists)
+                    {
+                        if (GUILayout.Button("Create", GUILayout.Width(55), GUILayout.Height(18)))
+                        {
+                            TryCreateAndRevealFolder(fullBuildPath);
+                        }
+                    }
+                    else
+                    {
+                        if (GUILayout.Button("Open", GUILayout.Width(45), GUILayout.Height(18)))
+                        {
+                            TryRevealFolder(fullBuildPath);
+                        }
+                    }
+                }
 
                 GUILayout.FlexibleSpace();
 
@@ -1148,7 +1168,31 @@ namespace ProtoSystem.Publishing.Editor
                 var allIssues = buildIssues.Union(uploadIssues).Distinct().Take(3);
                 foreach (var issue in allIssues)
                 {
+                    EditorGUILayout.BeginHorizontal();
                     EditorGUILayout.LabelField($"  • {issue}", EditorStyles.miniLabel);
+
+                    if (TryExtractBuildFolderIssuePath(issue, out var buildFolderPath, out var isEmptyFolder))
+                    {
+                        var folderExists = !string.IsNullOrEmpty(buildFolderPath) && Directory.Exists(buildFolderPath);
+
+                        if (!folderExists && !isEmptyFolder)
+                        {
+                            if (GUILayout.Button("Create Folder", GUILayout.Width(95)))
+                            {
+                                TryCreateAndRevealFolder(buildFolderPath);
+                            }
+                        }
+
+                        if (folderExists || isEmptyFolder)
+                        {
+                            if (GUILayout.Button("Open", GUILayout.Width(45)))
+                            {
+                                TryRevealFolder(buildFolderPath);
+                            }
+                        }
+                    }
+
+                    EditorGUILayout.EndHorizontal();
                 }
 
                 var remaining = buildIssues.Union(uploadIssues).Distinct().Count() - 3;
@@ -1202,6 +1246,71 @@ namespace ProtoSystem.Publishing.Editor
             EditorGUILayout.EndHorizontal();
 
             GUI.enabled = true;
+        }
+
+        private static bool TryExtractBuildFolderIssuePath(string issue, out string path, out bool isEmptyFolder)
+        {
+            path = null;
+            isEmptyFolder = false;
+
+            if (string.IsNullOrEmpty(issue)) return false;
+
+            const string notFoundPrefix = "Build folder not found:";
+            const string emptyPrefix = "Build folder is empty:";
+
+            if (issue.StartsWith(notFoundPrefix, StringComparison.Ordinal))
+            {
+                path = issue.Substring(notFoundPrefix.Length).Trim();
+                isEmptyFolder = false;
+                return !string.IsNullOrEmpty(path);
+            }
+
+            if (issue.StartsWith(emptyPrefix, StringComparison.Ordinal))
+            {
+                path = issue.Substring(emptyPrefix.Length).Trim();
+                isEmptyFolder = true;
+                return !string.IsNullOrEmpty(path);
+            }
+
+            return false;
+        }
+
+        private void TryCreateAndRevealFolder(string folderPath)
+        {
+            if (string.IsNullOrEmpty(folderPath)) return;
+
+            try
+            {
+                Directory.CreateDirectory(folderPath);
+                TryRevealFolder(folderPath);
+
+                // Invalidate cached validation results
+                _cache.buildIssues = null;
+                _cache.uploadIssues = null;
+                Repaint();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[BuildPublisher] Failed to create folder '{folderPath}': {ex}");
+                EditorUtility.DisplayDialog("Create Folder Failed", ex.Message, "OK");
+            }
+        }
+
+        private void TryRevealFolder(string folderPath)
+        {
+            if (string.IsNullOrEmpty(folderPath)) return;
+
+            try
+            {
+                if (Directory.Exists(folderPath))
+                {
+                    EditorUtility.RevealInFinder(folderPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[BuildPublisher] Failed to open folder '{folderPath}': {ex}");
+            }
         }
 
         private void DrawStatusBar()
