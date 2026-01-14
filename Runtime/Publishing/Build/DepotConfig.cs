@@ -144,12 +144,12 @@ namespace ProtoSystem.Publishing
             return config;
         }
 
+#if UNITY_EDITOR
         /// <summary>
-        /// Преобразовать BuildTarget в UnityEditor.BuildTarget
+        /// Преобразовать BuildTarget в UnityEditor.BuildTarget (Editor-only)
         /// </summary>
         public static UnityEditor.BuildTarget ToUnityBuildTarget(BuildTarget target)
         {
-#if UNITY_EDITOR
             return target switch
             {
                 BuildTarget.StandaloneWindows => UnityEditor.BuildTarget.StandaloneWindows,
@@ -161,9 +161,7 @@ namespace ProtoSystem.Publishing
                 BuildTarget.WebGL => UnityEditor.BuildTarget.WebGL,
                 _ => UnityEditor.BuildTarget.StandaloneWindows64
             };
-#else
-            return default;
-#endif
         }
+#endif
     }
 }
