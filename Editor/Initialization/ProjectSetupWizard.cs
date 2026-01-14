@@ -258,6 +258,11 @@ namespace ProtoSystem.Editor
                 EditorApplication.ExecuteMenuItem("ProtoSystem/UI/Tools/Credits Editor");
             }
 
+            if (GUILayout.Button("Build Publisher", GUILayout.Height(25)))
+            {
+                EditorApplication.ExecuteMenuItem("ProtoSystem/Publishing/Build Publisher");
+            }
+
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.BeginHorizontal();
