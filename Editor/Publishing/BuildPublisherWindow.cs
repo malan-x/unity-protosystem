@@ -3,21 +3,29 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEditor;
 
 namespace ProtoSystem.Publishing.Editor
 {
-    /// <summary>
-    /// Главное окно Build Publisher
-    /// </summary>
     public class BuildPublisherWindow : EditorWindow
     {
-        // Вкладки платформ
+        #region Enums & Constants
+        
         private enum PlatformTab { Steam, Itch, Epic, GOG }
-        private PlatformTab _currentTab = PlatformTab.Steam;
+        
+        private const string STEAMWORKS_BUILDS_URL = "https://partner.steamgames.com/apps/builds/";
+        private const string STEAMWORKS_DEPOTS_URL = "https://partner.steamgames.com/apps/depots/";
+        private const string STEAM_HELP_URL = "https://partner.steamgames.com/doc/sdk/uploading";
+        
+        #endregion
 
-        // Конфиги
+        #region State
+        
+        private PlatformTab _currentTab = PlatformTab.Steam;
+        
+        // Configs
         private PublishingConfig _mainConfig;
         private SteamConfig _steamConfig;
         private PatchNotesData _patchNotesData;
@@ -27,6 +35,7 @@ namespace ProtoSystem.Publishing.Editor
         private Vector2 _scrollPos;
         private Vector2 _historyScrollPos;
         private bool _foldoutPlatform = true;
+        private bool _foldoutSteamSetup = false;
         private bool _foldoutBuild = true;
         private bool _foldoutPatchNotes = true;
         private bool _foldoutGit = true;
@@ -41,73 +50,84 @@ namespace ProtoSystem.Publishing.Editor
         private int _selectedTemplateIndex;
         private PatchNotesEntry _currentEntry;
         private bool _showBBCodePreview;
-        private int _selectedHistoryIndex = -1;
 
         // Git
-        private string _currentBranch;
-        private string _lastTag;
-        private int _commitCount;
-        private List<GitCommitInfo> _recentCommits;
         private bool _createGitTag = true;
         private bool _pushGitTag = true;
-
-        // SDK Search
-        private List<SDKSearchResult> _steamCmdResults;
-        private bool _showSdkSearch;
 
         // Status
         private string _statusMessage = "Ready";
         private Color _statusColor = Color.green;
         private bool _isProcessing;
 
+        // SDK Search
+        private List<SDKSearchResult> _steamCmdResults;
+        private bool _isSearchingSteamCmd;
+        private string _searchProgress = "";
+
+        #endregion
+
+        #region Cached Data (updated only on changes)
+        
+        private class CachedData
+        {
+            // Git
+            public string currentBranch;
+            public string lastTag;
+            public int commitCount;
+            public List<GitCommitInfo> recentCommits;
+            public bool gitAvailable;
+            public bool isGitRepo;
+            
+            // Steam
+            public bool steamConfigValid;
+            public string steamConfigError;
+            public string[] branchNames;
+            public string[] depotNames;
+            public bool hasSteamPassword;
+            
+            // Patch notes
+            public string[] templateNames;
+            public string historyInfo;
+            
+            // Timestamps
+            public double lastGitRefresh;
+            public double lastSteamRefresh;
+        }
+        
+        private CachedData _cache = new CachedData();
+        private const double CACHE_REFRESH_INTERVAL = 5.0; // seconds
+        
+        #endregion
+
         [MenuItem("ProtoSystem/Publishing/Build Publisher", priority = 100)]
         public static void ShowWindow()
         {
             var window = GetWindow<BuildPublisherWindow>("Build Publisher");
-            window.minSize = new Vector2(550, 700);
+            window.minSize = new Vector2(600, 750);
             window.Show();
         }
 
         private void OnEnable()
         {
             LoadConfigs();
-            RefreshGitInfo();
+            RefreshAllCache(force: true);
             LoadCurrentEntry();
         }
 
+        private void OnFocus()
+        {
+            RefreshAllCache(force: false);
+        }
+
+        #region Config Loading
+        
         private void LoadConfigs()
         {
-            // Ищем главный конфиг
-            var guids = AssetDatabase.FindAssets("t:PublishingConfig");
-            if (guids.Length > 0)
-            {
-                _mainConfig = AssetDatabase.LoadAssetAtPath<PublishingConfig>(
-                    AssetDatabase.GUIDToAssetPath(guids[0]));
-            }
-
-            // Ищем Steam конфиг
-            guids = AssetDatabase.FindAssets("t:SteamConfig");
-            if (guids.Length > 0)
-            {
-                _steamConfig = AssetDatabase.LoadAssetAtPath<SteamConfig>(
-                    AssetDatabase.GUIDToAssetPath(guids[0]));
-            }
-
-            // Ищем PatchNotesData
-            guids = AssetDatabase.FindAssets("t:PatchNotesData");
-            if (guids.Length > 0)
-            {
-                _patchNotesData = AssetDatabase.LoadAssetAtPath<PatchNotesData>(
-                    AssetDatabase.GUIDToAssetPath(guids[0]));
-            }
-
-            // Ищем TagConfig
-            guids = AssetDatabase.FindAssets("t:CommitTagConfig");
-            if (guids.Length > 0)
-            {
-                _tagConfig = AssetDatabase.LoadAssetAtPath<CommitTagConfig>(
-                    AssetDatabase.GUIDToAssetPath(guids[0]));
-            }
+            _mainConfig = FindAssetOfType<PublishingConfig>();
+            _steamConfig = FindAssetOfType<SteamConfig>();
+            _patchNotesData = FindAssetOfType<PatchNotesData>();
+            _tagConfig = FindAssetOfType<CommitTagConfig>();
 
             if (_mainConfig != null)
             {
@@ -123,6 +143,16 @@ namespace ProtoSystem.Publishing.Editor
             }
         }
 
+        private T FindAssetOfType<T>() where T : UnityEngine.Object
+        {
+            var guids = AssetDatabase.FindAssets($"t:{typeof(T).Name}");
+            if (guids.Length > 0)
+            {
+                return AssetDatabase.LoadAssetAtPath<T>(AssetDatabase.GUIDToAssetPath(guids[0]));
+            }
+            return null;
+        }
+
         private void LoadCurrentEntry()
         {
             if (_patchNotesData != null)
@@ -132,52 +162,106 @@ namespace ProtoSystem.Publishing.Editor
             }
         }
 
-        private void RefreshGitInfo()
+        #endregion
+
+        #region Cache Management
+        
+        private void RefreshAllCache(bool force)
         {
-            if (!GitIntegration.IsGitAvailable() || !GitIntegration.IsGitRepository())
+            var now = EditorApplication.timeSinceStartup;
+            
+            if (force || now - _cache.lastGitRefresh > CACHE_REFRESH_INTERVAL)
             {
-                _currentBranch = "Not a Git repository";
+                RefreshGitCache();
+                _cache.lastGitRefresh = now;
+            }
+            
+            if (force || now - _cache.lastSteamRefresh > CACHE_REFRESH_INTERVAL)
+            {
+                RefreshSteamCache();
+                _cache.lastSteamRefresh = now;
+            }
+            
+            RefreshPatchNotesCache();
+        }
+
+        private void RefreshGitCache()
+        {
+            _cache.gitAvailable = GitIntegration.IsGitAvailable();
+            _cache.isGitRepo = _cache.gitAvailable && GitIntegration.IsGitRepository();
+            
+            if (!_cache.isGitRepo)
+            {
+                _cache.currentBranch = "Not a Git repository";
+                _cache.recentCommits = new List<GitCommitInfo>();
+                _cache.commitCount = 0;
                 return;
             }
 
-            _currentBranch = GitIntegration.GetCurrentBranch();
-            _lastTag = GitIntegration.GetLastTag();
+            _cache.currentBranch = GitIntegration.GetCurrentBranch();
+            _cache.lastTag = GitIntegration.GetLastTag();
             
-            // Считаем коммиты после последнего сохранённого патчноута
             var lastProcessedCommit = GetLastProcessedCommitHash();
             if (!string.IsNullOrEmpty(lastProcessedCommit))
             {
-                _recentCommits = GitIntegration.GetCommits($"{lastProcessedCommit}..HEAD");
+                _cache.recentCommits = GitIntegration.GetCommits($"{lastProcessedCommit}..HEAD");
             }
-            else if (!string.IsNullOrEmpty(_lastTag))
+            else if (!string.IsNullOrEmpty(_cache.lastTag))
             {
-                _recentCommits = GitIntegration.GetCommitsSinceTag(_lastTag);
+                _cache.recentCommits = GitIntegration.GetCommitsSinceTag(_cache.lastTag);
             }
             else
             {
-                _recentCommits = GitIntegration.GetCommits("HEAD~50..HEAD", 50);
+                _cache.recentCommits = GitIntegration.GetCommits("HEAD~50..HEAD", 50);
             }
             
-            _commitCount = _recentCommits?.Count ?? 0;
+            _cache.commitCount = _cache.recentCommits?.Count ?? 0;
         }
 
-        /// <summary>
-        /// Получить хеш последнего обработанного коммита из истории патчноутов
-        /// </summary>
+        private void RefreshSteamCache()
+        {
+            if (_steamConfig == null)
+            {
+                _cache.steamConfigValid = false;
+                _cache.steamConfigError = "No config";
+                _cache.branchNames = new string[0];
+                _cache.depotNames = new string[0];
+                return;
+            }
+            
+            _cache.steamConfigValid = _steamConfig.Validate(out _cache.steamConfigError);
+            
+            _cache.branchNames = _steamConfig.branches?.Select(b => b.name).ToArray() ?? new string[0];
+            
+            var depots = _steamConfig.depotConfig?.GetEnabledDepots();
+            _cache.depotNames = depots?.Select(d => $"{d.displayName} ({d.depotId})").ToArray() ?? new string[0];
+            
+            _cache.hasSteamPassword = SecureCredentials.HasPassword("steam", _steamConfig.username ?? "");
+        }
+
+        private void RefreshPatchNotesCache()
+        {
+            _cache.templateNames = _patchNotesData?.templates?.Select(t => t.name).ToArray() ?? new string[0];
+            
+            var entryCount = _patchNotesData?.entries?.Count ?? 0;
+            _cache.historyInfo = $"History ({entryCount} versions)";
+        }
+
         private string GetLastProcessedCommitHash()
         {
-            if (_patchNotesData == null || _patchNotesData.entries == null) 
-                return null;
+            if (_patchNotesData?.entries == null) return null;
 
             foreach (var entry in _patchNotesData.entries)
             {
-                if (entry.commitHashes != null && entry.commitHashes.Count > 0)
-                {
-                    return entry.commitHashes[0]; // Первый = самый новый
-                }
+                if (entry.commitHashes?.Count > 0)
+                    return entry.commitHashes[0];
             }
             return null;
         }
+
+        #endregion
+
+        #region GUI
 
         private void OnGUI()
         {
@@ -219,21 +303,18 @@ namespace ProtoSystem.Publishing.Editor
         private void DrawHeader()
         {
             EditorGUILayout.BeginHorizontal();
-            
             EditorGUILayout.LabelField("Build Publisher", EditorStyles.boldLabel);
-            
             GUILayout.FlexibleSpace();
             
             if (GUILayout.Button("Refresh", GUILayout.Width(70)))
             {
                 LoadConfigs();
-                RefreshGitInfo();
+                RefreshAllCache(force: true);
                 LoadCurrentEntry();
                 Repaint();
             }
             
             EditorGUILayout.EndHorizontal();
-            
             EditorGUILayout.Space(5);
         }
 
@@ -259,24 +340,54 @@ namespace ProtoSystem.Publishing.Editor
             EditorGUILayout.EndHorizontal();
         }
 
+        #endregion
+
+        #region Steam Tab
+
         private void DrawSteamTab()
         {
-            _foldoutPlatform = EditorGUILayout.BeginFoldoutHeaderGroup(_foldoutPlatform, "Platform Config");
+            // Quick actions bar
+            EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
+            
+            GUI.enabled = !string.IsNullOrEmpty(_steamConfig?.appId);
+            if (GUILayout.Button("📂 Open Steamworks Builds", GUILayout.Height(24)))
+            {
+                Application.OpenURL(STEAMWORKS_BUILDS_URL + _steamConfig.appId);
+            }
+            if (GUILayout.Button("📋 Open Depots", GUILayout.Height(24)))
+            {
+                Application.OpenURL(STEAMWORKS_DEPOTS_URL + _steamConfig.appId);
+            }
+            GUI.enabled = true;
+            
+            if (GUILayout.Button("❓ Help", GUILayout.Width(50), GUILayout.Height(24)))
+            {
+                Application.OpenURL(STEAM_HELP_URL);
+            }
+            
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.Space(5);
+
+            // Config selection
+            _foldoutPlatform = EditorGUILayout.BeginFoldoutHeaderGroup(_foldoutPlatform, "Steam Config");
             
             if (_foldoutPlatform)
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-
+                
+                // Config asset
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField("Config:", GUILayout.Width(50));
-                _steamConfig = (SteamConfig)EditorGUILayout.ObjectField(_steamConfig, typeof(SteamConfig), false);
                 
-                if (GUILayout.Button("Edit", GUILayout.Width(40)) && _steamConfig != null)
+                var newConfig = (SteamConfig)EditorGUILayout.ObjectField(_steamConfig, typeof(SteamConfig), false);
+                if (newConfig != _steamConfig)
                 {
-                    Selection.activeObject = _steamConfig;
+                    _steamConfig = newConfig;
+                    RefreshSteamCache();
                 }
                 
-                if (GUILayout.Button("New", GUILayout.Width(40)))
+                if (GUILayout.Button("New", GUILayout.Width(45)))
                 {
                     CreateNewSteamConfig();
                 }
@@ -286,76 +397,266 @@ namespace ProtoSystem.Publishing.Editor
                 {
                     EditorGUILayout.Space(5);
                     
-                    EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.LabelField($"App ID: {_steamConfig.appId}", GUILayout.Width(150));
+                    // Status
+                    var statusColor = _cache.steamConfigValid ? Color.green : Color.red;
+                    var statusIcon = _cache.steamConfigValid ? "✓" : "✗";
+                    GUI.contentColor = statusColor;
+                    EditorGUILayout.LabelField($"{statusIcon} {(_cache.steamConfigValid ? "Ready to upload" : _cache.steamConfigError)}");
+                    GUI.contentColor = Color.white;
+
+                    EditorGUILayout.Space(5);
+
+                    // Quick settings (always visible)
+                    if (_cache.branchNames.Length > 0)
+                    {
+                        _selectedBranchIndex = Mathf.Clamp(_selectedBranchIndex, 0, _cache.branchNames.Length - 1);
+                        _selectedBranchIndex = EditorGUILayout.Popup("Branch:", _selectedBranchIndex, _cache.branchNames);
+                    }
                     
-                    if (_steamConfig.branches != null && _steamConfig.branches.Count > 0)
+                    if (_cache.depotNames.Length > 0)
                     {
-                        var branchNames = _steamConfig.branches.Select(b => b.name).ToArray();
-                        _selectedBranchIndex = EditorGUILayout.Popup("Branch:", _selectedBranchIndex, branchNames);
+                        _selectedDepotIndex = Mathf.Clamp(_selectedDepotIndex, 0, _cache.depotNames.Length - 1);
+                        _selectedDepotIndex = EditorGUILayout.Popup("Depot:", _selectedDepotIndex, _cache.depotNames);
                     }
-                    EditorGUILayout.EndHorizontal();
-
-                    if (_steamConfig.depotConfig != null)
-                    {
-                        var depots = _steamConfig.depotConfig.GetEnabledDepots();
-                        if (depots.Count > 0)
-                        {
-                            var depotNames = depots.Select(d => $"{d.displayName} ({d.depotId})").ToArray();
-                            _selectedDepotIndex = EditorGUILayout.Popup("Depot:", _selectedDepotIndex, depotNames);
-                        }
-                    }
-
-                    var isValid = _steamConfig.Validate(out var error);
-                    var statusStyle = new GUIStyle(EditorStyles.label);
-                    statusStyle.normal.textColor = isValid ? Color.green : Color.red;
-                    EditorGUILayout.LabelField($"Status: {(isValid ? "✓ Ready" : $"✗ {error}")}", statusStyle);
-
-                    if (string.IsNullOrEmpty(_steamConfig.steamCmdPath) || !File.Exists(_steamConfig.steamCmdPath))
-                    {
-                        EditorGUILayout.Space(5);
-                        DrawSteamCmdSearch();
-                    }
-
-                    var hasPassword = SecureCredentials.HasPassword("steam", _steamConfig.username ?? "");
-                    EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.LabelField($"Password: {(hasPassword ? "✓ Saved" : "✗ Not set")}", GUILayout.Width(120));
-                    
-                    if (GUILayout.Button(hasPassword ? "Change" : "Set", GUILayout.Width(60)))
-                    {
-                        ShowPasswordDialog();
-                    }
-                    EditorGUILayout.EndHorizontal();
                 }
 
                 EditorGUILayout.EndVertical();
             }
             EditorGUILayout.EndFoldoutHeaderGroup();
 
+            // Setup panel (expandable)
+            DrawSteamSetupPanel();
+
+            // Build Settings
+            DrawBuildSettingsPanel();
+        }
+
+        private void DrawSteamSetupPanel()
+        {
+            _foldoutSteamSetup = EditorGUILayout.BeginFoldoutHeaderGroup(_foldoutSteamSetup, 
+                "⚙️ Steam Setup (Click to configure)");
+            
+            if (_foldoutSteamSetup)
+            {
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+                if (_steamConfig == null)
+                {
+                    EditorGUILayout.HelpBox("Create Steam Config first", MessageType.Warning);
+                    if (GUILayout.Button("Create Steam Config"))
+                    {
+                        CreateNewSteamConfig();
+                    }
+                }
+                else
+                {
+                    EditorGUI.BeginChangeCheck();
+                    
+                    // App ID
+                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField(new GUIContent("App ID *", 
+                        "Your Steam App ID from Steamworks Partner site.\nFind it at: partner.steamgames.com"), 
+                        GUILayout.Width(120));
+                    _steamConfig.appId = EditorGUILayout.TextField(_steamConfig.appId);
+                    if (GUILayout.Button("?", GUILayout.Width(20)))
+                    {
+                        Application.OpenURL("https://partner.steamgames.com/apps");
+                    }
+                    EditorGUILayout.EndHorizontal();
+
+                    // App Name
+                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField(new GUIContent("App Name", 
+                        "Display name (optional, for your reference)"), GUILayout.Width(120));
+                    _steamConfig.appName = EditorGUILayout.TextField(_steamConfig.appName);
+                    EditorGUILayout.EndHorizontal();
+
+                    EditorGUILayout.Space(10);
+                    EditorGUILayout.LabelField("Account", EditorStyles.boldLabel);
+
+                    // Username
+                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField(new GUIContent("Username *", 
+                        "Steam account with upload permissions.\nRecommended: create separate account for CI/CD"), 
+                        GUILayout.Width(120));
+                    _steamConfig.username = EditorGUILayout.TextField(_steamConfig.username);
+                    EditorGUILayout.EndHorizontal();
+
+                    // Password
+                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField(new GUIContent("Password", 
+                        "⚠️ Stored in EditorPrefs (not secure!).\nUse account without valuable items."), 
+                        GUILayout.Width(120));
+                    
+                    var passStatus = _cache.hasSteamPassword ? "✓ Saved" : "Not set";
+                    EditorGUILayout.LabelField(passStatus, GUILayout.Width(80));
+                    
+                    if (GUILayout.Button(_cache.hasSteamPassword ? "Change" : "Set"))
+                    {
+                        ShowPasswordDialog();
+                    }
+                    EditorGUILayout.EndHorizontal();
+
+                    EditorGUILayout.Space(10);
+                    EditorGUILayout.LabelField("SteamCMD", EditorStyles.boldLabel);
+
+                    // SteamCMD Path
+                    DrawSteamCmdPathField();
+
+                    EditorGUILayout.Space(10);
+                    EditorGUILayout.LabelField("Depots", EditorStyles.boldLabel);
+
+                    // Depot Config
+                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField(new GUIContent("Depot Config *", 
+                        "Configuration for build depots (Windows, Mac, Linux).\nDepot IDs are on Steamworks → Your App → Depots"), 
+                        GUILayout.Width(120));
+                    _steamConfig.depotConfig = (DepotConfig)EditorGUILayout.ObjectField(
+                        _steamConfig.depotConfig, typeof(DepotConfig), false);
+                    
+                    if (GUILayout.Button("New", GUILayout.Width(45)))
+                    {
+                        CreateNewDepotConfig();
+                    }
+                    if (GUILayout.Button("?", GUILayout.Width(20)) && !string.IsNullOrEmpty(_steamConfig.appId))
+                    {
+                        Application.OpenURL(STEAMWORKS_DEPOTS_URL + _steamConfig.appId);
+                    }
+                    EditorGUILayout.EndHorizontal();
+
+                    // Depot list preview
+                    if (_steamConfig.depotConfig != null && _cache.depotNames.Length > 0)
+                    {
+                        EditorGUI.indentLevel++;
+                        foreach (var name in _cache.depotNames)
+                        {
+                            EditorGUILayout.LabelField($"• {name}", EditorStyles.miniLabel);
+                        }
+                        EditorGUI.indentLevel--;
+                    }
+
+                    EditorGUILayout.Space(10);
+                    EditorGUILayout.LabelField("Options", EditorStyles.boldLabel);
+
+                    // Preview Mode
+                    EditorGUILayout.BeginHorizontal();
+                    _steamConfig.previewMode = EditorGUILayout.Toggle(
+                        new GUIContent("Preview Mode", "Validates upload without actually uploading"), 
+                        _steamConfig.previewMode);
+                    EditorGUILayout.EndHorizontal();
+
+                    // Auto Set Live
+                    EditorGUILayout.BeginHorizontal();
+                    _steamConfig.autoSetLive = EditorGUILayout.Toggle(
+                        new GUIContent("Auto Set Live", "Automatically set build live on selected branch after upload"), 
+                        _steamConfig.autoSetLive);
+                    EditorGUILayout.EndHorizontal();
+
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        EditorUtility.SetDirty(_steamConfig);
+                        RefreshSteamCache();
+                    }
+                }
+
+                EditorGUILayout.EndVertical();
+            }
+            EditorGUILayout.EndFoldoutHeaderGroup();
+        }
+
+        private void DrawSteamCmdPathField()
+        {
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField(new GUIContent("SteamCMD Path *", 
+                "Path to steamcmd.exe\nDownload from: partner.steamgames.com/doc/sdk"), 
+                GUILayout.Width(120));
+            
+            if (_steamConfig != null)
+            {
+                _steamConfig.steamCmdPath = EditorGUILayout.TextField(_steamConfig.steamCmdPath);
+            }
+            
+            if (GUILayout.Button("...", GUILayout.Width(25)))
+            {
+                var path = EditorUtility.OpenFilePanel("Select SteamCMD", "", 
+                    Application.platform == RuntimePlatform.WindowsEditor ? "exe" : "sh");
+                if (!string.IsNullOrEmpty(path) && _steamConfig != null)
+                {
+                    _steamConfig.steamCmdPath = path;
+                    EditorUtility.SetDirty(_steamConfig);
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+
+            // Search button
+            if (_steamConfig != null && (string.IsNullOrEmpty(_steamConfig.steamCmdPath) || 
+                !File.Exists(_steamConfig.steamCmdPath)))
+            {
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Space(124);
+                
+                GUI.enabled = !_isSearchingSteamCmd;
+                if (GUILayout.Button(_isSearchingSteamCmd ? _searchProgress : "🔍 Search on all drives"))
+                {
+                    SearchSteamCmdAsync();
+                }
+                GUI.enabled = true;
+                
+                if (GUILayout.Button("Download", GUILayout.Width(70)))
+                {
+                    Application.OpenURL("https://developer.valvesoftware.com/wiki/SteamCMD#Downloading_SteamCMD");
+                }
+                EditorGUILayout.EndHorizontal();
+
+                // Show search results
+                if (_steamCmdResults != null && _steamCmdResults.Count > 0)
+                {
+                    EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                    EditorGUILayout.LabelField("Found:", EditorStyles.boldLabel);
+                    
+                    foreach (var result in _steamCmdResults.Take(5))
+                    {
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.LabelField(result.Path, EditorStyles.miniLabel);
+                        if (GUILayout.Button("Use", GUILayout.Width(40)))
+                        {
+                            _steamConfig.steamCmdPath = result.Path;
+                            EditorUtility.SetDirty(_steamConfig);
+                            _steamCmdResults = null;
+                        }
+                        EditorGUILayout.EndHorizontal();
+                    }
+                    
+                    if (_steamCmdResults.Count > 5)
+                    {
+                        EditorGUILayout.LabelField($"... and {_steamCmdResults.Count - 5} more", EditorStyles.miniLabel);
+                    }
+                    
+                    EditorGUILayout.EndVertical();
+                }
+            }
+            else if (_steamConfig != null && File.Exists(_steamConfig.steamCmdPath))
+            {
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Space(124);
+                GUI.contentColor = Color.green;
+                EditorGUILayout.LabelField("✓ Found", EditorStyles.miniLabel);
+                GUI.contentColor = Color.white;
+                EditorGUILayout.EndHorizontal();
+            }
+        }
+
+        private void DrawBuildSettingsPanel()
+        {
             _foldoutBuild = EditorGUILayout.BeginFoldoutHeaderGroup(_foldoutBuild, "Build Settings");
             
             if (_foldoutBuild)
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
                 
-                _buildDescription = EditorGUILayout.TextField("Description:", _buildDescription);
-                
-                EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField("Preview Mode:", GUILayout.Width(100));
-                if (_steamConfig != null)
-                {
-                    _steamConfig.previewMode = EditorGUILayout.Toggle(_steamConfig.previewMode);
-                    EditorGUILayout.LabelField("(No actual upload)", EditorStyles.miniLabel);
-                }
-                EditorGUILayout.EndHorizontal();
-
-                EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField("Auto Set Live:", GUILayout.Width(100));
-                if (_steamConfig != null)
-                {
-                    _steamConfig.autoSetLive = EditorGUILayout.Toggle(_steamConfig.autoSetLive);
-                }
-                EditorGUILayout.EndHorizontal();
+                _buildDescription = EditorGUILayout.TextField(
+                    new GUIContent("Description", "Build description shown in Steamworks"), 
+                    _buildDescription);
 
                 EditorGUILayout.EndVertical();
             }
@@ -373,60 +674,9 @@ namespace ProtoSystem.Publishing.Editor
                 MessageType.Info);
         }
 
-        private void DrawSteamCmdSearch()
-        {
-            _showSdkSearch = EditorGUILayout.Foldout(_showSdkSearch, "⚠️ SteamCMD not found - Click to search");
-            
-            if (_showSdkSearch)
-            {
-                if (_steamCmdResults == null)
-                {
-                    _steamCmdResults = SDKPathFinder.FindSteamCmd();
-                }
+        #endregion
 
-                if (_steamCmdResults.Count > 0)
-                {
-                    EditorGUILayout.LabelField("Found installations:", EditorStyles.boldLabel);
-                    
-                    foreach (var result in _steamCmdResults)
-                    {
-                        EditorGUILayout.BeginHorizontal();
-                        EditorGUILayout.LabelField($"[{result.Source}] {result.Path}", EditorStyles.miniLabel);
-                        
-                        if (GUILayout.Button("Use", GUILayout.Width(40)))
-                        {
-                            _steamConfig.steamCmdPath = result.Path;
-                            EditorUtility.SetDirty(_steamConfig);
-                            SDKPathFinder.SavePath("SteamCmd", result.Path);
-                        }
-                        EditorGUILayout.EndHorizontal();
-                    }
-                }
-                else
-                {
-                    EditorGUILayout.HelpBox("SteamCMD not found.", MessageType.Warning);
-                }
-
-                EditorGUILayout.BeginHorizontal();
-                if (GUILayout.Button("Browse..."))
-                {
-                    var path = EditorUtility.OpenFilePanel("Select SteamCMD", "", 
-                        Application.platform == RuntimePlatform.WindowsEditor ? "exe" : "sh");
-                    
-                    if (!string.IsNullOrEmpty(path))
-                    {
-                        _steamConfig.steamCmdPath = path;
-                        EditorUtility.SetDirty(_steamConfig);
-                    }
-                }
-                
-                if (GUILayout.Button("Refresh"))
-                {
-                    _steamCmdResults = SDKPathFinder.FindSteamCmd();
-                }
-                EditorGUILayout.EndHorizontal();
-            }
-        }
+        #region Patch Notes Section
 
         private void DrawPatchNotesSection()
         {
@@ -436,7 +686,7 @@ namespace ProtoSystem.Publishing.Editor
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
-                // PatchNotesData
+                // Data asset
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField("Data:", GUILayout.Width(40));
                 var newData = (PatchNotesData)EditorGUILayout.ObjectField(_patchNotesData, typeof(PatchNotesData), false);
@@ -444,9 +694,10 @@ namespace ProtoSystem.Publishing.Editor
                 {
                     _patchNotesData = newData;
                     LoadCurrentEntry();
+                    RefreshPatchNotesCache();
                 }
                 
-                if (GUILayout.Button("New", GUILayout.Width(40)))
+                if (GUILayout.Button("New", GUILayout.Width(45)))
                 {
                     CreateNewPatchNotesData();
                 }
@@ -466,49 +717,39 @@ namespace ProtoSystem.Publishing.Editor
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField("Version:", GUILayout.Width(55));
                 
+                EditorGUI.BeginChangeCheck();
                 var newVersion = EditorGUILayout.TextField(_patchNotesData.currentVersion, GUILayout.Width(80));
-                if (newVersion != _patchNotesData.currentVersion)
+                if (EditorGUI.EndChangeCheck() && newVersion != _patchNotesData.currentVersion)
                 {
                     _patchNotesData.currentVersion = newVersion;
                     EditorUtility.SetDirty(_patchNotesData);
                 }
 
-                if (GUILayout.Button("+0.0.1", GUILayout.Width(50)))
-                {
-                    IncrementVersion(VersionIncrement.Patch);
-                }
-                if (GUILayout.Button("+0.1.0", GUILayout.Width(50)))
-                {
-                    IncrementVersion(VersionIncrement.Minor);
-                }
-                if (GUILayout.Button("+1.0.0", GUILayout.Width(50)))
-                {
-                    IncrementVersion(VersionIncrement.Major);
-                }
+                if (GUILayout.Button("+0.0.1", GUILayout.Width(50))) IncrementVersion(VersionIncrement.Patch);
+                if (GUILayout.Button("+0.1.0", GUILayout.Width(50))) IncrementVersion(VersionIncrement.Minor);
+                if (GUILayout.Button("+1.0.0", GUILayout.Width(50))) IncrementVersion(VersionIncrement.Major);
                 
                 EditorGUILayout.EndHorizontal();
 
-                // Current entry info
+                // Entry info
                 if (_currentEntry != null)
                 {
-                    EditorGUILayout.Space(3);
-                    
-                    var infoStyle = EditorStyles.miniLabel;
                     var authorsStr = _currentEntry.authors?.Count > 0 
-                        ? string.Join(", ", _currentEntry.authors) 
+                        ? string.Join(", ", _currentEntry.authors.Take(3)) 
                         : "None";
-                    var commitsStr = _currentEntry.commitHashes?.Count.ToString() ?? "0";
+                    if (_currentEntry.authors?.Count > 3) authorsStr += "...";
                     
-                    EditorGUILayout.LabelField($"Commits: {commitsStr} | Authors: {authorsStr}", infoStyle);
+                    EditorGUILayout.LabelField($"Commits: {_currentEntry.commitHashes?.Count ?? 0} | Authors: {authorsStr}", 
+                        EditorStyles.miniLabel);
                 }
 
                 EditorGUILayout.Space(5);
 
                 // Template
-                if (_patchNotesData.templates != null && _patchNotesData.templates.Count > 0)
+                if (_cache.templateNames.Length > 0)
                 {
-                    var templateNames = _patchNotesData.templates.Select(t => t.name).ToArray();
-                    _selectedTemplateIndex = EditorGUILayout.Popup("Template:", _selectedTemplateIndex, templateNames);
+                    _selectedTemplateIndex = Mathf.Clamp(_selectedTemplateIndex, 0, _cache.templateNames.Length - 1);
+                    _selectedTemplateIndex = EditorGUILayout.Popup("Template:", _selectedTemplateIndex, _cache.templateNames);
                 }
 
                 // Content
@@ -516,14 +757,20 @@ namespace ProtoSystem.Publishing.Editor
                 
                 if (_currentEntry != null)
                 {
-                    _currentEntry.content = EditorGUILayout.TextArea(_currentEntry.content ?? "", GUILayout.MinHeight(100));
+                    EditorGUI.BeginChangeCheck();
+                    _currentEntry.content = EditorGUILayout.TextArea(_currentEntry.content ?? "", 
+                        GUILayout.MinHeight(100));
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        EditorUtility.SetDirty(_patchNotesData);
+                    }
                 }
 
                 // Actions
                 EditorGUILayout.BeginHorizontal();
                 
-                GUI.enabled = _commitCount > 0;
-                if (GUILayout.Button($"From Git ({_commitCount} commits)"))
+                GUI.enabled = _cache.commitCount > 0;
+                if (GUILayout.Button($"From Git ({_cache.commitCount} commits)"))
                 {
                     GenerateFromGitCommits();
                 }
@@ -555,11 +802,10 @@ namespace ProtoSystem.Publishing.Editor
 
         private void DrawHistorySection()
         {
-            if (_patchNotesData == null || _patchNotesData.entries == null || _patchNotesData.entries.Count == 0)
+            if (_patchNotesData?.entries == null || _patchNotesData.entries.Count == 0)
                 return;
 
-            _foldoutHistory = EditorGUILayout.BeginFoldoutHeaderGroup(_foldoutHistory, 
-                $"History ({_patchNotesData.entries.Count} versions)");
+            _foldoutHistory = EditorGUILayout.BeginFoldoutHeaderGroup(_foldoutHistory, _cache.historyInfo);
             
             if (_foldoutHistory)
             {
@@ -567,22 +813,19 @@ namespace ProtoSystem.Publishing.Editor
                 
                 _historyScrollPos = EditorGUILayout.BeginScrollView(_historyScrollPos, GUILayout.MaxHeight(150));
                 
-                for (int i = 0; i < _patchNotesData.entries.Count; i++)
+                foreach (var entry in _patchNotesData.entries)
                 {
-                    var entry = _patchNotesData.entries[i];
                     var isCurrent = entry.version == _patchNotesData.currentVersion;
                     
                     EditorGUILayout.BeginHorizontal();
                     
-                    var style = isCurrent ? EditorStyles.boldLabel : EditorStyles.label;
                     var prefix = isCurrent ? "► " : "  ";
-                    var authorsCount = entry.authors?.Count ?? 0;
-                    var commitsCount = entry.commitHashes?.Count ?? 0;
+                    var style = isCurrent ? EditorStyles.boldLabel : EditorStyles.label;
                     
                     EditorGUILayout.LabelField($"{prefix}{entry.version}", style, GUILayout.Width(80));
                     EditorGUILayout.LabelField(entry.date ?? "", GUILayout.Width(80));
-                    EditorGUILayout.LabelField($"{commitsCount} commits, {authorsCount} authors", 
-                        EditorStyles.miniLabel);
+                    EditorGUILayout.LabelField($"{entry.commitHashes?.Count ?? 0}c, {entry.authors?.Count ?? 0}a", 
+                        EditorStyles.miniLabel, GUILayout.Width(60));
                     
                     if (!isCurrent && GUILayout.Button("Load", GUILayout.Width(45)))
                     {
@@ -600,6 +843,10 @@ namespace ProtoSystem.Publishing.Editor
             EditorGUILayout.EndFoldoutHeaderGroup();
         }
 
+        #endregion
+
+        #region Git Section
+
         private void DrawGitSection()
         {
             _foldoutGit = EditorGUILayout.BeginFoldoutHeaderGroup(_foldoutGit, "Git Integration");
@@ -608,22 +855,22 @@ namespace ProtoSystem.Publishing.Editor
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
-                if (!GitIntegration.IsGitAvailable())
+                if (!_cache.gitAvailable)
                 {
                     EditorGUILayout.HelpBox("Git not found in PATH", MessageType.Warning);
                 }
-                else if (!GitIntegration.IsGitRepository())
+                else if (!_cache.isGitRepo)
                 {
                     EditorGUILayout.HelpBox("Not a Git repository", MessageType.Info);
                 }
                 else
                 {
                     EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.LabelField($"Branch: {_currentBranch}", GUILayout.Width(200));
-                    EditorGUILayout.LabelField($"Last Tag: {_lastTag ?? "None"}");
+                    EditorGUILayout.LabelField($"Branch: {_cache.currentBranch}", GUILayout.Width(200));
+                    EditorGUILayout.LabelField($"Last Tag: {_cache.lastTag ?? "None"}");
                     EditorGUILayout.EndHorizontal();
 
-                    EditorGUILayout.LabelField($"New commits: {_commitCount}");
+                    EditorGUILayout.LabelField($"New commits: {_cache.commitCount}");
 
                     EditorGUILayout.Space(5);
 
@@ -633,7 +880,7 @@ namespace ProtoSystem.Publishing.Editor
                     _pushGitTag = EditorGUILayout.Toggle("Push tag to remote", _pushGitTag);
                     GUI.enabled = true;
 
-                    if (_commitCount > 0 && GUILayout.Button($"View {_commitCount} commits"))
+                    if (_cache.commitCount > 0 && GUILayout.Button($"View {_cache.commitCount} commits"))
                     {
                         ShowCommitsPopup();
                     }
@@ -644,9 +891,13 @@ namespace ProtoSystem.Publishing.Editor
             EditorGUILayout.EndFoldoutHeaderGroup();
         }
 
+        #endregion
+
+        #region Action Buttons
+
         private void DrawActionButtons()
         {
-            GUI.enabled = !_isProcessing && _steamConfig != null;
+            GUI.enabled = !_isProcessing && _steamConfig != null && _cache.steamConfigValid;
 
             EditorGUILayout.BeginHorizontal();
 
@@ -676,15 +927,83 @@ namespace ProtoSystem.Publishing.Editor
         {
             EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
             
-            var statusStyle = new GUIStyle(EditorStyles.label);
-            statusStyle.normal.textColor = _statusColor;
-            
-            EditorGUILayout.LabelField($"● {_statusMessage}", statusStyle);
+            GUI.contentColor = _statusColor;
+            EditorGUILayout.LabelField($"● {_statusMessage}");
+            GUI.contentColor = Color.white;
             
             EditorGUILayout.EndHorizontal();
         }
 
+        #endregion
+
         #region Actions
+
+        private async void SearchSteamCmdAsync()
+        {
+            _isSearchingSteamCmd = true;
+            _steamCmdResults = new List<SDKSearchResult>();
+            _searchProgress = "Searching...";
+            Repaint();
+
+            await Task.Run(() =>
+            {
+                var drives = DriveInfo.GetDrives()
+                    .Where(d => d.IsReady && d.DriveType == DriveType.Fixed)
+                    .ToArray();
+
+                foreach (var drive in drives)
+                {
+                    _searchProgress = $"Searching {drive.Name}...";
+                    
+                    try
+                    {
+                        SearchInDirectory(drive.RootDirectory.FullName, "steamcmd.exe", 4);
+                    }
+                    catch { }
+                }
+            });
+
+            // Add known paths
+            var knownPaths = SDKPathFinder.FindSteamCmd();
+            foreach (var path in knownPaths)
+            {
+                if (!_steamCmdResults.Any(r => r.Path == path.Path))
+                {
+                    _steamCmdResults.Insert(0, path);
+                }
+            }
+
+            _isSearchingSteamCmd = false;
+            _searchProgress = "";
+            Repaint();
+        }
+
+        private void SearchInDirectory(string path, string fileName, int maxDepth)
+        {
+            if (maxDepth <= 0) return;
+
+            try
+            {
+                var files = Directory.GetFiles(path, fileName, SearchOption.TopDirectoryOnly);
+                foreach (var file in files)
+                {
+                    _steamCmdResults.Add(new SDKSearchResult { Path = file, IsValid = true, Source = "Disk" });
+                }
+
+                foreach (var dir in Directory.GetDirectories(path))
+                {
+                    var dirName = Path.GetFileName(dir).ToLower();
+                    
+                    // Skip system and hidden directories
+                    if (dirName.StartsWith(".") || dirName == "windows" || dirName == "$recycle.bin" ||
+                        dirName == "system volume information" || dirName == "programdata")
+                        continue;
+
+                    SearchInDirectory(dir, fileName, maxDepth - 1);
+                }
+            }
+            catch { }
+        }
 
         private void IncrementVersion(VersionIncrement increment)
         {
@@ -702,9 +1021,7 @@ namespace ProtoSystem.Publishing.Editor
 
         private void CreateNewSteamConfig()
         {
-            var path = EditorUtility.SaveFilePanelInProject(
-                "Create Steam Config", "SteamConfig", "asset",
-                "Select location for Steam config");
+            var path = EditorUtility.SaveFilePanelInProject("Create Steam Config", "SteamConfig", "asset", "");
 
             if (!string.IsNullOrEmpty(path))
             {
@@ -712,15 +1029,50 @@ namespace ProtoSystem.Publishing.Editor
                 AssetDatabase.CreateAsset(config, path);
                 AssetDatabase.SaveAssets();
                 _steamConfig = config;
+                RefreshSteamCache();
+                Selection.activeObject = config;
+            }
+        }
+
+        private void CreateNewDepotConfig()
+        {
+            var path = EditorUtility.SaveFilePanelInProject("Create Depot Config", "DepotConfig", "asset", "");
+
+            if (!string.IsNullOrEmpty(path))
+            {
+                var config = ScriptableObject.CreateInstance<DepotConfig>();
+                
+                // Default depot with App ID + 1
+                if (_steamConfig != null && !string.IsNullOrEmpty(_steamConfig.appId) && 
+                    long.TryParse(_steamConfig.appId, out var appId))
+                {
+                    config.depots.Add(new DepotEntry
+                    {
+                        depotId = (appId + 1).ToString(),
+                        displayName = "Windows x64",
+                        buildTarget = BuildTarget.StandaloneWindows64,
+                        buildPath = "Builds/Windows",
+                        enabled = true
+                    });
+                }
+                
+                AssetDatabase.CreateAsset(config, path);
+                AssetDatabase.SaveAssets();
+                
+                if (_steamConfig != null)
+                {
+                    _steamConfig.depotConfig = config;
+                    EditorUtility.SetDirty(_steamConfig);
+                    RefreshSteamCache();
+                }
+                
                 Selection.activeObject = config;
             }
         }
 
         private void CreateNewPatchNotesData()
         {
-            var path = EditorUtility.SaveFilePanelInProject(
-                "Create Patch Notes Data", "PatchNotesData", "asset",
-                "Select location");
+            var path = EditorUtility.SaveFilePanelInProject("Create Patch Notes Data", "PatchNotesData", "asset", "");
 
             if (!string.IsNullOrEmpty(path))
             {
@@ -729,6 +1081,7 @@ namespace ProtoSystem.Publishing.Editor
                 AssetDatabase.SaveAssets();
                 _patchNotesData = data;
                 LoadCurrentEntry();
+                RefreshPatchNotesCache();
                 Selection.activeObject = data;
             }
         }
@@ -737,57 +1090,49 @@ namespace ProtoSystem.Publishing.Editor
         {
             if (_steamConfig == null || string.IsNullOrEmpty(_steamConfig.username))
             {
-                EditorUtility.DisplayDialog("Error", "Set username in Steam config first", "OK");
+                EditorUtility.DisplayDialog("Error", "Set username first", "OK");
                 return;
             }
 
             var password = EditorInputDialog.Show(
                 "Steam Password",
-                $"Enter password for {_steamConfig.username}:",
+                $"Enter password for {_steamConfig.username}:\n\n⚠️ Warning: Password stored insecurely!",
                 "", true);
 
             if (!string.IsNullOrEmpty(password))
             {
                 SecureCredentials.SetPassword("steam", _steamConfig.username, password);
+                RefreshSteamCache();
                 SetStatus("Password saved", Color.green);
             }
         }
 
         private void GenerateFromGitCommits()
         {
-            if (_recentCommits == null || _recentCommits.Count == 0)
+            if (_cache.recentCommits == null || _cache.recentCommits.Count == 0)
             {
                 EditorUtility.DisplayDialog("No Commits", "No new commits found", "OK");
                 return;
             }
 
-            if (_currentEntry == null)
-            {
-                LoadCurrentEntry();
-            }
+            if (_currentEntry == null) LoadCurrentEntry();
 
-            // Очищаем предыдущие данные
             _currentEntry.commitEntries.Clear();
             _currentEntry.commitHashes.Clear();
             _currentEntry.authors.Clear();
             _currentEntry.date = DateTime.Now.ToString("yyyy-MM-dd");
 
-            // Парсим коммиты в записи (только с тегами)
-            var taggedEntries = GitIntegration.ParseCommitsToEntries(_recentCommits, _tagConfig);
-
-            // Добавляем все коммиты (для сохранения хешей и авторов)
-            foreach (var commit in _recentCommits)
+            var taggedEntries = GitIntegration.ParseCommitsToEntries(_cache.recentCommits, _tagConfig);
+            
+            foreach (var commit in _cache.recentCommits)
             {
                 _currentEntry.commitHashes.Add(commit.Hash);
-
-                // Добавляем автора если его ещё нет
                 if (!string.IsNullOrEmpty(commit.Author) && !_currentEntry.authors.Contains(commit.Author))
                 {
                     _currentEntry.authors.Add(commit.Author);
                 }
             }
-
-            // Если есть теговые записи - используем их
+            
             if (taggedEntries.Count > 0)
             {
                 _currentEntry.commitEntries = taggedEntries;
@@ -795,16 +1140,14 @@ namespace ProtoSystem.Publishing.Editor
             }
             else
             {
-                // Иначе создаём записи из всех коммитов
                 var sb = new System.Text.StringBuilder();
                 sb.AppendLine("### Changes");
                 sb.AppendLine();
-
-                foreach (var commit in _recentCommits.Take(50))
+                
+                foreach (var commit in _cache.recentCommits.Take(50))
                 {
                     sb.AppendLine($"- {commit.Subject}");
-
-                    // Создаём CommitEntry без тега
+                    
                     _currentEntry.commitEntries.Add(new CommitEntry
                     {
                         message = commit.Subject,
@@ -815,16 +1158,14 @@ namespace ProtoSystem.Publishing.Editor
                         includeInPublic = true
                     });
                 }
-
+                
                 _currentEntry.content = sb.ToString();
             }
-
+            
             _currentEntry.authors.Sort();
-
             EditorUtility.SetDirty(_patchNotesData);
-
+            
             SetStatus($"Generated: {_currentEntry.commitEntries.Count} entries, {_currentEntry.authors.Count} authors", Color.green);
-            Repaint();
         }
 
         private void SavePatchNotes()
@@ -833,7 +1174,6 @@ namespace ProtoSystem.Publishing.Editor
             
             _currentEntry.date = DateTime.Now.ToString("yyyy-MM-dd");
             
-            // Убеждаемся что запись в списке
             if (!_patchNotesData.entries.Contains(_currentEntry))
             {
                 _patchNotesData.entries.Insert(0, _currentEntry);
@@ -842,26 +1182,26 @@ namespace ProtoSystem.Publishing.Editor
             EditorUtility.SetDirty(_patchNotesData);
             AssetDatabase.SaveAssets();
             
-            // Обновляем Git info - теперь эти коммиты обработаны
-            RefreshGitInfo();
+            RefreshGitCache();
+            RefreshPatchNotesCache();
             
             SetStatus("Patch notes saved", Color.green);
         }
 
         private void ShowCommitsPopup()
         {
-            if (_recentCommits == null) return;
+            if (_cache.recentCommits == null) return;
             
             var sb = new System.Text.StringBuilder();
             
-            foreach (var commit in _recentCommits.Take(20))
+            foreach (var commit in _cache.recentCommits.Take(20))
             {
                 sb.AppendLine($"[{commit.ShortHash}] {commit.Author}: {commit.Subject}");
             }
             
-            if (_recentCommits.Count > 20)
+            if (_cache.recentCommits.Count > 20)
             {
-                sb.AppendLine($"... and {_recentCommits.Count - 20} more");
+                sb.AppendLine($"... and {_cache.recentCommits.Count - 20} more");
             }
             
             EditorUtility.DisplayDialog("New Commits", sb.ToString(), "OK");
@@ -872,7 +1212,7 @@ namespace ProtoSystem.Publishing.Editor
             SetStatus("Building...", Color.yellow);
             _isProcessing = true;
             
-            await System.Threading.Tasks.Task.Delay(100);
+            await Task.Delay(100);
             
             _isProcessing = false;
             SetStatus("Build not yet implemented", Color.red);
@@ -880,21 +1220,15 @@ namespace ProtoSystem.Publishing.Editor
 
         private async void UploadOnly()
         {
-            string error = "";
-            if (_steamConfig == null || !_steamConfig.Validate(out error))
-            {
-                SetStatus($"Config error: {error}", Color.red);
-                return;
-            }
-
             _isProcessing = true;
             SetStatus("Uploading to Steam...", Color.yellow);
 
             try
             {
                 var publisher = new SteamPublisher(_steamConfig);
-                var branch = _steamConfig.branches[_selectedBranchIndex].name;
-                var depot = _steamConfig.depotConfig.GetEnabledDepots()[_selectedDepotIndex];
+                var branch = _cache.branchNames[_selectedBranchIndex];
+                var depots = _steamConfig.depotConfig.GetEnabledDepots();
+                var depot = depots[_selectedDepotIndex];
                 
                 var progress = new Progress<PublishProgress>(p =>
                 {
@@ -913,12 +1247,9 @@ namespace ProtoSystem.Publishing.Editor
                         var tagName = _mainConfig?.GetGitTag(_patchNotesData.currentVersion) 
                             ?? $"v{_patchNotesData.currentVersion}";
                         
-                        if (GitIntegration.CreateTag(tagName, _buildDescription))
+                        if (GitIntegration.CreateTag(tagName, _buildDescription) && _pushGitTag)
                         {
-                            if (_pushGitTag)
-                            {
-                                GitIntegration.PushTag(tagName);
-                            }
+                            GitIntegration.PushTag(tagName);
                         }
                     }
                 }
@@ -933,16 +1264,14 @@ namespace ProtoSystem.Publishing.Editor
             }
 
             _isProcessing = false;
-            RefreshGitInfo();
+            RefreshGitCache();
         }
 
         private async void BuildAndPublish()
         {
             SetStatus("Build & Publish not yet implemented", Color.yellow);
             _isProcessing = true;
-            
-            await System.Threading.Tasks.Task.Delay(100);
-            
+            await Task.Delay(100);
             _isProcessing = false;
         }
 
@@ -956,9 +1285,6 @@ namespace ProtoSystem.Publishing.Editor
         #endregion
     }
 
-    /// <summary>
-    /// Простой диалог ввода
-    /// </summary>
     public class EditorInputDialog : EditorWindow
     {
         private string _value = "";
@@ -973,9 +1299,8 @@ namespace ProtoSystem.Publishing.Editor
             instance._message = message;
             instance._value = defaultValue;
             instance._isPassword = isPassword;
-            instance._confirmed = false;
-            instance.minSize = new Vector2(300, 80);
-            instance.maxSize = new Vector2(400, 100);
+            instance.minSize = new Vector2(350, 100);
+            instance.maxSize = new Vector2(400, 120);
             
             instance.ShowModalUtility();
             
@@ -984,13 +1309,11 @@ namespace ProtoSystem.Publishing.Editor
 
         private void OnGUI()
         {
-            EditorGUILayout.LabelField(_message);
+            EditorGUILayout.LabelField(_message, EditorStyles.wordWrappedLabel);
+            EditorGUILayout.Space(5);
             
             GUI.SetNextControlName("InputField");
-            _value = _isPassword 
-                ? EditorGUILayout.PasswordField(_value) 
-                : EditorGUILayout.TextField(_value);
-            
+            _value = _isPassword ? EditorGUILayout.PasswordField(_value) : EditorGUILayout.TextField(_value);
             EditorGUI.FocusTextInControl("InputField");
 
             EditorGUILayout.Space(10);
@@ -1004,10 +1327,7 @@ namespace ProtoSystem.Publishing.Editor
                 Close();
             }
             
-            if (GUILayout.Button("Cancel"))
-            {
-                Close();
-            }
+            if (GUILayout.Button("Cancel")) Close();
             
             EditorGUILayout.EndHorizontal();
         }
