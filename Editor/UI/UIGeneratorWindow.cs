@@ -367,19 +367,56 @@ namespace ProtoSystem.UI
 
         private void CreateNewConfiguration()
         {
-            string path = EditorUtility.SaveFilePanelInProject(
+            // Пытаемся определить папку проекта из EditorPrefs (сохраняется в ProjectSetupWizard)
+            string projectName = EditorPrefs.GetString("ProtoSystem.Setup.MyGame.ProjectName", "");
+            string defaultFolder = "Assets";
+
+            if (!string.IsNullOrEmpty(projectName))
+            {
+                string rootFolder = EditorPrefs.GetString($"ProtoSystem.Setup.{projectName}.RootFolder", "");
+                if (!string.IsNullOrEmpty(rootFolder))
+                {
+                    string configsFolder = $"{rootFolder}/Resources/UI/Configs";
+                    if (AssetDatabase.IsValidFolder(configsFolder))
+                    {
+                        defaultFolder = configsFolder;
+                    }
+                    else if (AssetDatabase.IsValidFolder(rootFolder))
+                    {
+                        defaultFolder = rootFolder;
+                    }
+                }
+            }
+
+            // Также ищем существующую папку Configs
+            if (defaultFolder == "Assets")
+            {
+                var guids = AssetDatabase.FindAssets("t:Folder Configs");
+                foreach (var guid in guids)
+                {
+                    var path = AssetDatabase.GUIDToAssetPath(guid);
+                    if (path.Contains("/Resources/UI/Configs"))
+                    {
+                        defaultFolder = path;
+                        break;
+                    }
+                }
+            }
+
+            string savePath = EditorUtility.SaveFilePanelInProject(
                 "Создать UI Style Configuration",
                 "UIStyleConfig",
                 "asset",
-                "Выберите место для сохранения конфигурации"
+                "Выберите место для сохранения конфигурации",
+                defaultFolder
             );
 
-            if (!string.IsNullOrEmpty(path))
+            if (!string.IsNullOrEmpty(savePath))
             {
                 var config = UIStyleConfiguration.CreateDefault();
-                AssetDatabase.CreateAsset(config, path);
+                AssetDatabase.CreateAsset(config, savePath);
                 AssetDatabase.SaveAssets();
-                
+
                 selectedConfig = config;
                 EditorGUIUtility.PingObject(config);
             }

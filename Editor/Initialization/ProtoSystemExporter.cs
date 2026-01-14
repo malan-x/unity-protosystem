@@ -11,7 +11,7 @@ namespace ProtoSystem.ProEditor
     /// </summary>
     public static class ProtoSystemExporter
     {
-        private const string EXPORT_MENU = "Tools/ProtoSystem/Export Package";
+        private const string EXPORT_MENU = "ProtoSystem/Export Package";
         private const string PACKAGE_NAME = "ProtoSystem.unitypackage";
 
         // Список файлов для экспорта

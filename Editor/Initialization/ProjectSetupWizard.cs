@@ -18,7 +18,11 @@ namespace ProtoSystem.Editor
     public class ProjectSetupWizard : EditorWindow
     {
         private enum ProjectType { Single, Multiplayer }
-        private enum CameraType { ThreeD, TwoD }
+        private enum CameraType
+        {
+            [InspectorName("3D")] ThreeD,
+            [InspectorName("2D")] TwoD
+        }
         private enum RenderPipeline { Standard, URP, HDRP }
         
         // Настройки проекта
@@ -78,17 +82,20 @@ namespace ProtoSystem.Editor
         private void OnGUI()
         {
             InitializeStyles();
-            
+
             EditorGUILayout.LabelField("ProtoSystem Project Setup", _headerStyle);
             EditorGUILayout.Space(10);
-            
+
             DrawProjectSettings();
             EditorGUILayout.Space(10);
-            
+
             DrawTasksList();
             EditorGUILayout.Space(10);
-            
+
             DrawActionButtons();
+            EditorGUILayout.Space(10);
+
+            DrawToolsPanel();
         }
         
         private void DrawProjectSettings()
@@ -211,12 +218,12 @@ namespace ProtoSystem.Editor
         private void DrawActionButtons()
         {
             EditorGUILayout.BeginHorizontal();
-            
+
             if (GUILayout.Button("Execute All Pending", GUILayout.Height(30)))
             {
                 ExecuteAllPending();
             }
-            
+
             if (GUILayout.Button("Reset Progress", GUILayout.Height(30)))
             {
                 if (EditorUtility.DisplayDialog("Reset Progress", 
@@ -225,13 +232,48 @@ namespace ProtoSystem.Editor
                     ResetProgress();
                 }
             }
-            
+
             if (GUILayout.Button("Close", GUILayout.Height(30)))
             {
                 Close();
             }
-            
+
             EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawToolsPanel()
+        {
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.LabelField("ProtoSystem Tools", EditorStyles.boldLabel);
+
+            EditorGUILayout.BeginHorizontal();
+
+            if (GUILayout.Button("UI Generator", GUILayout.Height(25)))
+            {
+                EditorApplication.ExecuteMenuItem("ProtoSystem/UI/Tools/UI Generator");
+            }
+
+            if (GUILayout.Button("Credits Editor", GUILayout.Height(25)))
+            {
+                EditorApplication.ExecuteMenuItem("ProtoSystem/UI/Tools/Credits Editor");
+            }
+
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+
+            if (GUILayout.Button("Export Package", GUILayout.Height(25)))
+            {
+                EditorApplication.ExecuteMenuItem("ProtoSystem/Export Package");
+            }
+
+            if (GUILayout.Button("About", GUILayout.Height(25)))
+            {
+                EditorApplication.ExecuteMenuItem("ProtoSystem/About");
+            }
+
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.EndVertical();
         }
         
         private void InitializeTasks()
@@ -387,16 +429,17 @@ namespace ProtoSystem.Editor
                 $"{_rootFolder}/Prefabs/UI",
                 $"{_rootFolder}/Scenes",
                 $"{_rootFolder}/Resources/UI/Sprites",
-                $"{_rootFolder}/Resources/UI/Prefabs"
+                $"{_rootFolder}/Resources/UI/Prefabs",
+                $"{_rootFolder}/Resources/UI/Configs"
             };
-            
+
             foreach (var folder in folders)
             {
                 if (!AssetDatabase.IsValidFolder(folder))
                 {
                     var parts = folder.Split('/');
                     var current = parts[0];
-                    
+
                     for (int i = 1; i < parts.Length; i++)
                     {
                         var next = $"{current}/{parts[i]}";
@@ -408,7 +451,7 @@ namespace ProtoSystem.Editor
                     }
                 }
             }
-            
+
             AssetDatabase.Refresh();
         }
         
