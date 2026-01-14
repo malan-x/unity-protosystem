@@ -1,6 +1,7 @@
 // Packages/com.protosystem.core/Runtime/Publishing/Build/DepotConfig.cs
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace ProtoSystem.Publishing
@@ -23,14 +24,32 @@ namespace ProtoSystem.Publishing
         [Tooltip("Относительный путь к билду")]
         public string buildPath = "Builds/Windows";
         
-        [Tooltip("Паттерны файлов для включения (пусто = все)")]
-        public string[] includePatterns = new string[0];
+        [Tooltip("Паттерны файлов для включения (через запятую, пусто = все)")]
+        public string includePatterns = "";
         
-        [Tooltip("Паттерны файлов для исключения")]
-        public string[] excludePatterns = new string[] { "*.pdb", "*.log" };
+        [Tooltip("Паттерны файлов для исключения (через запятую)")]
+        public string excludePatterns = "*.pdb, *.log";
         
         [Tooltip("Активно ли это депо")]
         public bool enabled = true;
+
+        /// <summary>
+        /// Получить массив паттернов включения
+        /// </summary>
+        public string[] GetIncludePatterns()
+        {
+            if (string.IsNullOrWhiteSpace(includePatterns)) return new string[0];
+            return includePatterns.Split(',').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)).ToArray();
+        }
+
+        /// <summary>
+        /// Получить массив паттернов исключения
+        /// </summary>
+        public string[] GetExcludePatterns()
+        {
+            if (string.IsNullOrWhiteSpace(excludePatterns)) return new string[0];
+            return excludePatterns.Split(',').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)).ToArray();
+        }
     }
 
     /// <summary>
@@ -92,7 +111,6 @@ namespace ProtoSystem.Publishing
         {
             var config = CreateInstance<DepotConfig>();
             
-            // По умолчанию депо = AppID + 1, +2, +3
             long baseId = long.Parse(appId);
             
             config.depots = new List<DepotEntry>

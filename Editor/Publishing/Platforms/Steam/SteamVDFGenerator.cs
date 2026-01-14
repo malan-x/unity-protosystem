@@ -85,13 +85,14 @@ namespace ProtoSystem.Publishing.Editor
             sb.AppendLine("\t}");
             
             // FileExclusion
-            if (depot.excludePatterns != null && depot.excludePatterns.Length > 0)
+            var excludePatterns = depot.GetExcludePatterns();
+            if (excludePatterns != null && excludePatterns.Length > 0)
             {
-                foreach (var pattern in depot.excludePatterns)
+                foreach (var pattern in excludePatterns)
                 {
                     if (!string.IsNullOrEmpty(pattern))
                     {
-                        sb.AppendLine($"\t\"FileExclusion\" \"{pattern}\"");
+                        sb.AppendLine($"\t\"FileExclusion\" \"{EscapeVDF(pattern)}\"");
                     }
                 }
             }

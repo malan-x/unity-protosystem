@@ -435,7 +435,7 @@ namespace ProtoSystem.Publishing.Editor
         {
             _foldoutSteamSetup = EditorGUILayout.BeginFoldoutHeaderGroup(_foldoutSteamSetup, 
                 "⚙️ Steam Setup (Click to configure)");
-            
+
             if (_foldoutSteamSetup)
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
@@ -451,7 +451,7 @@ namespace ProtoSystem.Publishing.Editor
                 else
                 {
                     EditorGUI.BeginChangeCheck();
-                    
+
                     // App ID
                     EditorGUILayout.BeginHorizontal();
                     EditorGUILayout.LabelField(new GUIContent("App ID *", 
@@ -487,10 +487,10 @@ namespace ProtoSystem.Publishing.Editor
                     EditorGUILayout.LabelField(new GUIContent("Password", 
                         "⚠️ Stored in EditorPrefs (not secure!).\nUse account without valuable items."), 
                         GUILayout.Width(120));
-                    
+
                     var passStatus = _cache.hasSteamPassword ? "✓ Saved" : "Not set";
                     EditorGUILayout.LabelField(passStatus, GUILayout.Width(80));
-                    
+
                     if (GUILayout.Button(_cache.hasSteamPassword ? "Change" : "Set"))
                     {
                         ShowPasswordDialog();
@@ -504,57 +504,28 @@ namespace ProtoSystem.Publishing.Editor
                     DrawSteamCmdPathField();
 
                     EditorGUILayout.Space(10);
-                    EditorGUILayout.LabelField("Depots", EditorStyles.boldLabel);
 
-                    // Depot Config
-                    EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.LabelField(new GUIContent("Depot Config *", 
-                        "Configuration for build depots (Windows, Mac, Linux).\nDepot IDs are on Steamworks → Your App → Depots"), 
-                        GUILayout.Width(120));
-                    _steamConfig.depotConfig = (DepotConfig)EditorGUILayout.ObjectField(
-                        _steamConfig.depotConfig, typeof(DepotConfig), false);
-                    
-                    if (GUILayout.Button("New", GUILayout.Width(45)))
-                    {
-                        CreateNewDepotConfig();
-                    }
-                    if (GUILayout.Button("?", GUILayout.Width(20)) && !string.IsNullOrEmpty(_steamConfig.appId))
-                    {
-                        Application.OpenURL(STEAMWORKS_DEPOTS_URL + _steamConfig.appId);
-                    }
-                    EditorGUILayout.EndHorizontal();
-
-                    // Depot list preview
-                    if (_steamConfig.depotConfig != null && _cache.depotNames.Length > 0)
-                    {
-                        EditorGUI.indentLevel++;
-                        foreach (var name in _cache.depotNames)
-                        {
-                            EditorGUILayout.LabelField($"• {name}", EditorStyles.miniLabel);
-                        }
-                        EditorGUI.indentLevel--;
-                    }
+                    // Depots inline editor
+                    DrawDepotsEditor();
 
                     EditorGUILayout.Space(10);
                     EditorGUILayout.LabelField("Options", EditorStyles.boldLabel);
 
                     // Preview Mode
-                    EditorGUILayout.BeginHorizontal();
                     _steamConfig.previewMode = EditorGUILayout.Toggle(
                         new GUIContent("Preview Mode", "Validates upload without actually uploading"), 
                         _steamConfig.previewMode);
-                    EditorGUILayout.EndHorizontal();
 
                     // Auto Set Live
-                    EditorGUILayout.BeginHorizontal();
                     _steamConfig.autoSetLive = EditorGUILayout.Toggle(
                         new GUIContent("Auto Set Live", "Automatically set build live on selected branch after upload"), 
                         _steamConfig.autoSetLive);
-                    EditorGUILayout.EndHorizontal();
 
                     if (EditorGUI.EndChangeCheck())
                     {
                         EditorUtility.SetDirty(_steamConfig);
+                        if (_steamConfig.depotConfig != null)
+                            EditorUtility.SetDirty(_steamConfig.depotConfig);
                         RefreshSteamCache();
                     }
                 }
@@ -562,6 +533,251 @@ namespace ProtoSystem.Publishing.Editor
                 EditorGUILayout.EndVertical();
             }
             EditorGUILayout.EndFoldoutHeaderGroup();
+        }
+
+        private void DrawDepotsEditor()
+        {
+            // Header
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Depots", EditorStyles.boldLabel);
+            GUILayout.FlexibleSpace();
+
+            if (!string.IsNullOrEmpty(_steamConfig.appId) && GUILayout.Button("Open in Steamworks", GUILayout.Width(120)))
+            {
+                Application.OpenURL(STEAMWORKS_DEPOTS_URL + _steamConfig.appId);
+            }
+            EditorGUILayout.EndHorizontal();
+
+            // Depot Config asset (hidden, auto-created)
+            if (_steamConfig.depotConfig == null)
+            {
+                EditorGUILayout.HelpBox("No depot configuration. Click 'Add Depot' to create one.", MessageType.Info);
+
+                if (GUILayout.Button("+ Add Depot"))
+                {
+                    CreateDepotConfigIfNeeded();
+                    AddNewDepot();
+                }
+                return;
+            }
+
+            // Depots list
+            var depots = _steamConfig.depotConfig.depots;
+            int removeIndex = -1;
+
+            for (int i = 0; i < depots.Count; i++)
+            {
+                var depot = depots[i];
+
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+                // Header row
+                EditorGUILayout.BeginHorizontal();
+
+                depot.enabled = EditorGUILayout.Toggle(depot.enabled, GUILayout.Width(20));
+
+                GUI.enabled = depot.enabled;
+
+                // Status icon
+                var pathExists = !string.IsNullOrEmpty(depot.buildPath) && Directory.Exists(depot.buildPath);
+                var statusIcon = pathExists ? "✓" : "⚠";
+                var statusTooltip = pathExists ? "Build folder exists" : "Build folder not found";
+
+                EditorGUILayout.LabelField(new GUIContent($"{statusIcon} {depot.displayName}", statusTooltip), 
+                    EditorStyles.boldLabel, GUILayout.Width(150));
+
+                GUILayout.FlexibleSpace();
+
+                EditorGUILayout.LabelField(depot.depotId, EditorStyles.miniLabel, GUILayout.Width(80));
+
+                GUI.enabled = true;
+                if (GUILayout.Button("✕", GUILayout.Width(22), GUILayout.Height(18)))
+                {
+                    if (EditorUtility.DisplayDialog("Remove Depot", 
+                        $"Remove depot '{depot.displayName}'?", "Remove", "Cancel"))
+                    {
+                        removeIndex = i;
+                    }
+                }
+                EditorGUILayout.EndHorizontal();
+
+                GUI.enabled = depot.enabled;
+
+                // Row 1: Name + Depot ID
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField(new GUIContent("Name", "Display name for this depot"), GUILayout.Width(50));
+                depot.displayName = EditorGUILayout.TextField(depot.displayName, GUILayout.Width(120));
+
+                EditorGUILayout.LabelField(new GUIContent("Depot ID", 
+                    "Find at Steamworks → App → Depots.\nUsually App ID + 1, +2, etc."), GUILayout.Width(55));
+                depot.depotId = EditorGUILayout.TextField(depot.depotId, GUILayout.Width(100));
+                EditorGUILayout.EndHorizontal();
+
+                // Row 2: Platform
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField("Platform", GUILayout.Width(50));
+                depot.buildTarget = (BuildTarget)EditorGUILayout.EnumPopup(depot.buildTarget);
+                EditorGUILayout.EndHorizontal();
+
+                // Row 3: Build Path
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField(new GUIContent("Build Path", "Relative path to build output folder"), 
+                    GUILayout.Width(65));
+                depot.buildPath = EditorGUILayout.TextField(depot.buildPath);
+
+                if (GUILayout.Button("...", GUILayout.Width(25)))
+                {
+                    var startPath = string.IsNullOrEmpty(depot.buildPath) ? "Builds" : depot.buildPath;
+                    var path = EditorUtility.OpenFolderPanel("Select Build Folder", startPath, "");
+                    if (!string.IsNullOrEmpty(path))
+                    {
+                        var projectPath = Path.GetDirectoryName(Application.dataPath);
+                        if (path.StartsWith(projectPath))
+                        {
+                            path = path.Substring(projectPath.Length + 1);
+                        }
+                        depot.buildPath = path;
+                    }
+                }
+
+                if (GUILayout.Button("Open", GUILayout.Width(45)))
+                {
+                    var fullPath = Path.Combine(Path.GetDirectoryName(Application.dataPath), depot.buildPath);
+                    if (Directory.Exists(fullPath))
+                    {
+                        EditorUtility.RevealInFinder(fullPath);
+                    }
+                    else
+                    {
+                        if (EditorUtility.DisplayDialog("Folder Not Found", 
+                            $"Create folder '{depot.buildPath}'?", "Create", "Cancel"))
+                        {
+                            Directory.CreateDirectory(fullPath);
+                            EditorUtility.RevealInFinder(fullPath);
+                        }
+                    }
+                }
+                EditorGUILayout.EndHorizontal();
+
+                // Row 4: File filters (expandable)
+                var hasFilters = !string.IsNullOrEmpty(depot.includePatterns) || 
+                                !string.IsNullOrEmpty(depot.excludePatterns);
+                var filterKey = $"BuildPublisher_DepotFilter_{i}";
+                var showFilters = EditorPrefs.GetBool(filterKey, hasFilters);
+
+                var newShowFilters = EditorGUILayout.Foldout(showFilters, "File Filters", true);
+                if (newShowFilters != showFilters)
+                {
+                    EditorPrefs.SetBool(filterKey, newShowFilters);
+                }
+
+                if (newShowFilters)
+                {
+                    EditorGUI.indentLevel++;
+
+                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField(new GUIContent("Include", 
+                        "Comma-separated patterns to include.\nEmpty = include all files.\nExample: *.exe, *.dll"), 
+                        GUILayout.Width(50));
+                    depot.includePatterns = EditorGUILayout.TextField(depot.includePatterns);
+                    EditorGUILayout.EndHorizontal();
+
+                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField(new GUIContent("Exclude", 
+                        "Comma-separated patterns to exclude.\nExample: *.pdb, *.log, *.meta"), 
+                        GUILayout.Width(50));
+                    depot.excludePatterns = EditorGUILayout.TextField(depot.excludePatterns);
+                    EditorGUILayout.EndHorizontal();
+
+                    EditorGUI.indentLevel--;
+                }
+
+                GUI.enabled = true;
+
+                EditorGUILayout.EndVertical();
+                EditorGUILayout.Space(2);
+            }
+
+            // Remove depot if requested
+            if (removeIndex >= 0)
+            {
+                depots.RemoveAt(removeIndex);
+                EditorUtility.SetDirty(_steamConfig.depotConfig);
+                RefreshSteamCache();
+            }
+
+            // Add depot button
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("+ Add Depot", GUILayout.Width(100)))
+            {
+                AddNewDepot();
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void CreateDepotConfigIfNeeded()
+        {
+            if (_steamConfig.depotConfig != null) return;
+
+            // Auto-create depot config next to steam config
+            var steamConfigPath = AssetDatabase.GetAssetPath(_steamConfig);
+            var directory = Path.GetDirectoryName(steamConfigPath);
+            var depotConfigPath = Path.Combine(directory, "DepotConfig.asset");
+
+            // Ensure unique name
+            depotConfigPath = AssetDatabase.GenerateUniqueAssetPath(depotConfigPath);
+
+            var config = ScriptableObject.CreateInstance<DepotConfig>();
+            AssetDatabase.CreateAsset(config, depotConfigPath);
+
+            _steamConfig.depotConfig = config;
+            EditorUtility.SetDirty(_steamConfig);
+            AssetDatabase.SaveAssets();
+        }
+
+        private void AddNewDepot()
+        {
+            CreateDepotConfigIfNeeded();
+
+            var depots = _steamConfig.depotConfig.depots;
+
+            // Calculate default depot ID
+            var defaultDepotId = "";
+            if (!string.IsNullOrEmpty(_steamConfig.appId) && long.TryParse(_steamConfig.appId, out var appId))
+            {
+                defaultDepotId = (appId + depots.Count + 1).ToString();
+            }
+
+            // Determine platform based on existing depots
+            var platform = BuildTarget.StandaloneWindows64;
+            var platformName = "Windows x64";
+
+            if (depots.Any(d => d.buildTarget == BuildTarget.StandaloneWindows64))
+            {
+                if (!depots.Any(d => d.buildTarget == BuildTarget.StandaloneLinux64))
+                {
+                    platform = BuildTarget.StandaloneLinux64;
+                    platformName = "Linux x64";
+                }
+                else if (!depots.Any(d => d.buildTarget == BuildTarget.StandaloneOSX))
+                {
+                    platform = BuildTarget.StandaloneOSX;
+                    platformName = "macOS";
+                }
+            }
+
+            depots.Add(new DepotEntry
+            {
+                depotId = defaultDepotId,
+                displayName = platformName,
+                buildTarget = platform,
+                buildPath = $"Builds/{platformName.Replace(" ", "")}",
+                enabled = true
+            });
+
+            EditorUtility.SetDirty(_steamConfig.depotConfig);
+            RefreshSteamCache();
         }
 
         private void DrawSteamCmdPathField()
@@ -1034,41 +1250,7 @@ namespace ProtoSystem.Publishing.Editor
             }
         }
 
-        private void CreateNewDepotConfig()
-        {
-            var path = EditorUtility.SaveFilePanelInProject("Create Depot Config", "DepotConfig", "asset", "");
 
-            if (!string.IsNullOrEmpty(path))
-            {
-                var config = ScriptableObject.CreateInstance<DepotConfig>();
-                
-                // Default depot with App ID + 1
-                if (_steamConfig != null && !string.IsNullOrEmpty(_steamConfig.appId) && 
-                    long.TryParse(_steamConfig.appId, out var appId))
-                {
-                    config.depots.Add(new DepotEntry
-                    {
-                        depotId = (appId + 1).ToString(),
-                        displayName = "Windows x64",
-                        buildTarget = BuildTarget.StandaloneWindows64,
-                        buildPath = "Builds/Windows",
-                        enabled = true
-                    });
-                }
-                
-                AssetDatabase.CreateAsset(config, path);
-                AssetDatabase.SaveAssets();
-                
-                if (_steamConfig != null)
-                {
-                    _steamConfig.depotConfig = config;
-                    EditorUtility.SetDirty(_steamConfig);
-                    RefreshSteamCache();
-                }
-                
-                Selection.activeObject = config;
-            }
-        }
 
         private void CreateNewPatchNotesData()
         {
