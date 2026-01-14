@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEditor;
+using UnityEditor.Build.Reporting;
 
 namespace ProtoSystem.Publishing.Editor
 {
@@ -90,9 +91,14 @@ namespace ProtoSystem.Publishing.Editor
             public string[] templateNames;
             public string historyInfo;
             
+            // Validation (cached)
+            public List<string> buildIssues = new List<string>();
+            public List<string> uploadIssues = new List<string>();
+            
             // Timestamps
             public double lastGitRefresh;
             public double lastSteamRefresh;
+            public double lastValidationRefresh;
         }
         
         private CachedData _cache = new CachedData();
@@ -169,20 +175,32 @@ namespace ProtoSystem.Publishing.Editor
         private void RefreshAllCache(bool force)
         {
             var now = EditorApplication.timeSinceStartup;
-            
+
             if (force || now - _cache.lastGitRefresh > CACHE_REFRESH_INTERVAL)
             {
                 RefreshGitCache();
                 _cache.lastGitRefresh = now;
             }
-            
+
             if (force || now - _cache.lastSteamRefresh > CACHE_REFRESH_INTERVAL)
             {
                 RefreshSteamCache();
                 _cache.lastSteamRefresh = now;
             }
-            
+
+            if (force || now - _cache.lastValidationRefresh > CACHE_REFRESH_INTERVAL)
+            {
+                RefreshValidationCache();
+                _cache.lastValidationRefresh = now;
+            }
+
             RefreshPatchNotesCache();
+        }
+
+        private void RefreshValidationCache()
+        {
+            _cache.buildIssues = ValidateBuildSetupInternal();
+            _cache.uploadIssues = ValidateUploadSetupInternal();
         }
 
         private void RefreshGitCache()
@@ -527,6 +545,7 @@ namespace ProtoSystem.Publishing.Editor
                         if (_steamConfig.depotConfig != null)
                             EditorUtility.SetDirty(_steamConfig.depotConfig);
                         RefreshSteamCache();
+                        RefreshValidationCache();
                     }
                 }
 
@@ -1113,22 +1132,68 @@ namespace ProtoSystem.Publishing.Editor
 
         private void DrawActionButtons()
         {
-            GUI.enabled = !_isProcessing && _steamConfig != null && _cache.steamConfigValid;
+            // Show validation status
+            var buildIssues = ValidateBuildSetup();
+            var uploadIssues = ValidateUploadSetup();
 
+            if (buildIssues.Count > 0 || uploadIssues.Count > 0)
+            {
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+                GUI.contentColor = new Color(1f, 0.7f, 0.3f);
+                EditorGUILayout.LabelField("⚠ Setup Issues:", EditorStyles.boldLabel);
+                GUI.contentColor = Color.white;
+
+                // Show first 3 issues
+                var allIssues = buildIssues.Union(uploadIssues).Distinct().Take(3);
+                foreach (var issue in allIssues)
+                {
+                    EditorGUILayout.LabelField($"  • {issue}", EditorStyles.miniLabel);
+                }
+
+                var remaining = buildIssues.Union(uploadIssues).Distinct().Count() - 3;
+                if (remaining > 0)
+                {
+                    EditorGUILayout.LabelField($"  ... and {remaining} more", EditorStyles.miniLabel);
+                }
+
+                EditorGUILayout.EndVertical();
+            }
+
+            // Buttons
             EditorGUILayout.BeginHorizontal();
 
-            if (GUILayout.Button("Build Only", GUILayout.Height(30)))
+            // Build Only - needs depot config
+            var canBuild = !_isProcessing && buildIssues.Count == 0;
+            GUI.enabled = canBuild;
+            if (GUILayout.Button(new GUIContent("Build Only", 
+                canBuild ? "Build the game for selected depot" : string.Join("\n", buildIssues.Take(3))), 
+                GUILayout.Height(30)))
             {
                 BuildOnly();
             }
 
-            if (GUILayout.Button("Upload Only", GUILayout.Height(30)))
+            // Upload Only - needs build + steam setup
+            var canUpload = !_isProcessing && uploadIssues.Count == 0;
+            GUI.enabled = canUpload;
+            if (GUILayout.Button(new GUIContent("Upload Only", 
+                canUpload ? "Upload existing build to Steam" : string.Join("\n", uploadIssues.Take(3))), 
+                GUILayout.Height(30)))
             {
                 UploadOnly();
             }
 
-            GUI.backgroundColor = new Color(0.4f, 0.8f, 0.4f);
-            if (GUILayout.Button("Build & Publish", GUILayout.Height(30)))
+            // Build & Publish - needs steam setup (will build)
+            var publishIssues = uploadIssues
+                .Where(i => !i.Contains("Build folder"))
+                .ToList();
+            var canPublish = !_isProcessing && publishIssues.Count == 0;
+
+            GUI.enabled = canPublish;
+            GUI.backgroundColor = canPublish ? new Color(0.4f, 0.8f, 0.4f) : Color.gray;
+            if (GUILayout.Button(new GUIContent("Build & Publish", 
+                canPublish ? "Build and upload to Steam" : string.Join("\n", publishIssues.Take(3))), 
+                GUILayout.Height(30)))
             {
                 BuildAndPublish();
             }
@@ -1391,70 +1456,485 @@ namespace ProtoSystem.Publishing.Editor
 
         private async void BuildOnly()
         {
-            SetStatus("Building...", Color.yellow);
-            _isProcessing = true;
-            
-            await Task.Delay(100);
-            
-            _isProcessing = false;
-            SetStatus("Build not yet implemented", Color.red);
-        }
+            // Force refresh validation before action
+            var issues = ValidateBuildSetupInternal();
+            if (issues.Count > 0)
+            {
+                var message = "Cannot build:\n\n" + string.Join("\n", issues.Select(i => $"• {i}"));
+                EditorUtility.DisplayDialog("Build Validation Failed", message, "OK");
+                SetStatus($"Validation failed: {issues.Count} issues", Color.red);
+                return;
+            }
 
-        private async void UploadOnly()
-        {
+            var depot = _steamConfig.depotConfig.GetEnabledDepots()[_selectedDepotIndex];
+
+            SetStatus($"Building {depot.displayName}...", Color.yellow);
             _isProcessing = true;
-            SetStatus("Uploading to Steam...", Color.yellow);
+            Repaint();
 
             try
             {
-                var publisher = new SteamPublisher(_steamConfig);
-                var branch = _cache.branchNames[_selectedBranchIndex];
-                var depots = _steamConfig.depotConfig.GetEnabledDepots();
-                var depot = depots[_selectedDepotIndex];
-                
-                var progress = new Progress<PublishProgress>(p =>
-                {
-                    SetStatus(p.Status, Color.yellow);
-                    Repaint();
-                });
+                var buildPath = GetFullBuildPath(depot);
+                var exeName = GetExecutableName(depot.buildTarget);
+                var fullPath = Path.Combine(buildPath, exeName);
 
-                var result = await publisher.UploadAsync(depot.buildPath, branch, _buildDescription, progress);
-
-                if (result.Success)
+                // Ensure directory exists
+                if (!Directory.Exists(buildPath))
                 {
-                    SetStatus($"✓ {result.Message}", Color.green);
-                    
-                    if (_createGitTag && _patchNotesData != null)
+                    Directory.CreateDirectory(buildPath);
+                }
+
+                Debug.Log($"[BuildPublisher] Starting build: {fullPath}");
+                Debug.Log($"[BuildPublisher] Target: {depot.buildTarget}");
+
+                // Get scenes
+                var scenes = EditorBuildSettings.scenes
+                    .Where(s => s.enabled)
+                    .Select(s => s.path)
+                    .ToArray();
+
+                if (scenes.Length == 0)
+                {
+                    throw new Exception("No scenes in Build Settings! Add scenes via File → Build Settings.");
+                }
+
+                Debug.Log($"[BuildPublisher] Scenes: {string.Join(", ", scenes)}");
+
+                var buildTarget = DepotConfig.ToUnityBuildTarget(depot.buildTarget);
+                var buildTargetGroup = BuildPipeline.GetBuildTargetGroup(buildTarget);
+
+                var options = new BuildPlayerOptions
+                {
+                    scenes = scenes,
+                    locationPathName = fullPath,
+                    target = buildTarget,
+                    targetGroup = buildTargetGroup,
+                    options = BuildOptions.None
+                };
+
+                // Run build on main thread
+                await Task.Yield();
+
+                var report = BuildPipeline.BuildPlayer(options);
+
+                if (report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)
+                {
+                    var size = report.summary.totalSize / (1024 * 1024);
+                    SetStatus($"✓ Build complete: {size:F1} MB", Color.green);
+                    Debug.Log($"[BuildPublisher] Build succeeded: {report.summary.totalTime}");
+
+                    // Open folder
+                    if (EditorUtility.DisplayDialog("Build Complete", 
+                        $"Build finished successfully!\n\nSize: {size:F1} MB\nPath: {buildPath}", 
+                        "Open Folder", "OK"))
                     {
-                        var tagName = _mainConfig?.GetGitTag(_patchNotesData.currentVersion) 
-                            ?? $"v{_patchNotesData.currentVersion}";
-                        
-                        if (GitIntegration.CreateTag(tagName, _buildDescription) && _pushGitTag)
-                        {
-                            GitIntegration.PushTag(tagName);
-                        }
+                        EditorUtility.RevealInFinder(buildPath);
                     }
                 }
                 else
                 {
-                    SetStatus($"✗ {result.Error}", Color.red);
+                    var errors = report.steps
+                        .SelectMany(s => s.messages)
+                        .Where(m => m.type == UnityEngine.LogType.Error)
+                        .Take(5)
+                        .Select(m => m.content);
+
+                    var errorMsg = string.Join("\n", errors);
+                    SetStatus($"✗ Build failed", Color.red);
+                    Debug.LogError($"[BuildPublisher] Build failed:\n{errorMsg}");
+
+                    EditorUtility.DisplayDialog("Build Failed", 
+                        $"Build failed with {report.summary.totalErrors} errors.\n\nCheck Console for details.", "OK");
                 }
             }
             catch (Exception ex)
             {
                 SetStatus($"✗ {ex.Message}", Color.red);
+                Debug.LogError($"[BuildPublisher] Exception: {ex}");
+            }
+
+            _isProcessing = false;
+            Repaint();
+        }
+
+        private List<string> ValidateBuildSetup()
+        {
+            // Return cached for UI, force refresh before actions
+            return _cache.buildIssues ?? ValidateBuildSetupInternal();
+        }
+
+        private List<string> ValidateBuildSetupInternal()
+        {
+            var issues = new List<string>();
+
+            // Steam config
+            if (_steamConfig == null)
+            {
+                issues.Add("No Steam Config selected");
+                return issues;
+            }
+
+            // Depot config
+            if (_steamConfig.depotConfig == null)
+            {
+                issues.Add("No Depot Config - add at least one depot");
+                return issues;
+            }
+
+            var depots = _steamConfig.depotConfig.GetEnabledDepots();
+            if (depots.Count == 0)
+            {
+                issues.Add("No enabled depots");
+                return issues;
+            }
+
+            if (_selectedDepotIndex >= depots.Count)
+            {
+                issues.Add("Selected depot index out of range");
+                return issues;
+            }
+
+            var depot = depots[_selectedDepotIndex];
+
+            // Depot validation
+            if (string.IsNullOrEmpty(depot.depotId))
+            {
+                issues.Add($"Depot '{depot.displayName}' has no Depot ID");
+            }
+
+            if (string.IsNullOrEmpty(depot.buildPath))
+            {
+                issues.Add($"Depot '{depot.displayName}' has no build path");
+            }
+
+            // Scenes
+            var enabledScenes = EditorBuildSettings.scenes.Where(s => s.enabled).ToArray();
+            if (enabledScenes.Length == 0)
+            {
+                issues.Add("No scenes in Build Settings (File → Build Settings)");
+            }
+
+            return issues;
+        }
+
+        private List<string> ValidateUploadSetup()
+        {
+            // Return cached for UI, force refresh before actions
+            return _cache.uploadIssues ?? ValidateUploadSetupInternal();
+        }
+
+        private List<string> ValidateUploadSetupInternal()
+        {
+            var issues = new List<string>(ValidateBuildSetupInternal());
+
+            if (_steamConfig == null) return issues;
+
+            // App ID
+            if (string.IsNullOrEmpty(_steamConfig.appId))
+            {
+                issues.Add("No App ID configured");
+            }
+
+            // Username
+            if (string.IsNullOrEmpty(_steamConfig.username))
+            {
+                issues.Add("No Steam username configured");
+            }
+
+            // Password
+            if (!SecureCredentials.HasPassword("steam", _steamConfig.username ?? ""))
+            {
+                issues.Add("Steam password not set");
+            }
+
+            // SteamCMD
+            if (string.IsNullOrEmpty(_steamConfig.steamCmdPath))
+            {
+                issues.Add("SteamCMD path not configured");
+            }
+            else if (!File.Exists(_steamConfig.steamCmdPath))
+            {
+                issues.Add($"SteamCMD not found at: {_steamConfig.steamCmdPath}");
+            }
+
+            // Build exists
+            var depots = _steamConfig.depotConfig?.GetEnabledDepots();
+            if (depots != null && depots.Count > _selectedDepotIndex)
+            {
+                var depot = depots[_selectedDepotIndex];
+                var buildPath = GetFullBuildPath(depot);
+
+                if (!Directory.Exists(buildPath))
+                {
+                    issues.Add($"Build folder not found: {buildPath}");
+                }
+                else
+                {
+                    try
+                    {
+                        var files = Directory.GetFiles(buildPath, "*", SearchOption.TopDirectoryOnly);
+                        if (files.Length == 0)
+                        {
+                            issues.Add($"Build folder is empty: {buildPath}");
+                        }
+                    }
+                    catch { }
+                }
+            }
+
+            // Branches
+            if (_steamConfig.branches == null || _steamConfig.branches.Count == 0)
+            {
+                issues.Add("No branches configured");
+            }
+
+            return issues;
+        }
+
+        private string GetFullBuildPath(DepotEntry depot)
+        {
+            var projectPath = Path.GetDirectoryName(Application.dataPath);
+            return Path.Combine(projectPath, depot.buildPath);
+        }
+
+        private string GetExecutableName(BuildTarget target)
+        {
+            var productName = PlayerSettings.productName;
+            if (string.IsNullOrEmpty(productName))
+            {
+                productName = Application.productName;
+            }
+
+            return target switch
+            {
+                BuildTarget.StandaloneWindows => $"{productName}.exe",
+                BuildTarget.StandaloneWindows64 => $"{productName}.exe",
+                BuildTarget.StandaloneOSX => $"{productName}.app",
+                BuildTarget.StandaloneLinux64 => productName,
+                _ => productName
+            };
+        }
+
+        private async void UploadOnly()
+        {
+            // Force refresh validation before action
+            var issues = ValidateUploadSetupInternal();
+            if (issues.Count > 0)
+            {
+                var message = "Cannot upload:\n\n" + string.Join("\n", issues.Select(i => $"• {i}"));
+                EditorUtility.DisplayDialog("Upload Validation Failed", message, "OK");
+                SetStatus($"Validation failed: {issues.Count} issues", Color.red);
+                return;
+            }
+
+            var depot = _steamConfig.depotConfig.GetEnabledDepots()[_selectedDepotIndex];
+            var branch = _cache.branchNames[_selectedBranchIndex];
+            var buildPath = GetFullBuildPath(depot);
+
+            Debug.Log($"[BuildPublisher] Starting upload to Steam");
+            Debug.Log($"[BuildPublisher] App ID: {_steamConfig.appId}");
+            Debug.Log($"[BuildPublisher] Depot: {depot.depotId} ({depot.displayName})");
+            Debug.Log($"[BuildPublisher] Branch: {branch}");
+            Debug.Log($"[BuildPublisher] Build path: {buildPath}");
+
+            _isProcessing = true;
+            SetStatus($"Uploading {depot.displayName} to Steam...", Color.yellow);
+            Repaint();
+
+            try
+            {
+                var publisher = new SteamPublisher(_steamConfig);
+
+                var progress = new Progress<PublishProgress>(p =>
+                {
+                    SetStatus(p.Status, Color.yellow);
+                    Debug.Log($"[BuildPublisher] {p.Status}");
+                    Repaint();
+                });
+
+                var result = await publisher.UploadAsync(buildPath, branch, _buildDescription, progress);
+
+                if (result.Success)
+                {
+                    SetStatus($"✓ {result.Message}", Color.green);
+                    Debug.Log($"[BuildPublisher] Upload succeeded: {result.Message}");
+
+                    // Mark as published
+                    if (_currentEntry != null)
+                    {
+                        _currentEntry.MarkPublished("steam", branch, result.BuildId);
+                        EditorUtility.SetDirty(_patchNotesData);
+                    }
+
+                    // Create Git tag
+                    if (_createGitTag && _patchNotesData != null)
+                    {
+                        var tagName = _mainConfig?.GetGitTag(_patchNotesData.currentVersion) 
+                            ?? $"v{_patchNotesData.currentVersion}";
+
+                        Debug.Log($"[BuildPublisher] Creating Git tag: {tagName}");
+
+                        if (GitIntegration.CreateTag(tagName, _buildDescription))
+                        {
+                            if (_pushGitTag)
+                            {
+                                GitIntegration.PushTag(tagName);
+                            }
+                        }
+                    }
+
+                    EditorUtility.DisplayDialog("Upload Complete", 
+                        $"Build uploaded successfully!\n\nBranch: {branch}\nBuild ID: {result.BuildId ?? "N/A"}", "OK");
+                }
+                else
+                {
+                    SetStatus($"✗ {result.Error}", Color.red);
+                    Debug.LogError($"[BuildPublisher] Upload failed: {result.Error}");
+                    EditorUtility.DisplayDialog("Upload Failed", result.Error, "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"✗ {ex.Message}", Color.red);
+                Debug.LogError($"[BuildPublisher] Exception: {ex}");
+                EditorUtility.DisplayDialog("Upload Error", ex.Message, "OK");
             }
 
             _isProcessing = false;
             RefreshGitCache();
+            Repaint();
         }
 
         private async void BuildAndPublish()
         {
-            SetStatus("Build & Publish not yet implemented", Color.yellow);
+            // Force refresh validation before action
+            var issues = ValidateUploadSetupInternal();
+            // Remove "build folder not found" since we'll create it
+            issues.RemoveAll(i => i.Contains("Build folder not found") || i.Contains("Build folder is empty"));
+
+            if (issues.Count > 0)
+            {
+                var message = "Cannot build & publish:\n\n" + string.Join("\n", issues.Select(i => $"• {i}"));
+                EditorUtility.DisplayDialog("Validation Failed", message, "OK");
+                SetStatus($"Validation failed: {issues.Count} issues", Color.red);
+                return;
+            }
+
+            var depot = _steamConfig.depotConfig.GetEnabledDepots()[_selectedDepotIndex];
+            var branch = _cache.branchNames[_selectedBranchIndex];
+
+            Debug.Log($"[BuildPublisher] Starting Build & Publish");
+            Debug.Log($"[BuildPublisher] Depot: {depot.displayName}, Branch: {branch}");
+
             _isProcessing = true;
-            await Task.Delay(100);
+
+            // Step 1: Build
+            SetStatus($"[1/2] Building {depot.displayName}...", Color.yellow);
+            Repaint();
+
+            try
+            {
+                var buildPath = GetFullBuildPath(depot);
+                var exeName = GetExecutableName(depot.buildTarget);
+                var fullPath = Path.Combine(buildPath, exeName);
+
+                if (!Directory.Exists(buildPath))
+                {
+                    Directory.CreateDirectory(buildPath);
+                }
+
+                var scenes = EditorBuildSettings.scenes
+                    .Where(s => s.enabled)
+                    .Select(s => s.path)
+                    .ToArray();
+
+                if (scenes.Length == 0)
+                {
+                    throw new Exception("No scenes in Build Settings!");
+                }
+
+                var buildTarget = DepotConfig.ToUnityBuildTarget(depot.buildTarget);
+                var buildTargetGroup = BuildPipeline.GetBuildTargetGroup(buildTarget);
+
+                var options = new BuildPlayerOptions
+                {
+                    scenes = scenes,
+                    locationPathName = fullPath,
+                    target = buildTarget,
+                    targetGroup = buildTargetGroup,
+                    options = BuildOptions.None
+                };
+
+                await Task.Yield();
+
+                var report = BuildPipeline.BuildPlayer(options);
+
+                if (report.summary.result != BuildResult.Succeeded)
+                {
+                    throw new Exception($"Build failed with {report.summary.totalErrors} errors. Check Console.");
+                }
+
+                Debug.Log($"[BuildPublisher] Build succeeded: {report.summary.totalTime}");
+
+                // Step 2: Upload
+                SetStatus($"[2/2] Uploading to Steam ({branch})...", Color.yellow);
+                Repaint();
+
+                var publisher = new SteamPublisher(_steamConfig);
+
+                var progress = new Progress<PublishProgress>(p =>
+                {
+                    SetStatus($"[2/2] {p.Status}", Color.yellow);
+                    Repaint();
+                });
+
+                var result = await publisher.UploadAsync(buildPath, branch, _buildDescription, progress);
+
+                if (result.Success)
+                {
+                    var size = report.summary.totalSize / (1024 * 1024);
+                    SetStatus($"✓ Build & Publish complete!", Color.green);
+
+                    // Mark as published
+                    if (_currentEntry != null)
+                    {
+                        _currentEntry.MarkPublished("steam", branch, result.BuildId);
+                        EditorUtility.SetDirty(_patchNotesData);
+                    }
+
+                    // Create Git tag
+                    if (_createGitTag && _patchNotesData != null)
+                    {
+                        var tagName = _mainConfig?.GetGitTag(_patchNotesData.currentVersion) 
+                            ?? $"v{_patchNotesData.currentVersion}";
+
+                        if (GitIntegration.CreateTag(tagName, _buildDescription) && _pushGitTag)
+                        {
+                            GitIntegration.PushTag(tagName);
+                        }
+                    }
+
+                    EditorUtility.DisplayDialog("Build & Publish Complete", 
+                        $"Successfully built and uploaded!\n\n" +
+                        $"Build size: {size:F1} MB\n" +
+                        $"Branch: {branch}\n" +
+                        $"Build ID: {result.BuildId ?? "N/A"}", "OK");
+                }
+                else
+                {
+                    throw new Exception($"Upload failed: {result.Error}");
+                }
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"✗ {ex.Message}", Color.red);
+                Debug.LogError($"[BuildPublisher] {ex}");
+                EditorUtility.DisplayDialog("Build & Publish Failed", ex.Message, "OK");
+            }
+
             _isProcessing = false;
+            RefreshGitCache();
+            Repaint();
         }
 
         private void SetStatus(string message, Color color)

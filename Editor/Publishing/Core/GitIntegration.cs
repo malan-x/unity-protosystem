@@ -68,7 +68,8 @@ namespace ProtoSystem.Publishing.Editor
         /// </summary>
         public static string GetLastTag()
         {
-            var result = RunGitCommand("describe --tags --abbrev=0 2>/dev/null");
+            // Используем тихий режим - не выводим warning если тегов нет
+            var result = RunGitCommandSilent("describe --tags --abbrev=0");
             return result.success ? result.output.Trim() : null;
         }
 
@@ -272,6 +273,16 @@ namespace ProtoSystem.Publishing.Editor
         /// </summary>
         private static (bool success, string output) RunGitCommand(string arguments)
         {
+            return RunGitCommandInternal(arguments, logErrors: true);
+        }
+
+        private static (bool success, string output) RunGitCommandSilent(string arguments)
+        {
+            return RunGitCommandInternal(arguments, logErrors: false);
+        }
+
+        private static (bool success, string output) RunGitCommandInternal(string arguments, bool logErrors)
+        {
             try
             {
                 var projectPath = System.IO.Path.GetDirectoryName(Application.dataPath);
@@ -293,7 +304,6 @@ namespace ProtoSystem.Publishing.Editor
                 startInfo.EnvironmentVariables["LANG"] = "en_US.UTF-8";
                 startInfo.EnvironmentVariables["LC_ALL"] = "en_US.UTF-8";
                 startInfo.EnvironmentVariables["LESSCHARSET"] = "utf-8";
-                // Для Windows - принудительно UTF-8
                 startInfo.EnvironmentVariables["PYTHONUTF8"] = "1";
                 startInfo.EnvironmentVariables["CHCP"] = "65001";
 
@@ -304,7 +314,7 @@ namespace ProtoSystem.Publishing.Editor
                 var error = process.StandardError.ReadToEnd();
                 process.WaitForExit(10000);
 
-                if (process.ExitCode != 0 && !string.IsNullOrEmpty(error))
+                if (logErrors && process.ExitCode != 0 && !string.IsNullOrEmpty(error))
                 {
                     Debug.LogWarning($"[Git] {error}");
                 }
@@ -313,7 +323,10 @@ namespace ProtoSystem.Publishing.Editor
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[Git] Failed to run command: {ex.Message}");
+                if (logErrors)
+                {
+                    Debug.LogError($"[Git] Failed to run command: {ex.Message}");
+                }
                 return (false, "");
             }
         }
