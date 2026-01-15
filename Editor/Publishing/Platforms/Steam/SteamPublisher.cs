@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
@@ -65,7 +67,7 @@ namespace ProtoSystem.Publishing.Editor
                 }
 
                 progress?.Report(new PublishProgress { Status = "Starting SteamCMD...", Progress = 0.3f });
-                return await RunSteamCmdAsync(password, $"+run_app_build \"{vdfPath}\" ", progress);
+                return await RunSteamCmdAsync(password, $"+run_app_build \"{vdfPath}\"", progress);
             }
             catch (Exception ex)
             {
@@ -93,64 +95,27 @@ namespace ProtoSystem.Publishing.Editor
             }
 
             progress?.Report(new PublishProgress { Status = "Checking Steam authentication...", Progress = 0.1f, IsIndeterminate = true });
-            // Just login + quit.
             return await RunSteamCmdAsync(password, string.Empty, progress);
         }
 
-        private async Task<PublishResult> RunSteamCmdAsync(string password, string steamCmdActionArgs,
-            IProgress<PublishProgress> progress)
-        {
-            // First attempt without Steam Guard code; if required, prompt and retry once with code.
-            var firstAttempt = await RunSteamCmdOnceAsync(password, steamCmdActionArgs, steamGuardCode: null, progress);
-            if (firstAttempt.Success)
-            {
-                return firstAttempt;
-            }
-
-            if (!IsSteamGuardRequired(firstAttempt.Error))
-            {
-                return firstAttempt;
-            }
-
-            progress?.Report(new PublishProgress { Status = "Steam Guard code required...", Progress = 0.35f });
-            var code = await SteamGuardCodePromptWindow.PromptAsync(
-                "Steam Guard Required",
-                "Steam Guard is enabled for this account. Enter the Steam Guard / 2FA code and submit to continue, or cancel to abort.\n\n" +
-                "Tip: the code may come from email or the Steam mobile app.");
-
-            if (string.IsNullOrWhiteSpace(code))
-            {
-                return PublishResult.Fail("Upload cancelled (Steam Guard code not provided).");
-            }
-
-            return await RunSteamCmdOnceAsync(password, steamCmdActionArgs, code.Trim(), progress);
-        }
-
-        private async Task<PublishResult> RunSteamCmdOnceAsync(string password, string steamCmdActionArgs, string steamGuardCode,
+        private async Task<PublishResult> RunSteamCmdAsync(string password, string actionArgs,
             IProgress<PublishProgress> progress)
         {
             var tcs = new TaskCompletionSource<PublishResult>();
-
-            var loginArgs = string.IsNullOrEmpty(steamGuardCode)
-                ? $"+login \"{_config.username}\" \"{password}\" "
-                : $"+login \"{_config.username}\" \"{password}\" \"{steamGuardCode}\" ";
-
-            var args = loginArgs +
-                       (string.IsNullOrEmpty(steamCmdActionArgs) ? string.Empty : steamCmdActionArgs) +
-                       "+quit";
-
-            var (stdoutEncoding, stderrEncoding) = GetSteamCmdEncodings();
             var output = new StringBuilder();
             var buildId = "";
-            var steamGuardDetected = false;
+            var steamGuardPrompted = false;
+            var steamGuardCodeSent = false;
+            var loginSuccess = false;
             Process process = null;
-            void TryResolveSteamGuard()
-            {
-                if (steamGuardDetected) return;
-                steamGuardDetected = true;
-                try { process.Kill(); } catch { }
-                tcs.TrySetResult(PublishResult.Fail("Steam Guard authentication required."));
-            }
+            StreamWriter stdin = null;
+
+            var (stdoutEncoding, stderrEncoding) = GetSteamCmdEncodings();
+
+            // Build arguments - login без кода, код будет отправлен через stdin если потребуется
+            var args = $"+login \"{_config.username}\" \"{password}\" " +
+                       (string.IsNullOrEmpty(actionArgs) ? "" : actionArgs + " ") +
+                       "+quit";
 
             process = new Process
             {
@@ -161,6 +126,7 @@ namespace ProtoSystem.Publishing.Editor
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
+                    RedirectStandardInput = true, // Важно для Steam Guard!
                     CreateNoWindow = true,
                     StandardOutputEncoding = stdoutEncoding,
                     StandardErrorEncoding = stderrEncoding
@@ -168,21 +134,73 @@ namespace ProtoSystem.Publishing.Editor
                 EnableRaisingEvents = true
             };
 
+            // Обработка Steam Guard через stdin
+            async void HandleSteamGuardPrompt()
+            {
+                if (steamGuardCodeSent) return;
+                steamGuardCodeSent = true;
+
+                Debug.Log("[SteamCMD] Steam Guard code required, prompting user...");
+                progress?.Report(new PublishProgress { Status = "Steam Guard code required...", Progress = 0.35f });
+
+                try
+                {
+                    var code = await SteamGuardCodePromptWindow.PromptAsync(
+                        "Steam Guard Required",
+                        "Steam Guard is enabled for this account.\n\n" +
+                        "Enter the code from your email or Steam Mobile app:");
+
+                    if (string.IsNullOrWhiteSpace(code))
+                    {
+                        Debug.Log("[SteamCMD] Steam Guard cancelled by user");
+                        try { process?.Kill(); } catch { }
+                        tcs.TrySetResult(PublishResult.Fail("Upload cancelled (Steam Guard code not provided)."));
+                        return;
+                    }
+
+                    Debug.Log($"[SteamCMD] Sending Steam Guard code...");
+                    progress?.Report(new PublishProgress { Status = "Authenticating with Steam Guard...", Progress = 0.4f });
+
+                    // Отправляем код в stdin процесса
+                    if (stdin != null && !process.HasExited)
+                    {
+                        await stdin.WriteLineAsync(code.Trim());
+                        await stdin.FlushAsync();
+                        Debug.Log("[SteamCMD] Steam Guard code sent to stdin");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[SteamCMD] Error handling Steam Guard: {ex.Message}");
+                    tcs.TrySetResult(PublishResult.Fail($"Steam Guard error: {ex.Message}"));
+                }
+            }
+
             process.OutputDataReceived += (sender, e) =>
             {
                 if (string.IsNullOrEmpty(e.Data)) return;
 
                 var line = SanitizeSteamCmdLine(e.Data);
-
                 output.AppendLine(line);
                 Debug.Log($"[SteamCMD] {line}");
 
-                if (line.IndexOf("Steam Guard", StringComparison.OrdinalIgnoreCase) >= 0)
+                // Проверяем нужен ли Steam Guard
+                if (!steamGuardPrompted && IsSteamGuardPrompt(line))
                 {
-                    TryResolveSteamGuard();
+                    steamGuardPrompted = true;
+                    // Запускаем в главном потоке Unity
+                    UnityEditor.EditorApplication.delayCall += HandleSteamGuardPrompt;
                     return;
                 }
 
+                // Отслеживаем успешный логин
+                if (line.Contains("Logged in OK") || line.Contains("Waiting for user info"))
+                {
+                    loginSuccess = true;
+                    progress?.Report(new PublishProgress { Status = "Logged in, preparing upload...", Progress = 0.45f });
+                }
+
+                // Отслеживаем прогресс загрузки
                 if (line.Contains("Uploading"))
                 {
                     progress?.Report(new PublishProgress
@@ -197,12 +215,14 @@ namespace ProtoSystem.Publishing.Editor
                     progress?.Report(new PublishProgress { Status = "Upload complete!", Progress = 1f });
                 }
 
+                // Извлекаем Build ID
                 if (line.Contains("BuildID"))
                 {
-                    var match = System.Text.RegularExpressions.Regex.Match(line, @"BuildID\s*(\d+)");
+                    var match = Regex.Match(line, @"BuildID\s*(\d+)");
                     if (match.Success)
                     {
                         buildId = match.Groups[1].Value;
+                        Debug.Log($"[SteamCMD] Build ID: {buildId}");
                     }
                 }
             };
@@ -213,11 +233,12 @@ namespace ProtoSystem.Publishing.Editor
 
                 var line = SanitizeSteamCmdLine(e.Data);
                 output.AppendLine($"ERROR: {line}");
-                Debug.LogError($"[SteamCMD] {line}");
+                Debug.LogWarning($"[SteamCMD] {line}");
 
-                if (line.IndexOf("Steam Guard", StringComparison.OrdinalIgnoreCase) >= 0)
+                if (!steamGuardPrompted && IsSteamGuardPrompt(line))
                 {
-                    TryResolveSteamGuard();
+                    steamGuardPrompted = true;
+                    UnityEditor.EditorApplication.delayCall += HandleSteamGuardPrompt;
                 }
             };
 
@@ -225,21 +246,34 @@ namespace ProtoSystem.Publishing.Editor
             {
                 try
                 {
-                    if (steamGuardDetected)
+                    // Даём время на обработку последних сообщений
+                    Thread.Sleep(100);
+
+                    var combined = output.ToString();
+                    var exitCode = process.ExitCode;
+
+                    Debug.Log($"[SteamCMD] Process exited with code: {exitCode}");
+
+                    // Проверяем успех
+                    var hasError = combined.IndexOf("FAILED", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                   (combined.IndexOf("error", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                                    !combined.Contains("Error registering")); // Игнорируем это сообщение
+
+                    var success = exitCode == 0 && !hasError;
+
+                    // Если запрашивался Steam Guard но код не был отправлен - это ошибка
+                    if (steamGuardPrompted && !steamGuardCodeSent)
                     {
+                        tcs.TrySetResult(PublishResult.Fail("Steam Guard authentication was required but not completed."));
                         return;
                     }
 
-                    var combined = output.ToString();
-                    var success = process.ExitCode == 0 &&
-                                  combined.IndexOf("FAILED", StringComparison.OrdinalIgnoreCase) < 0 &&
-                                  combined.IndexOf("error", StringComparison.OrdinalIgnoreCase) < 0;
-
                     if (success)
                     {
-                        tcs.TrySetResult(PublishResult.Ok(
-                            $"Successfully uploaded to Steam (Branch: {_config.defaultBranch})",
-                            buildId));
+                        var message = string.IsNullOrEmpty(buildId)
+                            ? "Successfully completed Steam operation"
+                            : $"Successfully uploaded to Steam (Build ID: {buildId})";
+                        tcs.TrySetResult(PublishResult.Ok(message, buildId));
                     }
                     else
                     {
@@ -253,31 +287,54 @@ namespace ProtoSystem.Publishing.Editor
                 }
                 finally
                 {
-                    try { process.Dispose(); } catch { }
+                    try { stdin?.Dispose(); } catch { }
+                    try { process?.Dispose(); } catch { }
                 }
             };
 
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-
-            var timeoutTask = Task.Delay(TimeSpan.FromMinutes(30));
-            var completedTask = await Task.WhenAny(tcs.Task, timeoutTask);
-
-            if (completedTask == timeoutTask)
+            try
             {
-                try { process.Kill(); } catch { }
-                return PublishResult.Fail("Upload timed out (30 minutes)");
-            }
+                process.Start();
+                stdin = process.StandardInput;
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
 
-            return await tcs.Task;
+                // Таймаут 30 минут
+                var timeoutTask = Task.Delay(TimeSpan.FromMinutes(30));
+                var completedTask = await Task.WhenAny(tcs.Task, timeoutTask);
+
+                if (completedTask == timeoutTask)
+                {
+                    try { process.Kill(); } catch { }
+                    return PublishResult.Fail("Upload timed out (30 minutes)");
+                }
+
+                return await tcs.Task;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[SteamCMD] Failed to start: {ex.Message}");
+                return PublishResult.Fail($"Failed to start SteamCMD: {ex.Message}");
+            }
+        }
+
+        private static bool IsSteamGuardPrompt(string line)
+        {
+            if (string.IsNullOrEmpty(line)) return false;
+
+            var lower = line.ToLowerInvariant();
+            return lower.Contains("steam guard") ||
+                   lower.Contains("two-factor") ||
+                   lower.Contains("2fa") ||
+                   lower.Contains("enter the current code") ||
+                   lower.Contains("two factor code") ||
+                   lower.Contains("auth code");
         }
 
         private static string SanitizeSteamCmdLine(string line)
         {
             if (string.IsNullOrEmpty(line)) return line;
 
-            // SteamCMD sometimes writes progress bars / box-drawing characters; keep logs readable.
             var sb = new StringBuilder(line.Length);
             foreach (var ch in line)
             {
@@ -292,7 +349,7 @@ namespace ProtoSystem.Publishing.Editor
                     continue;
                 }
 
-                // Replace common box drawing/block elements with simple ASCII.
+                // Replace box drawing characters with ASCII
                 if ((ch >= '\u2500' && ch <= '\u259F') || (ch >= '\u2580' && ch <= '\u259F'))
                 {
                     sb.Append('#');
@@ -316,15 +373,20 @@ namespace ProtoSystem.Publishing.Editor
                 return "Invalid Steam password";
             if (output.Contains("Rate Limit"))
                 return "Steam rate limit exceeded. Try again later.";
-            if (output.Contains("Steam Guard"))
-                return "Steam Guard authentication required.";
-            if (output.Contains("not find"))
+            if (output.Contains("Steam Guard") && !output.Contains("Logged in OK"))
+                return "Steam Guard authentication failed.";
+            if (output.Contains("not find") || output.Contains("No such file"))
                 return "SteamCMD could not find required files";
+            if (output.Contains("Login Failure"))
+                return "Steam login failed. Check username and password.";
+            if (output.Contains("Access is denied"))
+                return "Access denied. Check file permissions.";
 
             var lines = output.Split('\n');
             foreach (var line in lines)
             {
-                if (line.Contains("FAILED") || line.Contains("Error"))
+                if (line.Contains("FAILED") || 
+                    (line.Contains("Error") && !line.Contains("Error registering")))
                 {
                     return line.Trim();
                 }
@@ -354,7 +416,6 @@ namespace ProtoSystem.Publishing.Editor
 
         private static (Encoding stdout, Encoding stderr) GetSteamCmdEncodings()
         {
-            // When output is redirected (no console), most Windows apps emit using ANSI codepage (ACP).
             try
             {
                 if (Application.platform == RuntimePlatform.WindowsEditor)
@@ -369,14 +430,6 @@ namespace ProtoSystem.Publishing.Editor
             }
 
             return (Encoding.UTF8, Encoding.UTF8);
-        }
-
-        private static bool IsSteamGuardRequired(string error)
-        {
-            if (string.IsNullOrEmpty(error)) return false;
-            return error.IndexOf("Steam Guard", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   error.IndexOf("two-factor", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   error.IndexOf("2fa", StringComparison.OrdinalIgnoreCase) >= 0;
         }
     }
 }

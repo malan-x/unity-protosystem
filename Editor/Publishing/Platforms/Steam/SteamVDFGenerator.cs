@@ -16,12 +16,15 @@ namespace ProtoSystem.Publishing.Editor
         public static string GenerateAppBuild(SteamConfig config, string branch, string description, 
             string outputDir = null)
         {
+            var projectRoot = Path.GetDirectoryName(Application.dataPath);
+            
             if (outputDir == null)
             {
-                outputDir = Path.Combine(Path.GetDirectoryName(Application.dataPath), "SteamUpload");
+                outputDir = Path.Combine(projectRoot, "SteamUpload");
             }
             
             Directory.CreateDirectory(outputDir);
+            Directory.CreateDirectory(Path.Combine(outputDir, "output"));
             
             var sb = new StringBuilder();
             
@@ -29,7 +32,6 @@ namespace ProtoSystem.Publishing.Editor
             sb.AppendLine("{");
             sb.AppendLine($"\t\"AppID\" \"{config.appId}\"");
             sb.AppendLine($"\t\"Desc\" \"{EscapeVDF(description)}\"");
-            sb.AppendLine($"\t\"ContentRoot\" \"{EscapePath(Path.GetDirectoryName(Application.dataPath))}\"");
             sb.AppendLine($"\t\"BuildOutput\" \"{EscapePath(Path.Combine(outputDir, "output"))}\"");
             
             if (config.previewMode)
@@ -50,7 +52,7 @@ namespace ProtoSystem.Publishing.Editor
             {
                 foreach (var depot in config.depotConfig.GetEnabledDepots())
                 {
-                    var depotVdfPath = GenerateDepotBuild(depot, outputDir);
+                    var depotVdfPath = GenerateDepotBuild(depot, outputDir, projectRoot);
                     sb.AppendLine($"\t\t\"{depot.depotId}\" \"{EscapePath(depotVdfPath)}\"");
                 }
             }
@@ -59,7 +61,9 @@ namespace ProtoSystem.Publishing.Editor
             sb.AppendLine("}");
             
             var appBuildPath = Path.Combine(outputDir, $"app_build_{config.appId}.vdf");
-            File.WriteAllText(appBuildPath, sb.ToString());
+            File.WriteAllText(appBuildPath, sb.ToString(), Encoding.UTF8);
+            
+            Debug.Log($"[Steam VDF] Generated app_build:\n{sb}");
             
             return appBuildPath;
         }
@@ -67,14 +71,22 @@ namespace ProtoSystem.Publishing.Editor
         /// <summary>
         /// Сгенерировать depot_build.vdf для одного депо
         /// </summary>
-        public static string GenerateDepotBuild(DepotEntry depot, string outputDir)
+        public static string GenerateDepotBuild(DepotEntry depot, string outputDir, string projectRoot)
         {
             var sb = new StringBuilder();
+            
+            // Конвертируем относительный путь в абсолютный
+            var contentRoot = depot.buildPath;
+            if (!Path.IsPathRooted(contentRoot))
+            {
+                contentRoot = Path.Combine(projectRoot, depot.buildPath);
+            }
+            contentRoot = Path.GetFullPath(contentRoot);
             
             sb.AppendLine("\"DepotBuild\"");
             sb.AppendLine("{");
             sb.AppendLine($"\t\"DepotID\" \"{depot.depotId}\"");
-            sb.AppendLine($"\t\"ContentRoot\" \"{EscapePath(depot.buildPath)}\"");
+            sb.AppendLine($"\t\"ContentRoot\" \"{EscapePath(contentRoot)}\"");
             
             // FileMapping
             sb.AppendLine("\t\"FileMapping\"");
@@ -100,7 +112,9 @@ namespace ProtoSystem.Publishing.Editor
             sb.AppendLine("}");
             
             var depotPath = Path.Combine(outputDir, $"depot_build_{depot.depotId}.vdf");
-            File.WriteAllText(depotPath, sb.ToString());
+            File.WriteAllText(depotPath, sb.ToString(), Encoding.UTF8);
+            
+            Debug.Log($"[Steam VDF] Generated depot_build for {depot.displayName}:\n{sb}");
             
             return depotPath;
         }
@@ -119,12 +133,14 @@ namespace ProtoSystem.Publishing.Editor
         }
 
         /// <summary>
-        /// Экранировать путь для VDF
+        /// Экранировать путь для VDF (SteamCMD понимает оба типа слешей, но прямые безопаснее)
         /// </summary>
         private static string EscapePath(string path)
         {
             if (string.IsNullOrEmpty(path)) return "";
-            // VDF требует прямые слеши
+            // Нормализуем путь
+            path = Path.GetFullPath(path);
+            // VDF лучше работает с прямыми слешами
             return path.Replace("\\", "/");
         }
 
@@ -134,8 +150,17 @@ namespace ProtoSystem.Publishing.Editor
         public static string GenerateSimpleAppBuild(string appId, string depotId, string contentPath, 
             string branch, string description, bool preview = false)
         {
-            var outputDir = Path.Combine(Path.GetDirectoryName(Application.dataPath), "SteamUpload");
+            var projectRoot = Path.GetDirectoryName(Application.dataPath);
+            var outputDir = Path.Combine(projectRoot, "SteamUpload");
             Directory.CreateDirectory(outputDir);
+            Directory.CreateDirectory(Path.Combine(outputDir, "output"));
+            
+            // Конвертируем путь контента в абсолютный
+            if (!Path.IsPathRooted(contentPath))
+            {
+                contentPath = Path.Combine(projectRoot, contentPath);
+            }
+            contentPath = Path.GetFullPath(contentPath);
             
             var sb = new StringBuilder();
             
@@ -172,7 +197,7 @@ namespace ProtoSystem.Publishing.Editor
             sb.AppendLine("}");
             
             var appBuildPath = Path.Combine(outputDir, $"app_build_{appId}.vdf");
-            File.WriteAllText(appBuildPath, sb.ToString());
+            File.WriteAllText(appBuildPath, sb.ToString(), Encoding.UTF8);
             
             return appBuildPath;
         }
