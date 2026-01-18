@@ -71,6 +71,60 @@ public class MainMenu : UIWindowBase { }
 | Modals | 300 | Модальные окна |
 | Overlay | 400 | Поверх всего |
 
+## Структура префабов окон
+
+> ⚠️ **ВАЖНО:** Префабы окон **НЕ должны** содержать свой собственный `Canvas`!
+
+UISystem создаёт единый `UISystem_Canvas` с разделением на слои (`Layer_HUD`, `Layer_Windows`, `Layer_Modals` и т.д.). При открытии окна, UISystem инстанцирует префаб как дочерний объект соответствующего слоя.
+
+### ❌ Неправильно (вложенный Canvas)
+
+```
+UISystem_Canvas (Canvas, CanvasScaler)
+└── Layer_HUD
+    └── MyGameHUD (Canvas, CanvasScaler) ← ПРОБЛЕМА!
+        └── TopLeft
+        └── Bottom
+```
+
+**Проблема:** Вложенный Canvas не наследует размер экрана от родителя. Элементы со stretch-anchors получат нулевую ширину/высоту.
+
+### ✅ Правильно (RectTransform без Canvas)
+
+```
+UISystem_Canvas (Canvas, CanvasScaler)
+└── Layer_HUD
+    └── MyGameHUD (RectTransform, stretch) ← Правильно!
+        └── TopLeft
+        └── Bottom
+```
+
+### Правильная структура корня префаба
+
+```csharp
+// Корневой объект окна - обычный RectTransform
+var rootGO = new GameObject("MyWindow");
+var rootRect = rootGO.AddComponent<RectTransform>();
+
+// Растягиваем по всему родителю (слою UISystem)
+rootRect.anchorMin = Vector2.zero;
+rootRect.anchorMax = Vector2.one;
+rootRect.offsetMin = Vector2.zero;  // Left, Bottom = 0
+rootRect.offsetMax = Vector2.zero;  // Right, Top = 0
+rootRect.pivot = new Vector2(0.5f, 0.5f);
+
+// Добавляем компонент окна
+rootGO.AddComponent<MyWindowClass>();
+```
+
+### Checklist для префабов окон
+
+- [ ] Корень префаба — `RectTransform` (не Canvas)
+- [ ] `anchorMin = (0, 0)`, `anchorMax = (1, 1)` — растяжение по родителю
+- [ ] `offsetMin = offsetMax = (0, 0)` — без отступов
+- [ ] Компонент `UIWindowBase` (или наследник) на корне
+- [ ] Дочерние элементы используют anchor-based позиционирование
+
 ## Уровни (Level)
 
 | Level | Поведение |
@@ -485,6 +539,8 @@ Debug.Log($"Current: {nav.CurrentWindow?.WindowId}");
 | Пауза не снимается | Вызвать UITimeManager.ResetAllPauses() |
 | Граф пустой | ProtoSystem → UI → Rebuild Window Graph |
 | Недостижимые окна | Проверить в Graph Viewer, добавить переходы |
+| **UI элементы имеют нулевой размер / неправильная позиция** | Убрать Canvas с префаба окна! См. раздел "Структура префабов окон" |
+| Stretch-anchors не работают | Проверить что корень префаба = RectTransform (не Canvas), anchors = (0,0)-(1,1) |
 
 ## Best Practices
 

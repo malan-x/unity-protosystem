@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEditor;
@@ -636,6 +637,27 @@ namespace ProtoSystem.Publishing.Editor
                         if (GUILayout.Button("Open", GUILayout.Width(45), GUILayout.Height(18)))
                         {
                             TryRevealFolder(fullBuildPath);
+                        }
+
+                        using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(_steamConfig?.appId)))
+                        {
+                            var appIdFilePath = Path.Combine(fullBuildPath, "steam_appid.txt");
+                            var hasAppIdFile = File.Exists(appIdFilePath);
+
+                            if (!hasAppIdFile)
+                            {
+                                if (GUILayout.Button("AppID+", GUILayout.Width(55), GUILayout.Height(18)))
+                                {
+                                    TryCreateSteamAppIdFile(depot, appIdFilePath);
+                                }
+                            }
+                            else
+                            {
+                                if (GUILayout.Button("AppID", GUILayout.Width(50), GUILayout.Height(18)))
+                                {
+                                    TryRevealFile(appIdFilePath);
+                                }
+                            }
                         }
                     }
                 }
@@ -1326,6 +1348,79 @@ namespace ProtoSystem.Publishing.Editor
             {
                 Debug.LogError($"[BuildPublisher] Failed to open folder '{folderPath}': {ex}");
             }
+        }
+
+        private void TryRevealFile(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath)) return;
+
+            try
+            {
+                if (File.Exists(filePath))
+                {
+                    EditorUtility.RevealInFinder(filePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[BuildPublisher] Failed to reveal file '{filePath}': {ex}");
+            }
+        }
+
+        private void TryCreateSteamAppIdFile(DepotEntry depot, string appIdFilePath)
+        {
+            try
+            {
+                if (_steamConfig == null || string.IsNullOrEmpty(_steamConfig.appId))
+                {
+                    EditorUtility.DisplayDialog("Create steam_appid.txt", "Steam App ID is not set in config.", "OK");
+                    return;
+                }
+
+                var folder = Path.GetDirectoryName(appIdFilePath);
+                if (!string.IsNullOrEmpty(folder) && !Directory.Exists(folder))
+                {
+                    Directory.CreateDirectory(folder);
+                }
+
+                File.WriteAllText(appIdFilePath, _steamConfig.appId.Trim() + "\n", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+
+                // Ensure it won't be uploaded by SteamCMD
+                EnsureExcludePattern(depot, "steam_appid.txt");
+
+                if (_steamConfig?.depotConfig != null)
+                {
+                    EditorUtility.SetDirty(_steamConfig.depotConfig);
+                }
+
+                TryRevealFile(appIdFilePath);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[BuildPublisher] Failed to create steam_appid.txt: {ex}");
+                EditorUtility.DisplayDialog("Create steam_appid.txt Failed", ex.Message, "OK");
+            }
+        }
+
+        private static void EnsureExcludePattern(DepotEntry depot, string pattern)
+        {
+            if (depot == null || string.IsNullOrWhiteSpace(pattern)) return;
+
+            var existing = string.IsNullOrWhiteSpace(depot.excludePatterns)
+                ? Array.Empty<string>()
+                : depot.excludePatterns.Split(',');
+
+            foreach (var p in existing)
+            {
+                if (string.Equals(p?.Trim(), pattern, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+            }
+
+            depot.excludePatterns = string.IsNullOrWhiteSpace(depot.excludePatterns)
+                ? pattern
+                : depot.excludePatterns.TrimEnd() + ", " + pattern;
         }
 
         private void DrawStatusBar()

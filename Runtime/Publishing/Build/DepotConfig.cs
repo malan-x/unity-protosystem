@@ -28,7 +28,7 @@ namespace ProtoSystem.Publishing
         public string includePatterns = "";
         
         [Tooltip("Паттерны файлов для исключения (через запятую)")]
-        public string excludePatterns = "*.pdb, *.log";
+        public string excludePatterns = "*.pdb, *.log, steam_appid.txt";
         
         [Tooltip("Активно ли это депо")]
         public bool enabled = true;

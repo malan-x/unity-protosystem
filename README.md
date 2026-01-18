@@ -19,6 +19,7 @@
 - **CursorManagerSystem** — Стек состояний курсора
 
 ### Дополнительные системы
+- **GameSessionSystem** — Управление жизненным циклом игровой сессии (старт, пауза, рестарт, завершение)
 - **SettingsSystem** — Управление настройками (INI формат)
 - **EffectsManager** — Система визуальных эффектов
 - **SceneFlowSystem** — Управление переходами между сценами
@@ -32,6 +33,7 @@
 - [ProtoSystem Guide](Documentation~/ProtoSystem-Guide.md) — Основная документация
 - [UISystem Guide](Documentation~/UISystem.md) — Полная документация UI системы
 - [UISystem Test Scenarios](Documentation~/UISystem_TestScenarios.md) — Тестовые сценарии
+- [GameSession Guide](Documentation~/GameSession.md) — Система игровых сессий
 - [SettingsSystem Guide](Documentation~/SettingsSystem.md) — Система настроек
 - [AI Instructions](Documentation~/AI_INSTRUCTIONS.md) — Инструкции для ИИ-ассистентов
 - [Changelog](CHANGELOG.md) — История изменений
@@ -53,6 +55,7 @@ com.protosystem.core/
 ├── Runtime/
 │   ├── EventBus/          # Система событий
 │   ├── Initialization/    # Инициализация и DI
+│   ├── GameSession/       # Управление игровыми сессиями
 │   ├── UI/                # UI система
 │   │   ├── Core/          # UISystem, UINavigator, UIWindowGraph
 │   │   ├── Windows/       # Базовые классы окон
@@ -64,6 +67,7 @@ com.protosystem.core/
 │   └── SceneFlow/         # Управление сценами
 ├── Editor/
 │   ├── UI/                # UIWindowPrefabGenerator, Graph Viewer
+│   ├── GameSession/       # Утилиты GameSession
 │   └── Initialization/    # Инспекторы систем
 └── Documentation~/        # Документация
 ```

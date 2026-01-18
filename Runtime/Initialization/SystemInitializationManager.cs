@@ -679,6 +679,59 @@ namespace ProtoSystem
             }
         }
 
+        /// <summary>
+        /// Сбросить состояние всех систем, реализующих IResettable.
+        /// Вызывается автоматически при событии Session.Reset.
+        /// </summary>
+        public void ResetAllResettableSystems()
+        {
+            if (systemProvider == null) return;
+
+            int resetCount = 0;
+
+            foreach (var system in systemProvider.GetAllSystems())
+            {
+                if (system is IResettable resettable)
+                {
+                    try
+                    {
+                        resettable.ResetState();
+                        resetCount++;
+
+                        if (verboseLogging)
+                        {
+                            LogMessage($"Reset: {system.SystemId}");
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        LogError($"Error resetting {system.SystemId}: {ex.Message}");
+                    }
+                }
+            }
+
+            if (verboseLogging)
+            {
+                LogMessage($"Reset {resetCount} resettable systems");
+            }
+        }
+
+        /// <summary>
+        /// Получить все системы, реализующие IResettable
+        /// </summary>
+        public IEnumerable<IResettable> GetResettableSystems()
+        {
+            if (systemProvider == null) yield break;
+
+            foreach (var system in systemProvider.GetAllSystems())
+            {
+                if (system is IResettable resettable)
+                {
+                    yield return resettable;
+                }
+            }
+        }
+
         #endregion
 
         #region Утилиты
