@@ -401,12 +401,10 @@ namespace ProtoSystem.UI
         {
             Debug.Log($"[UINavigator] OpenNormal '{definition.id}' level={definition.level}");
 
-            // Level 0 окна взаимоисключающие - закрываем другие level 0
-            // Level 1+ просто добавляются в стек
-            if (definition.level == 0)
-            {
-                CloseLevel0Windows();
-            }
+            // Закрываем все Normal окна с уровнем >= открываемого
+            // Это гарантирует что Level 0 окна взаимоисключающие,
+            // а Level 1+ окна закрывают все окна того же или выше уровня
+            CloseWindowsAtOrAboveLevel(definition.level);
 
             // Level 1+ окна должны быть непрозрачными (чтобы не накладывались на другие)
             if (definition.level > 0)
@@ -450,12 +448,13 @@ namespace ProtoSystem.UI
         }
 
         /// <summary>
-        /// Закрыть все Normal окна с уровнем <= указанного
+        /// Закрывает все Normal окна с уровнем >= указанного.
+        /// При открытии окна уровня X все Normal окна уровня X и выше закрываются.
+        /// Это гарантирует что Level 0 окна взаимоисключающие,
+        /// а Level 1+ окна также закрывают все окна того же или выше уровня.
         /// </summary>
-        /// <summary>
-        /// Закрывает все Normal окна с level 0 (базовые экраны взаимоисключающие)
-        /// </summary>
-        private void CloseLevel0Windows()
+        /// <param name="targetLevel">Минимальный уровень окон для закрытия</param>
+        private void CloseWindowsAtOrAboveLevel(int targetLevel)
         {
             if (_windowStack.Count == 0) return;
 
@@ -469,15 +468,15 @@ namespace ProtoSystem.UI
                 var def = _graph?.GetWindow(w.WindowId);
                 int windowLevel = def?.level ?? 0;
 
-                // Закрываем только Normal окна с level == 0
-                if (def != null && def.type == WindowType.Normal && windowLevel == 0)
+                // Закрываем Normal окна с level >= targetLevel
+                if (def != null && def.type == WindowType.Normal && windowLevel >= targetLevel)
                 {
                     windowsToClose.Add((w, def));
-                    Debug.Log($"[UINavigator] Closing level 0 window '{w.WindowId}'");
+                    Debug.Log($"[UINavigator] Closing level {windowLevel} window '{w.WindowId}' (targetLevel={targetLevel})");
                 }
                 else
                 {
-                    // Overlay/Modal или level 1+ - сохраняем
+                    // Overlay/Modal или level ниже целевого - сохраняем
                     windowsToKeep.Push(w);
                 }
             }

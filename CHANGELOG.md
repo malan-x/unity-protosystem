@@ -59,7 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **UISystem enhancements**
-  - **Window Levels** — Level 0 окна взаимоисключающие (MainMenu, GameHUD), Level 1+ стековые
+  - **Window Levels** — при открытии окна уровня X закрываются все Normal окна уровня X и выше (Level 0 взаимоисключающие, Level 1+ стековые)
   - **IUISceneInitializer** — интерфейс для добавления переходов и стартовых окон при загрузке сцены
   - **UITimeManager** — счётчик-based управление паузой для нескольких окон одновременно
   - **CursorManagerSystem** — стековое управление состоянием курсора
