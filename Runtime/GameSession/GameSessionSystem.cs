@@ -2,7 +2,6 @@
 using System;
 using System.Collections;
 using System.Threading.Tasks;
-using Unity.Netcode;
 using UnityEngine;
 
 namespace ProtoSystem
@@ -15,10 +14,12 @@ namespace ProtoSystem
     /// - Факты vs Решения: Системы публикуют факты, GameSessionSystem принимает решения
     /// - Событийная координация: Сброс через события, не прямые вызовы
     /// - Не управляет Time.timeScale (это делает UITimeManager)
+    /// 
+    /// Для мультиплеера добавьте GameSessionNetworkSync на тот же GameObject.
     /// </summary>
     [ProtoSystemComponent("Game Session", "Управление жизненным циклом игровой сессии", 
         "Core", "🎮", 100)]
-    public class GameSessionSystem : NetworkInitializableSystem, IResettable
+    public class GameSessionSystem : InitializableSystemBase, IResettable
     {
         #region InitializableSystemBase Implementation
         
@@ -34,45 +35,29 @@ namespace ProtoSystem
         
         #endregion
         
-        #region Network Variables
-        
-        private NetworkVariable<int> _networkState = new NetworkVariable<int>(
-            (int)SessionState.None,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
-            
-        private NetworkVariable<int> _networkEndReason = new NetworkVariable<int>(
-            (int)SessionEndReason.None,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
-            
-        private NetworkVariable<bool> _networkIsVictory = new NetworkVariable<bool>(
-            false,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
-        
-        #endregion
-        
         #region State
         
-        private SessionState _localState = SessionState.None;
+        private SessionState _state = SessionState.None;
         private SessionEndReason _endReason = SessionEndReason.None;
         private bool _isVictory;
         private SessionStats _stats = new SessionStats();
         private Coroutine _restartCoroutine;
+        
+        // Сетевой синхронизатор (опционально)
+        private IGameSessionNetworkSync _networkSync;
         
         #endregion
         
         #region Properties
         
         /// <summary>Текущее состояние сессии</summary>
-        public SessionState State => IsNetworkActive ? (SessionState)_networkState.Value : _localState;
+        public SessionState State => _state;
         
         /// <summary>Причина завершения сессии</summary>
-        public SessionEndReason EndReason => IsNetworkActive ? (SessionEndReason)_networkEndReason.Value : _endReason;
+        public SessionEndReason EndReason => _endReason;
         
         /// <summary>Была ли победа</summary>
-        public bool IsVictory => IsNetworkActive ? _networkIsVictory.Value : _isVictory;
+        public bool IsVictory => _isVictory;
         
         /// <summary>Статистика текущей сессии</summary>
         public SessionStats Stats => _stats;
@@ -80,16 +65,21 @@ namespace ProtoSystem
         /// <summary>Конфигурация системы</summary>
         public GameSessionConfig Config => config;
         
+        /// <summary>Подключен ли сетевой синхронизатор</summary>
+        public bool HasNetworkSync => _networkSync != null;
+        
+        /// <summary>Является ли текущий клиент сервером/хостом</summary>
+        public bool IsServer => _networkSync == null || _networkSync.IsServer;
+        
+        /// <summary>Может ли текущий клиент управлять сессией</summary>
+        public bool CanControl => _networkSync == null || !config.hostAuthoritative || _networkSync.IsServer;
+        
         // Удобные проверки
         public bool IsPlaying => State == SessionState.Playing;
         public bool IsPaused => State == SessionState.Paused;
         public bool IsGameOver => State == SessionState.GameOver || State == SessionState.Victory;
         public bool IsReady => State == SessionState.Ready;
         public bool IsStarting => State == SessionState.Starting;
-        
-        private bool IsNetworkActive => NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening;
-        private bool IsServer => !IsNetworkActive || NetworkManager.Singleton.IsServer;
-        private bool CanControl => !config.hostAuthoritative || IsServer;
         
         #endregion
         
@@ -107,8 +97,7 @@ namespace ProtoSystem
         
         protected override void InitEvents()
         {
-            // Подписка на сетевые изменения
-            _networkState.OnValueChanged += OnNetworkStateChanged;
+            // Базовая система не требует подписок на события
         }
         
         public override async Task<bool> InitializeAsync()
@@ -129,7 +118,7 @@ namespace ProtoSystem
             ReportProgress(0.5f);
             
             // Устанавливаем начальное состояние
-            SetState(config.initialState);
+            SetStateInternal(config.initialState);
             
             ReportProgress(0.8f);
             
@@ -143,6 +132,32 @@ namespace ProtoSystem
             LogMessage("GameSessionSystem initialized");
             
             return true;
+        }
+        
+        #endregion
+        
+        #region Network Sync Registration
+        
+        /// <summary>
+        /// Регистрирует сетевой синхронизатор.
+        /// Вызывается автоматически из GameSessionNetworkSync.
+        /// </summary>
+        internal void RegisterNetworkSync(IGameSessionNetworkSync sync)
+        {
+            _networkSync = sync;
+            Log("Network sync registered");
+        }
+        
+        /// <summary>
+        /// Отменяет регистрацию сетевого синхронизатора.
+        /// </summary>
+        internal void UnregisterNetworkSync(IGameSessionNetworkSync sync)
+        {
+            if (_networkSync == sync)
+            {
+                _networkSync = null;
+                Log("Network sync unregistered");
+            }
         }
         
         #endregion
@@ -167,9 +182,9 @@ namespace ProtoSystem
                 return;
             }
             
-            if (IsServer && IsNetworkActive)
+            if (_networkSync != null && _networkSync.IsNetworkActive)
             {
-                StartSessionServerRpc();
+                _networkSync.RequestStartSession();
             }
             else
             {
@@ -188,9 +203,9 @@ namespace ProtoSystem
                 return;
             }
             
-            if (IsServer && IsNetworkActive)
+            if (_networkSync != null && _networkSync.IsNetworkActive)
             {
-                RestartSessionServerRpc();
+                _networkSync.RequestRestartSession();
             }
             else
             {
@@ -209,15 +224,13 @@ namespace ProtoSystem
                 return;
             }
             
-            if (IsServer && IsNetworkActive)
+            if (_networkSync != null && _networkSync.IsNetworkActive)
             {
-                PauseSessionServerRpc();
+                _networkSync.RequestPauseSession();
             }
             else
             {
-                SetState(SessionState.Paused);
-                EventBus.Publish(EventBus.Session.Paused, null);
-                Log("Session paused");
+                PauseSessionInternal();
             }
         }
         
@@ -232,15 +245,13 @@ namespace ProtoSystem
                 return;
             }
             
-            if (IsServer && IsNetworkActive)
+            if (_networkSync != null && _networkSync.IsNetworkActive)
             {
-                ResumeSessionServerRpc();
+                _networkSync.RequestResumeSession();
             }
             else
             {
-                SetState(SessionState.Playing);
-                EventBus.Publish(EventBus.Session.Resumed, null);
-                Log("Session resumed");
+                ResumeSessionInternal();
             }
         }
         
@@ -255,9 +266,9 @@ namespace ProtoSystem
                 return;
             }
             
-            if (IsServer && IsNetworkActive)
+            if (_networkSync != null && _networkSync.IsNetworkActive)
             {
-                EndSessionServerRpc((int)reason, isVictory);
+                _networkSync.RequestEndSession(reason, isVictory);
             }
             else
             {
@@ -271,9 +282,9 @@ namespace ProtoSystem
         /// </summary>
         public void ReturnToMenu()
         {
-            if (IsServer && IsNetworkActive)
+            if (_networkSync != null && _networkSync.IsNetworkActive)
             {
-                ReturnToMenuServerRpc();
+                _networkSync.RequestReturnToMenu();
             }
             else
             {
@@ -302,11 +313,15 @@ namespace ProtoSystem
         
         #endregion
         
-        #region Internal Methods
+        #region Internal Methods (вызываются напрямую или через NetworkSync)
         
-        private void StartSessionInternal()
+        /// <summary>
+        /// Внутренний метод запуска сессии.
+        /// Вызывается напрямую или через сетевой sync.
+        /// </summary>
+        internal void StartSessionInternal()
         {
-            SetState(SessionState.Starting);
+            SetStateInternal(SessionState.Starting);
             
             // Сброс всех систем
             ResetAllSystems();
@@ -331,14 +346,17 @@ namespace ProtoSystem
         
         private void CompleteStart()
         {
-            SetState(SessionState.Playing);
+            SetStateInternal(SessionState.Playing);
             _stats.StartTimer();
             
             EventBus.Publish(EventBus.Session.Started, null);
             Log("Session started");
         }
         
-        private void RestartSessionInternal()
+        /// <summary>
+        /// Внутренний метод рестарта сессии.
+        /// </summary>
+        internal void RestartSessionInternal()
         {
             EventBus.Publish(EventBus.Session.RestartRequested, null);
             
@@ -357,20 +375,37 @@ namespace ProtoSystem
             Log($"Session restarted (count: {_stats.RestartCount})");
         }
         
-        private void EndSessionInternal(SessionEndReason reason, bool isVictory)
+        /// <summary>
+        /// Внутренний метод паузы.
+        /// </summary>
+        internal void PauseSessionInternal()
+        {
+            SetStateInternal(SessionState.Paused);
+            EventBus.Publish(EventBus.Session.Paused, null);
+            Log("Session paused");
+        }
+        
+        /// <summary>
+        /// Внутренний метод возобновления.
+        /// </summary>
+        internal void ResumeSessionInternal()
+        {
+            SetStateInternal(SessionState.Playing);
+            EventBus.Publish(EventBus.Session.Resumed, null);
+            Log("Session resumed");
+        }
+        
+        /// <summary>
+        /// Внутренний метод завершения сессии.
+        /// </summary>
+        internal void EndSessionInternal(SessionEndReason reason, bool isVictory)
         {
             _stats.UpdateTime();
             _endReason = reason;
             _isVictory = isVictory;
             
             var finalState = isVictory ? SessionState.Victory : SessionState.GameOver;
-            SetState(finalState);
-            
-            if (IsServer && IsNetworkActive)
-            {
-                _networkEndReason.Value = (int)reason;
-                _networkIsVictory.Value = isVictory;
-            }
+            SetStateInternal(finalState);
             
             var data = new SessionEndedData
             {
@@ -387,7 +422,10 @@ namespace ProtoSystem
             Log($"Session ended: {reason}, Victory: {isVictory}, Time: {_stats.SessionTime:F1}s");
         }
         
-        private void ReturnToMenuInternal()
+        /// <summary>
+        /// Внутренний метод возврата в меню.
+        /// </summary>
+        internal void ReturnToMenuInternal()
         {
             _endReason = SessionEndReason.ReturnToMenu;
             
@@ -395,25 +433,21 @@ namespace ProtoSystem
             ResetAllSystems();
             _stats.FullReset();
             
-            SetState(SessionState.Ready);
+            SetStateInternal(SessionState.Ready);
             
             EventBus.Publish(EventBus.Session.ReturnedToMenu, null);
             Log("Returned to menu");
         }
         
-        private void SetState(SessionState newState)
+        /// <summary>
+        /// Устанавливает состояние напрямую (используется sync для репликации).
+        /// </summary>
+        internal void SetStateInternal(SessionState newState)
         {
-            var prevState = State;
+            var prevState = _state;
             if (prevState == newState) return;
             
-            if (IsServer && IsNetworkActive)
-            {
-                _networkState.Value = (int)newState;
-            }
-            else
-            {
-                _localState = newState;
-            }
+            _state = newState;
             
             var data = new SessionStateChangedData
             {
@@ -424,10 +458,19 @@ namespace ProtoSystem
             EventBus.Publish(EventBus.Session.StateChanged, data);
             OnStateChanged?.Invoke(prevState, newState);
             
-            if (config.verboseLogging)
+            if (config != null && config.verboseLogging)
             {
                 Log($"State: {prevState} → {newState}");
             }
+        }
+        
+        /// <summary>
+        /// Устанавливает данные завершения (используется sync для репликации).
+        /// </summary>
+        internal void SetEndDataInternal(SessionEndReason reason, bool isVictory)
+        {
+            _endReason = reason;
+            _isVictory = isVictory;
         }
         
         private void ResetAllSystems()
@@ -442,102 +485,6 @@ namespace ProtoSystem
             }
         }
         
-        private void OnNetworkStateChanged(int prev, int current)
-        {
-            if (!IsServer)
-            {
-                var prevState = (SessionState)prev;
-                var newState = (SessionState)current;
-                
-                var data = new SessionStateChangedData
-                {
-                    PreviousState = prevState,
-                    NewState = newState
-                };
-                
-                EventBus.Publish(EventBus.Session.StateChanged, data);
-                OnStateChanged?.Invoke(prevState, newState);
-                
-                if (config.verboseLogging)
-                {
-                    Log($"[Client] State: {prevState} → {newState}");
-                }
-            }
-        }
-        
-        #endregion
-        
-        #region Network RPCs
-        
-        [ServerRpc(RequireOwnership = false)]
-        private void StartSessionServerRpc()
-        {
-            StartSessionInternal();
-        }
-        
-        [ServerRpc(RequireOwnership = false)]
-        private void RestartSessionServerRpc()
-        {
-            RestartSessionInternal();
-        }
-        
-        [ServerRpc(RequireOwnership = false)]
-        private void PauseSessionServerRpc()
-        {
-            if (State == SessionState.Playing)
-            {
-                SetState(SessionState.Paused);
-                PauseSessionClientRpc();
-            }
-        }
-        
-        [ClientRpc]
-        private void PauseSessionClientRpc()
-        {
-            EventBus.Publish(EventBus.Session.Paused, null);
-            Log("Session paused");
-        }
-        
-        [ServerRpc(RequireOwnership = false)]
-        private void ResumeSessionServerRpc()
-        {
-            if (State == SessionState.Paused)
-            {
-                SetState(SessionState.Playing);
-                ResumeSessionClientRpc();
-            }
-        }
-        
-        [ClientRpc]
-        private void ResumeSessionClientRpc()
-        {
-            EventBus.Publish(EventBus.Session.Resumed, null);
-            Log("Session resumed");
-        }
-        
-        [ServerRpc(RequireOwnership = false)]
-        private void EndSessionServerRpc(int reason, bool isVictory)
-        {
-            EndSessionInternal((SessionEndReason)reason, isVictory);
-        }
-        
-        [ServerRpc(RequireOwnership = false)]
-        private void ReturnToMenuServerRpc()
-        {
-            ReturnToMenuInternal();
-            ReturnToMenuClientRpc();
-        }
-        
-        [ClientRpc]
-        private void ReturnToMenuClientRpc()
-        {
-            if (!IsServer)
-            {
-                _stats.FullReset();
-                EventBus.Publish(EventBus.Session.ReturnedToMenu, null);
-            }
-        }
-        
         #endregion
         
         #region Unity Callbacks
@@ -549,11 +496,6 @@ namespace ProtoSystem
             {
                 _stats.UpdateTime();
             }
-        }
-        
-        private void OnDestroy()
-        {
-            _networkState.OnValueChanged -= OnNetworkStateChanged;
         }
         
         #endregion

@@ -12,10 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Состояния: None, Ready, Starting, Playing, Paused, GameOver, Victory
   - Soft reset без перезагрузки сцены через события
   - Гибкая статистика SessionStats с Dictionary для произвольных данных
-  - Полная сетевая синхронизация (Netcode for GameObjects)
   - Двуязычные события (EventBus.Session.* / EventBus.Сессия.*)
   - Debug меню через контекстное меню компонента
+
+- **GameSessionNetworkSync** — опциональная сетевая синхронизация (отдельный компонент)
+  - Разделение логики и сети: GameSessionSystem работает без Netcode
+  - Для мультиплеера: добавить GameSessionNetworkSync на тот же GameObject
+  - NetworkVariable синхронизация состояния, причины завершения, флага победы
+  - ServerRpc/ClientRpc для команд
   
+- **IGameSessionNetworkSync** — интерфейс для сетевой синхронизации (позволяет заменить Netcode на другое решение)
+
 - **IResettable** — интерфейс для систем с поддержкой мягкого сброса
   - Автоматический вызов ResetState() через SystemInitializationManager
   - Событие Session.Reset для ручной подписки
@@ -38,10 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - ProtoSystem → Game Session → Create Config
   - ProtoSystem → Game Session → Select Config
 
+- **ProjectSetupWizard** — кнопка принудительного перезапуска (↻) для выполненных задач
+
 - **Документация**: Documentation~/GameSession.md
 
 ### Technical Details
-- GameSessionSystem не управляет Time.timeScale (это делает UITimeManager)
+- GameSessionSystem наследуется от InitializableSystemBase (не NetworkBehaviour)
+- GameSessionNetworkSync — отдельный NetworkBehaviour компонент
 - Паттерн "Факты vs Решения" для координации систем
 - Приоритет инициализации: 100
 

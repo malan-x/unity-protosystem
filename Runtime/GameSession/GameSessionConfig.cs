@@ -24,18 +24,15 @@ namespace ProtoSystem
         [Tooltip("Увеличивать счётчик рестартов при каждом RestartSession")]
         public bool trackRestarts = true;
         
+        [Header("Network")]
+        [Tooltip("Только хост может управлять сессией (при наличии GameSessionNetworkSync)")]
+        public bool hostAuthoritative = true;
+        
         [Header("Debug")]
         [Tooltip("Логировать события сессии")]
         public bool logEvents = true;
         
         [Tooltip("Подробное логирование (все переходы состояний)")]
         public bool verboseLogging = false;
-        
-        [Header("Network")]
-        [Tooltip("Синхронизировать состояние сессии по сети")]
-        public bool syncOverNetwork = true;
-        
-        [Tooltip("Только хост может управлять сессией")]
-        public bool hostAuthoritative = true;
     }
 }

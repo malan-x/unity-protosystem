@@ -10,6 +10,25 @@ GameSessionSystem решает типичные проблемы:
 - **Сложность рестарта** — soft reset через события без перезагрузки сцены
 - **Отсутствие единой точки входа** — понятный API для UI
 
+## Архитектура
+
+Система разделена на два компонента:
+
+| Компонент | Назначение | Зависимости |
+|-----------|------------|-------------|
+| **GameSessionSystem** | Вся логика сессии | Нет (чистый C#) |
+| **GameSessionNetworkSync** | Сетевая синхронизация | Unity Netcode |
+
+**Одиночная игра:**
+```
+[GameSessionSystem] — работает автономно
+```
+
+**Мультиплеер:**
+```
+[GameSessionSystem] + [GameSessionNetworkSync] — на одном GameObject
+```
+
 ## Принципы
 
 1. **Факты vs Решения** — Системы публикуют факты ("игрок умер"), GameSessionSystem принимает решения ("это Game Over")
@@ -20,22 +39,25 @@ GameSessionSystem решает типичные проблемы:
 
 ### 1. Добавить систему
 
-В SystemInitializationManager добавить GameSessionSystem или через меню:
-**GameObject → Component → ProtoSystem**
+В SystemInitializationManager добавить GameSessionSystem.
 
-### 2. Создать конфиг (опционально)
+### 2. Для мультиплеера — добавить NetworkSync
+
+На тот же GameObject добавить `GameSessionNetworkSync`:
+```
+GameObject
+├── GameSessionSystem
+└── GameSessionNetworkSync (только для мультиплеера)
+```
+
+### 3. Создать конфиг (опционально)
 
 **ProtoSystem → Game Session → Create Config**
 
-Или через **Create → ProtoSystem → Game Session Config**
-
-### 3. Использовать API
+### 4. Использовать API
 
 ```csharp
-// Получить систему через SystemProvider
-var session = SystemInitializationManager.Instance.SystemProvider.GetSystem<GameSessionSystem>();
-
-// Или напрямую через менеджер
+// Получить систему
 var session = SystemInitializationManager.Instance.GetSystem<GameSessionSystem>();
 
 // Старт сессии
@@ -190,22 +212,49 @@ int killed = stats.Get<int>("enemies_killed", 0);
 | initialState | Ready | Начальное состояние |
 | restartDelay | 0.1s | Задержка между сбросом и стартом |
 | trackRestarts | true | Считать рестарты |
+| hostAuthoritative | true | Только хост управляет (при NetworkSync) |
 | logEvents | true | Логировать события |
 | verboseLogging | false | Подробное логирование |
-| syncOverNetwork | true | Синхронизация по сети |
-| hostAuthoritative | true | Только хост управляет сессией |
 
 ## Сетевая синхронизация
 
-Состояние сессии автоматически синхронизируется:
-- NetworkVariable для состояния, причины завершения, флага победы
-- ServerRpc для команд
-- ClientRpc для уведомлений
+### Настройка
+
+Добавьте `GameSessionNetworkSync` на тот же GameObject:
 
 ```csharp
-// Клиент запрашивает, сервер выполняет
-session.StartSession();  // -> StartSessionServerRpc
-session.EndSession(...); // -> EndSessionServerRpc
+// В коде или через инспектор
+gameObject.AddComponent<GameSessionNetworkSync>();
+```
+
+### Как работает
+
+1. **GameSessionSystem** — содержит всю логику
+2. **GameSessionNetworkSync** — перехватывает вызовы API и:
+   - На сервере: выполняет напрямую + синхронизирует NetworkVariable
+   - На клиенте: отправляет ServerRpc → сервер выполняет → NetworkVariable обновляется → клиенты получают
+
+### Синхронизируемые данные
+
+| Данные | Тип | Направление |
+|--------|-----|-------------|
+| State | NetworkVariable<int> | Server → All |
+| EndReason | NetworkVariable<int> | Server → All |
+| IsVictory | NetworkVariable<bool> | Server → All |
+
+### Проверки
+
+```csharp
+var session = GetSystem<GameSessionSystem>();
+
+// Есть ли сетевой синхронизатор
+if (session.HasNetworkSync) { ... }
+
+// Является ли текущий клиент сервером
+if (session.IsServer) { ... }
+
+// Может ли текущий клиент управлять
+if (session.CanControl) { ... }
 ```
 
 ## Интеграция с UI
@@ -260,7 +309,8 @@ public class PlayerSystem : InitializableSystemBase
     }
 }
 
-public class GameSessionSystem : ...
+// В проекте — подписка на факты и принятие решений
+public class MyGameRules : MonoEventBus
 {
     protected override void InitEvents()
     {
@@ -269,15 +319,15 @@ public class GameSessionSystem : ...
     
     private void OnPlayerDied(object payload)
     {
-        // Решение принимается здесь
-        EndSession(SessionEndReason.PlayerDeath, false);
+        var session = SystemInitializationManager.Instance.GetSystem<GameSessionSystem>();
+        session.EndSession(SessionEndReason.PlayerDeath, false);
     }
 }
 ```
 
 ## Debug меню
 
-Контекстное меню на компоненте:
+Контекстное меню на компоненте GameSessionSystem:
 - Debug: Start Session
 - Debug: Restart Session
 - Debug: Pause / Resume
@@ -315,11 +365,30 @@ public enum SessionEndReason
 
 Проекты могут использовать значения >= 1000 для своих причин.
 
+## Файловая структура
+
+```
+Runtime/GameSession/
+├── GameSessionSystem.cs        # Основная логика (без сети)
+├── GameSessionNetworkSync.cs   # Сетевая синхронизация (Netcode)
+├── IGameSessionNetworkSync.cs  # Интерфейс для синхронизации
+├── GameSessionConfig.cs        # Конфигурация
+├── GameSessionEvents.cs        # События EventBus
+├── SessionState.cs             # Enum состояний
+├── SessionEndReason.cs         # Enum причин завершения
+├── SessionStats.cs             # Статистика
+└── IResettable.cs              # Интерфейс сброса
+```
+
 ## Миграция
 
 ### Минимальная интеграция
 1. Добавить GameSessionSystem в менеджер
 2. Заменить прямые `EventBus.Publish(GameOver)` на `session.EndSession()`
+
+### Для мультиплеера
+1. Добавить GameSessionNetworkSync на тот же GameObject
+2. Убедиться что NetworkObject присутствует
 
 ### Полная интеграция
 1. Реализовать IResettable во всех системах с состоянием
