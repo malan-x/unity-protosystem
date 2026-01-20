@@ -5,7 +5,7 @@ namespace ProtoSystem
 {
     /// <summary>
     /// События системы игровых сессий для EventBus.
-    /// Номера 10200-10299 зарезервированы для GameSession.
+    /// Номера 10600-10699 зарезервированы для GameSession.
     /// </summary>
     public static partial class EventBus
     {
@@ -15,28 +15,28 @@ namespace ProtoSystem
         public static partial class Session
         {
             /// <summary>Сессия началась, можно играть</summary>
-            public const int Started = 10200;
+            public const int Started = 10600;
             
             /// <summary>Сессия завершена (победа/поражение)</summary>
-            public const int Ended = 10201;
+            public const int Ended = 10601;
             
             /// <summary>Команда системам сбросить состояние</summary>
-            public const int Reset = 10202;
+            public const int Reset = 10602;
             
             /// <summary>Сессия поставлена на паузу</summary>
-            public const int Paused = 10203;
+            public const int Paused = 10603;
             
             /// <summary>Сессия возобновлена</summary>
-            public const int Resumed = 10204;
+            public const int Resumed = 10604;
             
             /// <summary>Состояние сессии изменилось</summary>
-            public const int StateChanged = 10205;
+            public const int StateChanged = 10605;
             
             /// <summary>Возврат в главное меню</summary>
-            public const int ReturnedToMenu = 10206;
+            public const int ReturnedToMenu = 10606;
             
             /// <summary>Запрос на рестарт</summary>
-            public const int RestartRequested = 10207;
+            public const int RestartRequested = 10607;
         }
         
         /// <summary>
