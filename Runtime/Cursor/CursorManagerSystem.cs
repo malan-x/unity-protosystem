@@ -290,7 +290,7 @@ namespace ProtoSystem.Cursor
             _currentState.Mode = mode;
             ApplyState(_currentState);
 
-            EventBus.Publish(EventBus.Cursor.ModeChanged, new CursorEventData
+            EventBus.Publish(EventBus.CursorEvents.ModeChanged, new CursorEventData
             {
                 Mode = mode,
                 Visible = _currentState.Visible
@@ -305,7 +305,7 @@ namespace ProtoSystem.Cursor
             _currentState.Visible = visible;
             ApplyState(_currentState);
 
-            EventBus.Publish(EventBus.Cursor.VisibilityChanged, new CursorEventData
+            EventBus.Publish(EventBus.CursorEvents.VisibilityChanged, new CursorEventData
             {
                 Mode = _currentState.Mode,
                 Visible = visible
@@ -381,7 +381,7 @@ namespace ProtoSystem.Cursor
             _currentState.CursorId = cursorId;
             UnityEngine.Cursor.SetCursor(cursorData.texture, cursorData.hotspot, UnityEngine.CursorMode.Auto);
 
-            EventBus.Publish(EventBus.Cursor.CursorChanged, new CursorEventData
+            EventBus.Publish(EventBus.CursorEvents.CursorChanged, new CursorEventData
             {
                 CursorId = cursorId
             });
@@ -395,7 +395,7 @@ namespace ProtoSystem.Cursor
             _currentState.CursorId = "default";
             UnityEngine.Cursor.SetCursor(null, Vector2.zero, UnityEngine.CursorMode.Auto);
 
-            EventBus.Publish(EventBus.Cursor.CursorChanged, new CursorEventData
+            EventBus.Publish(EventBus.CursorEvents.CursorChanged, new CursorEventData
             {
                 CursorId = "default"
             });
@@ -488,7 +488,8 @@ namespace ProtoSystem
 {
     public static partial class EventBus
     {
-        public static partial class Cursor
+        /// <summary>События курсора (переименовано из Cursor во избежание конфликта с UnityEngine.Cursor)</summary>
+        public static partial class CursorEvents
         {
             /// <summary>Режим курсора изменён</summary>
             public const int ModeChanged = 10400;
@@ -496,6 +497,15 @@ namespace ProtoSystem
             public const int VisibilityChanged = 10401;
             /// <summary>Курсор изменён</summary>
             public const int CursorChanged = 10402;
+        }
+        
+        /// <summary>Алиас для обратной совместимости (deprecated, используйте CursorEvents)</summary>
+        [System.Obsolete("Use EventBus.CursorEvents instead to avoid conflict with UnityEngine.Cursor")]
+        public static class Курсор
+        {
+            public const int Режим_изменён = CursorEvents.ModeChanged;
+            public const int Видимость_изменена = CursorEvents.VisibilityChanged;
+            public const int Курсор_изменён = CursorEvents.CursorChanged;
         }
     }
 }
