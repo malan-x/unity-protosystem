@@ -185,33 +185,45 @@ namespace ProtoSystem.Editor
         private void DrawTask(SetupTask task)
         {
             var style = task.IsCompleted ? _completedStyle : _taskStyle;
-            
+
             EditorGUILayout.BeginVertical(style);
             EditorGUILayout.BeginHorizontal();
-            
+
             // Галочка
             var icon = task.IsCompleted ? "✅" : "⬜";
             GUILayout.Label(icon, GUILayout.Width(25));
-            
+
             // Название
             EditorGUILayout.LabelField(task.Name, EditorStyles.boldLabel);
-            
-            // Кнопка Execute
+
+            // Кнопка Execute (неактивна если выполнено)
             GUI.enabled = !task.IsCompleted;
             if (GUILayout.Button("Execute", GUILayout.Width(80)))
             {
                 ExecuteTask(task);
             }
             GUI.enabled = true;
-            
+
+            // Кнопка Force (повторное выполнение) - показывается только для выполненных задач
+            if (task.IsCompleted)
+            {
+                if (GUILayout.Button("↻", GUILayout.Width(25)))
+                {
+                    // Сбрасываем статус и выполняем заново
+                    task.IsCompleted = false;
+                    SaveTaskStatus(task);
+                    ExecuteTask(task);
+                }
+            }
+
             EditorGUILayout.EndHorizontal();
-            
+
             // Описание
             if (!string.IsNullOrEmpty(task.Description))
             {
                 EditorGUILayout.LabelField(task.Description, EditorStyles.wordWrappedMiniLabel);
             }
-            
+
             EditorGUILayout.EndVertical();
         }
         
@@ -674,89 +686,92 @@ namespace ProtoSystem.Editor
             AssetDatabase.SaveAssets();
         }
 
-        private void CopyDocsToProject()
-        {
-            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
-            var packageRoot = Path.Combine(projectRoot, "Packages", "com.protosystem.core");
-
-            if (!Directory.Exists(packageRoot))
-                throw new DirectoryNotFoundException($"ProtoSystem package folder not found: {packageRoot}");
-
-            // 1) Copy documentation into Assets so it is visible in Project view.
-            var docsFolderAssetPath = $"{_rootFolder}/Docs/ProtoSystem";
-            var docsFolderFullPath = Path.GetFullPath(Path.Combine(projectRoot, docsFolderAssetPath));
-            Directory.CreateDirectory(docsFolderFullPath);
-
-            var filesToCopy = new (string sourceRelative, string destFileName)[]
-            {
-                (Path.Combine("Documentation~", "AI_INSTRUCTIONS.md"), "AI_INSTRUCTIONS.md"),
-                (Path.Combine("Documentation~", "UISystem.md"), "UISystem.md"),
-                (Path.Combine("Documentation~", "UISystem_TestScenarios.md"), "UISystem_TestScenarios.md"),
-                ("QUICKSTART.md", "QUICKSTART.md"),
-                ("README.md", "README.md"),
-                (Path.Combine("Editor", "Initialization", "UI_INITIALIZER_QUICK_GUIDE.md"), "UI_INITIALIZER_QUICK_GUIDE.md"),
-            };
-
-            foreach (var (sourceRelative, destFileName) in filesToCopy)
-            {
-                var sourcePath = Path.Combine(packageRoot, sourceRelative);
-                if (!File.Exists(sourcePath))
+                private void CopyDocsToProject()
                 {
-                    Debug.LogWarning($"[ProjectSetupWizard] Doc source missing, skipping: {sourcePath}");
-                    continue;
+                    var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+                    var packageRoot = Path.Combine(projectRoot, "Packages", "com.protosystem.core");
+
+                    if (!Directory.Exists(packageRoot))
+                        throw new DirectoryNotFoundException($"ProtoSystem package folder not found: {packageRoot}");
+
+                    // 1) Copy documentation into Assets so it is visible in Project view.
+                    var docsFolderAssetPath = $"{_rootFolder}/Docs/ProtoSystem";
+                    var docsFolderFullPath = Path.GetFullPath(Path.Combine(projectRoot, docsFolderAssetPath));
+                    Directory.CreateDirectory(docsFolderFullPath);
+
+                    var filesToCopy = new (string sourceRelative, string destFileName)[]
+                    {
+                        (Path.Combine("Documentation~", "AI_INSTRUCTIONS.md"), "AI_INSTRUCTIONS.md"),
+                        (Path.Combine("Documentation~", "UISystem.md"), "UISystem.md"),
+                        (Path.Combine("Documentation~", "UISystem_TestScenarios.md"), "UISystem_TestScenarios.md"),
+                        (Path.Combine("Documentation~", "GameSession.md"), "GameSession.md"),
+                        (Path.Combine("Documentation~", "SettingsSystem.md"), "SettingsSystem.md"),
+                        ("QUICKSTART.md", "QUICKSTART.md"),
+                        ("README.md", "README.md"),
+                        (Path.Combine("Editor", "Initialization", "UI_INITIALIZER_QUICK_GUIDE.md"), "UI_INITIALIZER_QUICK_GUIDE.md"),
+                    };
+
+                    foreach (var (sourceRelative, destFileName) in filesToCopy)
+                    {
+                        var sourcePath = Path.Combine(packageRoot, sourceRelative);
+                        if (!File.Exists(sourcePath))
+                        {
+                            Debug.LogWarning($"[ProjectSetupWizard] Doc source missing, skipping: {sourcePath}");
+                            continue;
+                        }
+
+                        var destPath = Path.Combine(docsFolderFullPath, destFileName);
+                        File.Copy(sourcePath, destPath, overwrite: true);
+                    }
+
+                    // 2) Ensure Copilot can see instructions even when package docs are hidden.
+                    //    We update .github/copilot-instructions.md in an idempotent way via markers.
+                    var githubFolder = Path.Combine(projectRoot, ".github");
+                    Directory.CreateDirectory(githubFolder);
+
+                    var packageCopilotInstructions = Path.Combine(packageRoot, "Documentation~", "copilot-instructions.md");
+                    if (File.Exists(packageCopilotInstructions))
+                    {
+                        var targetCopilotInstructions = Path.Combine(githubFolder, "copilot-instructions.md");
+                        var markerStart = "<!-- ProtoSystem:BEGIN -->";
+                        var markerEnd = "<!-- ProtoSystem:END -->";
+
+                        var payload =
+        $@"{markerStart}
+        ## ProtoSystem (package) docs
+
+        ProtoSystem package docs were copied into the project for visibility (Package Manager installs hide Documentation~).
+
+        - Main docs: `{docsFolderAssetPath}`
+        - Start here: `{docsFolderAssetPath}/AI_INSTRUCTIONS.md`
+        - UI docs: `{docsFolderAssetPath}/UISystem.md`
+        - GameSession docs: `{docsFolderAssetPath}/GameSession.md`
+
+        If you need the full upstream assistant guide, see:
+        `Packages/com.protosystem.core/Documentation~/copilot-instructions.md`
+        {markerEnd}
+        ";
+
+                        if (!File.Exists(targetCopilotInstructions))
+                        {
+                            // New project: copy the package instructions as a base, then append the marker section.
+                            var baseText = File.ReadAllText(packageCopilotInstructions);
+                            File.WriteAllText(targetCopilotInstructions, baseText.TrimEnd() + "\n\n" + payload);
+                        }
+                        else
+                        {
+                            var existing = File.ReadAllText(targetCopilotInstructions);
+                            File.WriteAllText(targetCopilotInstructions, UpsertMarkedBlock(existing, markerStart, markerEnd, payload));
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[ProjectSetupWizard] Package copilot instructions missing: {packageCopilotInstructions}");
+                    }
+
+                    AssetDatabase.Refresh();
+                    Debug.Log($"✅ Copied ProtoSystem docs into '{docsFolderAssetPath}' and updated '.github/copilot-instructions.md' (marker-based). ");
                 }
-
-                var destPath = Path.Combine(docsFolderFullPath, destFileName);
-                File.Copy(sourcePath, destPath, overwrite: true);
-            }
-
-            // 2) Ensure Copilot can see instructions even when package docs are hidden.
-            //    We update .github/copilot-instructions.md in an idempotent way via markers.
-            var githubFolder = Path.Combine(projectRoot, ".github");
-            Directory.CreateDirectory(githubFolder);
-
-            var packageCopilotInstructions = Path.Combine(packageRoot, "Documentation~", "copilot-instructions.md");
-            if (File.Exists(packageCopilotInstructions))
-            {
-                var targetCopilotInstructions = Path.Combine(githubFolder, "copilot-instructions.md");
-                var markerStart = "<!-- ProtoSystem:BEGIN -->";
-                var markerEnd = "<!-- ProtoSystem:END -->";
-
-                var payload =
-$@"{markerStart}
-## ProtoSystem (package) docs
-
-ProtoSystem package docs were copied into the project for visibility (Package Manager installs hide Documentation~).
-
-- Main docs: `{docsFolderAssetPath}`
-- Start here: `{docsFolderAssetPath}/AI_INSTRUCTIONS.md`
-- UI docs: `{docsFolderAssetPath}/UISystem.md`
-
-If you need the full upstream assistant guide, see:
-`Packages/com.protosystem.core/Documentation~/copilot-instructions.md`
-{markerEnd}
-";
-
-                if (!File.Exists(targetCopilotInstructions))
-                {
-                    // New project: copy the package instructions as a base, then append the marker section.
-                    var baseText = File.ReadAllText(packageCopilotInstructions);
-                    File.WriteAllText(targetCopilotInstructions, baseText.TrimEnd() + "\n\n" + payload);
-                }
-                else
-                {
-                    var existing = File.ReadAllText(targetCopilotInstructions);
-                    File.WriteAllText(targetCopilotInstructions, UpsertMarkedBlock(existing, markerStart, markerEnd, payload));
-                }
-            }
-            else
-            {
-                Debug.LogWarning($"[ProjectSetupWizard] Package copilot instructions missing: {packageCopilotInstructions}");
-            }
-
-            AssetDatabase.Refresh();
-            Debug.Log($"✅ Copied ProtoSystem docs into '{docsFolderAssetPath}' and updated '.github/copilot-instructions.md' (marker-based). ");
-        }
 
         private static string UpsertMarkedBlock(string content, string markerStart, string markerEnd, string newBlock)
         {
