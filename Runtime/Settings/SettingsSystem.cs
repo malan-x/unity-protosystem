@@ -143,12 +143,15 @@ namespace ProtoSystem.Settings
             _allSections.Add(Controls);
             _allSections.Add(Gameplay);
 
-            // Создаём кастомные секции из конфига
-            foreach (var customConfig in config.customSections)
+            // Создаём кастомные секции из конфига (с null-check)
+            if (config.customSections != null)
             {
-                var section = CreateCustomSection(customConfig);
-                _customSections[customConfig.sectionName] = section;
-                _allSections.Add(section);
+                foreach (var customConfig in config.customSections)
+                {
+                    var section = CreateCustomSection(customConfig);
+                    _customSections[customConfig.sectionName] = section;
+                    _allSections.Add(section);
+                }
             }
         }
 

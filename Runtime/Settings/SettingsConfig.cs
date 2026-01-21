@@ -73,9 +73,15 @@ namespace ProtoSystem.Settings
         /// <summary>
         /// Создать конфиг с настройками по умолчанию
         /// </summary>
+        /// <summary>
+        /// Создать конфиг с настройками по умолчанию
+        /// </summary>
         public static SettingsConfig CreateDefault()
         {
-            return CreateInstance<SettingsConfig>();
+            var config = CreateInstance<SettingsConfig>();
+            // Явно инициализируем списки (CreateInstance не вызывает инициализаторы полей)
+            config.customSections = new List<CustomSectionConfig>();
+            return config;
         }
     }
 
