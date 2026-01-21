@@ -8,6 +8,7 @@ ProtoSystem — модульный Unity фреймворк для протот�
 - **EventBus** — Глобальная система событий
 - **System Initialization** — DI с атрибутами `[Dependency]`
 - **UISystem** — Граф-ориентированная UI навигация
+- **SoundSystem** — Централизованное управление звуком
 - **SettingsSystem** — Настройки в INI формате
 
 ---
@@ -353,7 +354,124 @@ Dropdown
 
 ---
 
-## 5. Управление временем и курсором
+## 5. Sound System
+
+### Быстрая настройка
+
+**Tools → ProtoSystem → Sound → Sound Setup Wizard**
+
+Wizard создаёт всё автоматически:
+- SoundManagerConfig, SoundLibrary, AudioMixer
+- 19 готовых UI звуков (процедурная генерация)
+- UISoundScheme с настроенными ID
+
+### API
+
+```csharp
+// Воспроизведение
+SoundManagerSystem.Play("ui_click");
+SoundManagerSystem.Play("explosion", transform.position);
+SoundManagerSystem.Play("footstep", position, volume: 0.8f, pitch: 1.1f);
+
+// Музыка
+SoundManagerSystem.PlayMusic("battle_theme", fadeIn: 2f);
+SoundManagerSystem.CrossfadeMusic("peaceful", duration: 3f);
+SoundManagerSystem.StopMusic(fadeOut: 1f);
+
+// Громкость
+SoundManagerSystem.SetVolume(SoundCategory.Music, 0.5f);
+SoundManagerSystem.SetVolume(SoundCategory.SFX, 1.0f);
+SoundManagerSystem.SetMute(true);
+
+// Snapshots
+SoundManagerSystem.SetSnapshot(SoundSnapshotPreset.Underwater);
+SoundManagerSystem.ClearSnapshot(SoundSnapshotPreset.Underwater);
+
+// Банки (ленивая загрузка)
+await SoundManagerSystem.LoadBankAsync("level_1_sounds");
+SoundManagerSystem.UnloadBank("level_1_sounds");
+
+// Музыкальные параметры
+SoundManagerSystem.SetMusicParameter("intensity", 0.8f);
+```
+
+### Конфигурация
+
+| Файл | Назначение | Обязательно |
+|------|------------|-------------|
+| SoundManagerConfig | Главный конфиг | Да |
+| SoundLibrary | Хранилище звуков | Да |
+| AudioMixer | Управление громкостью | Рекомендуется |
+| UISoundScheme | Автозвуки для UI | Опционально |
+| GameSessionSoundScheme | Автозвуки для игры | Опционально |
+
+### Sound Entry
+
+```csharp
+public class SoundEntry
+{
+    public string id;              // Уникальный ID
+    public SoundCategory category; // Music, SFX, Voice, Ambient, UI
+    public AudioClip clip;
+    public float volume = 1f;
+    public float pitch = 1f;
+    public float pitchVariation;
+    public bool loop;
+    public bool spatial;           // 3D звук
+    public SoundPriority priority;
+    public float cooldown;
+}
+```
+
+### Компоненты
+
+| Компонент | Назначение |
+|-----------|------------|
+| PlaySoundOn | Триггер звука без кода |
+| MusicZone | Зона смены музыки |
+| AmbientZone | 3D ambient с fade |
+| SoundEmitter | Для Animator/UnityEvents |
+
+### Сгенерированные UI звуки (19 шт)
+
+| ID | Описание |
+|----|----------|
+| ui_whoosh | Открытие окна |
+| ui_close | Закрытие окна |
+| ui_modal_open | Открытие модального |
+| ui_modal_close | Закрытие модального |
+| ui_click | Клик кнопки |
+| ui_hover | Наведение |
+| ui_disabled | Неактивная кнопка |
+| ui_navigate | Навигация |
+| ui_back | Назад |
+| ui_tab | Переключение вкладки |
+| ui_success | Успех |
+| ui_error | Ошибка |
+| ui_warning | Предупреждение |
+| ui_notification | Уведомление |
+| ui_slider | Слайдер |
+| ui_toggle_on | Toggle вкл |
+| ui_toggle_off | Toggle выкл |
+| ui_dropdown | Dropdown |
+| ui_select | Выбор |
+
+### Правила
+
+✅ **DO:**
+- Использовать Setup Wizard для быстрой настройки
+- ID звуков: `category_name` (ui_click, sfx_explosion, music_battle)
+- Проверять валидацию в редакторах
+- Использовать банки для больших проектов (100+ звуков)
+
+❌ **DON'T:**
+- Хардкодить AudioClip в компонентах — использовать SoundLibrary
+- Прямые вызовы AudioSource.Play() — использовать SoundManagerSystem
+- Магические строки — определять константы для ID
+
+---
+
+## 6. Управление временем и курсором
 
 ### UITimeManager
 
@@ -381,7 +499,7 @@ CursorManagerSystem.Instance.ForceApplyCursorMode(WindowCursorMode.Locked);
 
 ---
 
-## 6. Файловая организация проекта
+## 7. Файловая организация проекта
 
 ```
 Assets/ProjectName/
@@ -397,16 +515,22 @@ Assets/ProjectName/
 │       │   └── MyWindow.cs          # Кастомные окна
 │       └── Initializers/
 │           └── GameplayInitializer.cs
+├── Settings/
+│   ├── Sound/
+│   │   ├── SoundManagerConfig.asset
+│   │   ├── SoundLibrary.asset
+│   │   └── Audio/
+│   └── UI/
+│       └── UISystemConfig.asset
 ├── Resources/
 │   └── UI/
-│       ├── Prefabs/                 # UI префабы
-│       └── UISystemConfig.asset     # Конфигурация UI
+│       └── Prefabs/                 # UI префабы
 └── Scenes/
 ```
 
 ---
 
-## 7. Чеклист интеграции
+## 8. Чеклист интеграции
 
 ### Новый проект
 
@@ -433,9 +557,16 @@ Assets/ProjectName/
 5. Подписаться на события в `InitEvents()`
 6. Добавить на сцену и зарегистрировать в `SystemInitializationManager`
 
+### Sound System
+
+1. **Tools → ProtoSystem → Sound → Sound Setup Wizard**
+2. Добавить `SoundManagerSystem` на сцену
+3. Назначить `SoundManagerConfig`
+4. Добавить свои звуки в `SoundLibrary`
+
 ---
 
-## 8. Отладка
+## 9. Отладка
 
 ### EventBus
 ```csharp
@@ -448,13 +579,18 @@ Debug.Log($"Current: {UISystem.Instance.CurrentWindow?.WindowId}");
 Debug.Log($"Stack: {UISystem.Instance.Navigator.GetStackInfo()}");
 ```
 
+### SoundSystem
+- Runtime Debug секция в инспекторе SoundManagerSystem
+- Кнопки "Test Click", "Test Success", "Stop All"
+- Progress bars для громкости и активных звуков
+
 ### Системы
 - Включить `verboseLogging` в инспекторе системы
 - Кнопка "Анализировать зависимости" в `SystemInitializationManager`
 
 ---
 
-## 9. Частые ошибки
+## 10. Частые ошибки
 
 | Ошибка | Причина | Решение |
 |--------|---------|---------|
@@ -463,10 +599,11 @@ Debug.Log($"Stack: {UISystem.Instance.Navigator.GetStackInfo()}");
 | Курсор не блокируется | Конфликт систем | Удалить legacy код, использовать только CursorManagerSystem |
 | Система не инициализируется | Не на сцене / циклическая зависимость | Добавить на сцену, проверить граф зависимостей |
 | События не приходят | Неправильный ID / нет подписки | Проверить Evt enum, проверить InitEvents() |
+| Звук не воспроизводится | ID не в библиотеке | Проверить SoundLibrary, использовать валидацию в редакторе |
 
 ---
 
-## 10. Анти-паттерны
+## 11. Анти-паттерны
 
 ❌ **Избегать:**
 
@@ -482,6 +619,9 @@ Time.timeScale = 0;  // Использовать UITimeManager
 
 // Прямое управление курсором
 Cursor.lockState = CursorLockMode.Locked;  // Использовать CursorManagerSystem
+
+// Хардкод AudioClip
+audioSource.PlayOneShot(myClip);  // Использовать SoundManagerSystem
 
 // Синхронная тяжёлая инициализация
 public override Task<bool> InitializeAsync()
@@ -505,6 +645,9 @@ UITimeManager.Instance.RequestPause();
 
 // CursorManagerSystem для курсора
 CursorManagerSystem.Instance.ApplyWindowCursorMode(WindowCursorMode.Visible);
+
+// SoundManagerSystem для звука
+SoundManagerSystem.Play("ui_click");
 
 // Асинхронная инициализация
 public override async Task<bool> InitializeAsync()

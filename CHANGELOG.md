@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2025-01-21
+
+### Added
+- **Sound System** — полноценная система управления звуком
+  - **SoundManagerSystem** — центральный фасад для воспроизведения звуков и музыки
+  - **Provider Pattern** — абстракция бэкенда (Unity/FMOD/Wwise)
+  - **Sound Library** — централизованное хранилище звуков с Dictionary-кэшем
+  - **Sound Banks** — ленивая загрузка/выгрузка групп звуков для оптимизации памяти
+  - **UISoundScheme** — автоматические звуки для UI событий
+  - **GameSessionSoundScheme** — автоматическая музыка и звуки для игровых состояний
+  - **MusicConfig** — кроссфейд, вертикальное микширование, параметры
+  - **Priority System** — отсечение низкоприоритетных звуков при превышении лимита
+  - **Cooldown Protection** — защита от спама одинаковых звуков
+  
+- **Sound Setup Wizard** — полная настройка за один клик
+  - Создаёт SoundManagerConfig, SoundLibrary, AudioMixer
+  - Генерирует 19 готовых UI звуков (процедурная генерация)
+  - Настраивает UISoundScheme с правильными ID
+  - Tools → ProtoSystem → Sound → Sound Setup Wizard
+
+- **Процедурный генератор звуков** (ProceduralSoundGenerator)
+  - 19 UI звуков: window, button, navigation, feedback, controls
+  - Генерация в .wav формате без внешних зависимостей
+  - Звуки готовы к использованию, можно заменить на свои
+
+- **Компоненты звука**
+  - **PlaySoundOn** — универсальный триггер без кода
+  - **MusicZone** — зона автоматической смены музыки
+  - **AmbientZone** — 3D ambient с fade in/out
+  - **SoundEmitter** — для Animator/UnityEvents
+
+- **Editor Tools**
+  - **SoundManagerConfigEditor** — информативный редактор с валидацией и статусом
+  - **SoundLibraryEditor** — поиск, фильтрация, статистика
+  - **UISoundSchemeEditor** — валидация ID, кнопка "Create Missing"
+  - **GameSessionSoundSchemeEditor** — аналогичная валидация
+  - **SoundBankEditor** — описание и инструкции по использованию
+  - **MusicConfigEditor** — настройки адаптивной музыки
+  - **SoundMixerGenerator** — генерация AudioMixer из шаблона
+
+- **AudioMixer Template**
+  - Шаблон с группами: Master → Music, SFX, Voice, Ambient, UI
+  - Exposed параметры для программного управления громкостью
+  - Копируется при создании через Wizard
+
+### Technical Details
+- SoundManagerSystem наследуется от InitializableSystemBase
+- Приоритет инициализации: 12
+- Категория в меню компонентов: Core
+- Поддержка EventBus: Evt.Sound.Play, PlayMusic, SetVolume и др.
+
 ## [1.7.0] - 2025-01-18
 
 ### Added
@@ -164,6 +215,7 @@ ProtoSystem включает следующие готовые системы (�
 |-----------|---------|-----------|----------|
 | 5 | ⚙️ **SettingsSystem** | Core | Настройки игры с персистентностью (INI/PlayerPrefs) |
 | 10 | 🖼️ **UISystem** | UI | Управление окнами, навигация, время, курсор |
+| 12 | 🔊 **SoundManagerSystem** | Core | Централизованное управление звуком и музыкой |
 | 15 | 🎬 **SceneFlowSystem** | Core | Загрузка сцен с переходами и loading screen |
 | 20 | ✨ **EffectsManagerSystem** | Effects | Управление визуальными и звуковыми эффектами |
 | 25 | 🖱️ **CursorManagerSystem** | UI | Стековое управление курсором |
@@ -178,6 +230,7 @@ ProtoSystem включает следующие готовые системы (�
 |---------|--------|-------------------|
 | SettingsSystem | `SettingsConfig` | `Assets/<NS>/Settings/Settings/` |
 | UISystem | `UISystemConfig` | `Assets/<NS>/Settings/UI/` |
+| SoundManagerSystem | `SoundManagerConfig` | `Assets/<NS>/Settings/Sound/` |
 | SceneFlowSystem | `SceneFlowConfig` | `Assets/<NS>/Settings/SceneFlow/` |
 | EffectsManagerSystem | `EffectContainer` | `Assets/<NS>/Settings/Containers/` |
 | CursorManagerSystem | `CursorConfig` | `Assets/<NS>/Settings/Cursor/` |

@@ -18,6 +18,14 @@
 - **UITimeManager** — Управление паузой игры для UI (счётчик-based)
 - **CursorManagerSystem** — Стек состояний курсора
 
+### Sound System
+- **SoundManagerSystem** — Централизованное управление звуком с Provider Pattern
+- **Sound Setup Wizard** — Создание всей инфраструктуры + 19 готовых UI звуков
+- **Sound Library** — Центральное хранилище с валидацией и поиском
+- **Sound Schemes** — Автоматические звуки для UI и игровых событий
+- **Music System** — Кроссфейд, вертикальное микширование, параметры
+- **Поддержка FMOD/Wwise** — Абстракция провайдеров
+
 ### Дополнительные системы
 - **GameSessionSystem** — Управление жизненным циклом игровой сессии (старт, пауза, рестарт, завершение)
 - **SettingsSystem** — Управление настройками (INI формат)
@@ -32,6 +40,7 @@
 
 - [ProtoSystem Guide](Documentation~/ProtoSystem-Guide.md) — Основная документация
 - [UISystem Guide](Documentation~/UISystem.md) — Полная документация UI системы
+- [Sound System](Documentation~/Sound.md) — Звуковая система
 - [UISystem Test Scenarios](Documentation~/UISystem_TestScenarios.md) — Тестовые сценарии
 - [GameSession Guide](Documentation~/GameSession.md) — Система игровых сессий
 - [SettingsSystem Guide](Documentation~/SettingsSystem.md) — Система настроек
@@ -61,12 +70,18 @@ com.protosystem.core/
 │   │   ├── Windows/       # Базовые классы окон
 │   │   ├── Attributes/    # UIWindow, UITransition атрибуты
 │   │   └── Graph/         # Граф переходов
+│   ├── Sound/             # Звуковая система
+│   │   ├── Config/        # Конфигурации
+│   │   ├── Library/       # SoundLibrary, SoundBank
+│   │   ├── Provider/      # ISoundProvider, UnitySoundProvider
+│   │   └── Components/    # PlaySoundOn, MusicZone, etc.
 │   ├── Settings/          # Система настроек
 │   ├── Effects/           # Эффекты
 │   ├── Cursor/            # Управление курсором
 │   └── SceneFlow/         # Управление сценами
 ├── Editor/
 │   ├── UI/                # UIWindowPrefabGenerator, Graph Viewer
+│   ├── Sound/             # Sound Setup Wizard, Editors
 │   ├── GameSession/       # Утилиты GameSession
 │   └── Initialization/    # Инспекторы систем
 └── Documentation~/        # Документация
@@ -200,6 +215,38 @@ public class GameplayInitializer : UISceneInitializerBase
 }
 ```
 
+### Sound System
+
+#### Быстрая настройка
+
+**Tools → ProtoSystem → Sound → Sound Setup Wizard**
+
+Wizard создаёт всё автоматически: конфиги, библиотеку, миксер и 19 готовых UI звуков.
+
+#### Использование
+
+```csharp
+// Воспроизведение звуков
+SoundManagerSystem.Play("ui_click");
+SoundManagerSystem.Play("explosion", transform.position);
+
+// Музыка
+SoundManagerSystem.PlayMusic("battle_theme", fadeIn: 2f);
+SoundManagerSystem.CrossfadeMusic("peaceful", 3f);
+SoundManagerSystem.StopMusic(fadeOut: 1f);
+
+// Громкость
+SoundManagerSystem.SetVolume(SoundCategory.Music, 0.5f);
+SoundManagerSystem.SetMute(true);
+
+// Snapshots
+SoundManagerSystem.SetSnapshot(SoundSnapshotPreset.Underwater);
+
+// Банки (ленивая загрузка)
+await SoundManagerSystem.LoadBankAsync("Level1");
+SoundManagerSystem.UnloadBank("Level1");
+```
+
 ### Window Graph Viewer
 
 Интерактивный редактор графа UI окон:
@@ -327,6 +374,7 @@ cp Packages/com.protosystem.core/Documentation~/AI_INSTRUCTIONS.md .github/copil
 3. **Rebuild Graph** — после изменений в атрибутах
 4. **Проверяйте визуально** — Graph Viewer помогает увидеть недостижимые окна
 5. **UISceneInitializerBase** — для сцен-специфичных переходов
+6. **Sound Setup Wizard** — для быстрой настройки звуковой системы
 
 ## Примеры проектов
 
