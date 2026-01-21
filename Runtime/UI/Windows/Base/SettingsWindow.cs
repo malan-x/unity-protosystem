@@ -65,6 +65,9 @@ namespace ProtoSystem.UI
         // Кастомная секция для дополнительных AudioMixer параметров
         private DynamicSettingsSection _audioMixerSection;
         private const string AUDIO_MIXER_SECTION = "AudioMixer";
+        
+        // Флаг: были ли изменения применены
+        private bool _changesApplied = false;
 
         protected override void Awake()
         {
@@ -112,9 +115,10 @@ namespace ProtoSystem.UI
         public override void Show(Action onComplete = null)
         {
             base.Show(onComplete);
-            
+
             _settings = SettingsSystem.Instance;
-            
+            _changesApplied = false;
+
             if (_settings == null)
             {
                 Debug.LogWarning("[SettingsWindow] SettingsSystem not found!");
@@ -124,8 +128,19 @@ namespace ProtoSystem.UI
                 // Регистрируем кастомные AudioMixer параметры
                 RegisterCustomAudioParameters();
             }
-            
+
             LoadCurrentSettings();
+        }
+
+        public override void Hide(Action onComplete = null)
+        {
+            // Если изменения не были применены — откатываем
+            if (!_changesApplied)
+            {
+                RevertChanges();
+            }
+
+            base.Hide(onComplete);
         }
 
         #region Custom Audio Parameters Registration
@@ -460,8 +475,24 @@ namespace ProtoSystem.UI
 
         protected virtual void OnBackClicked()
         {
-            _settings?.RevertAll();
+            // RevertChanges() вызовется автоматически в Hide() т.к. _changesApplied == false
             UISystem.Back();
+        }
+
+        /// <summary>
+        /// Откатить все изменения и применить к AudioMixer
+        /// </summary>
+        private void RevertChanges()
+        {
+            _settings?.RevertAll();
+
+            // Восстанавливаем значения AudioMixer из SettingsSystem
+            foreach (var data in volumeSliders)
+            {
+                float savedValue = GetVolumeFromSettings(data.parameterName);
+                data.currentValue = savedValue;
+                ApplyVolumeToMixer(data.parameterName, savedValue);
+            }
         }
 
         #endregion
@@ -475,7 +506,7 @@ namespace ProtoSystem.UI
             {
                 ApplyVolumeToMixer(data.parameterName, data.currentValue);
             }
-            
+
             // Сохраняем всё через SettingsSystem
             if (_settings != null)
             {
@@ -486,6 +517,8 @@ namespace ProtoSystem.UI
             {
                 Debug.LogWarning("[SettingsWindow] SettingsSystem not available!");
             }
+
+            _changesApplied = true;
         }
 
         #endregion
