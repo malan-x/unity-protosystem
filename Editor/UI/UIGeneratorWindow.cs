@@ -1,7 +1,10 @@
 // Packages/com.protosystem.core/Editor/UI/UIGeneratorWindow.cs
 using UnityEngine;
+using UnityEngine.Audio;
 using UnityEditor;
 using System.IO;
+using System.Collections.Generic;
+using ProtoSystem.Editor.Sound;
 
 namespace ProtoSystem.UI
 {
@@ -36,6 +39,11 @@ namespace ProtoSystem.UI
         private bool soundIntegration = true;
         private bool hoverSounds = false;
         
+        // Настройки аудио для Settings окна
+        private AudioMixer audioMixer;
+        private List<ExposedAudioParameter> audioParameters = new List<ExposedAudioParameter>();
+        private bool audioSettingsFoldout = true;
+        
         // Предпросмотр
         private Sprite previewCheckmark;
         private Sprite previewArrowDown;
@@ -51,7 +59,7 @@ namespace ProtoSystem.UI
         public static void ShowWindow()
         {
             var window = GetWindow<UIGeneratorWindow>("UI Generator");
-            window.minSize = new Vector2(450, 650);
+            window.minSize = new Vector2(450, 750);
             window.Show();
         }
 
@@ -62,6 +70,16 @@ namespace ProtoSystem.UI
             if (selectedConfig == null && generationMode == GenerationMode.Styled)
             {
                 selectedConfig = FindOrCreateDefaultConfig();
+            }
+            
+            // Пытаемся найти AudioMixer автоматически
+            if (audioMixer == null)
+            {
+                audioMixer = FindAudioMixer();
+                if (audioMixer != null)
+                {
+                    RefreshAudioParameters();
+                }
             }
         }
         
@@ -76,6 +94,22 @@ namespace ProtoSystem.UI
             soundIntegration = EditorPrefs.GetBool("ProtoSystem.UIGenerator.SoundIntegration", true);
             hoverSounds = EditorPrefs.GetBool("ProtoSystem.UIGenerator.HoverSounds", false);
             generationMode = (GenerationMode)EditorPrefs.GetInt("ProtoSystem.UIGenerator.Mode", 0);
+            
+            // Загрузка AudioMixer по GUID
+            string mixerGuid = EditorPrefs.GetString("ProtoSystem.UIGenerator.AudioMixerGuid", "");
+            if (!string.IsNullOrEmpty(mixerGuid))
+            {
+                string mixerPath = AssetDatabase.GUIDToAssetPath(mixerGuid);
+                if (!string.IsNullOrEmpty(mixerPath))
+                {
+                    audioMixer = AssetDatabase.LoadAssetAtPath<AudioMixer>(mixerPath);
+                    if (audioMixer != null)
+                    {
+                        RefreshAudioParameters();
+                        LoadAudioParameterPreferences();
+                    }
+                }
+            }
         }
         
         private void SavePreferences()
@@ -84,6 +118,38 @@ namespace ProtoSystem.UI
             EditorPrefs.SetBool("ProtoSystem.UIGenerator.SoundIntegration", soundIntegration);
             EditorPrefs.SetBool("ProtoSystem.UIGenerator.HoverSounds", hoverSounds);
             EditorPrefs.SetInt("ProtoSystem.UIGenerator.Mode", (int)generationMode);
+            
+            // Сохранение AudioMixer по GUID
+            if (audioMixer != null)
+            {
+                string mixerPath = AssetDatabase.GetAssetPath(audioMixer);
+                string mixerGuid = AssetDatabase.AssetPathToGUID(mixerPath);
+                EditorPrefs.SetString("ProtoSystem.UIGenerator.AudioMixerGuid", mixerGuid);
+                SaveAudioParameterPreferences();
+            }
+            else
+            {
+                EditorPrefs.DeleteKey("ProtoSystem.UIGenerator.AudioMixerGuid");
+            }
+        }
+        
+        private void LoadAudioParameterPreferences()
+        {
+            foreach (var param in audioParameters)
+            {
+                param.enabled = EditorPrefs.GetBool($"ProtoSystem.UIGenerator.AudioParam.{param.name}.Enabled", true);
+                param.displayName = EditorPrefs.GetString($"ProtoSystem.UIGenerator.AudioParam.{param.name}.DisplayName", 
+                    ExposedAudioParameter.GetDefaultDisplayName(param.name));
+            }
+        }
+        
+        private void SaveAudioParameterPreferences()
+        {
+            foreach (var param in audioParameters)
+            {
+                EditorPrefs.SetBool($"ProtoSystem.UIGenerator.AudioParam.{param.name}.Enabled", param.enabled);
+                EditorPrefs.SetString($"ProtoSystem.UIGenerator.AudioParam.{param.name}.DisplayName", param.displayName);
+            }
         }
 
         private void OnGUI()
@@ -106,6 +172,9 @@ namespace ProtoSystem.UI
             EditorGUILayout.Space(10);
             
             DrawSoundIntegration();
+            EditorGUILayout.Space(10);
+            
+            DrawAudioSettingsConfiguration();
             EditorGUILayout.Space(10);
             
             if (generationMode == GenerationMode.Styled)
@@ -141,8 +210,6 @@ namespace ProtoSystem.UI
             
             GUILayout.Label("📋 Режим генерации", EditorStyles.boldLabel);
             EditorGUILayout.Space(5);
-            
-            EditorGUI.BeginChangeCheck();
             
             // Styled mode
             bool isStyled = generationMode == GenerationMode.Styled;
@@ -363,6 +430,124 @@ namespace ProtoSystem.UI
             
             EditorGUILayout.EndFoldoutHeaderGroup();
         }
+        
+        private void DrawAudioSettingsConfiguration()
+        {
+            audioSettingsFoldout = EditorGUILayout.BeginFoldoutHeaderGroup(audioSettingsFoldout, "🎚️ Аудио каналы в Settings");
+            
+            if (audioSettingsFoldout)
+            {
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                
+                EditorGUILayout.LabelField("Слайдеры громкости в окне Settings:", EditorStyles.miniLabel);
+                EditorGUILayout.Space(5);
+                
+                // Поле AudioMixer
+                EditorGUI.BeginChangeCheck();
+                audioMixer = (AudioMixer)EditorGUILayout.ObjectField(
+                    new GUIContent("Audio Mixer", "Укажите AudioMixer для автоматического определения каналов"),
+                    audioMixer,
+                    typeof(AudioMixer),
+                    false
+                );
+                
+                if (EditorGUI.EndChangeCheck())
+                {
+                    RefreshAudioParameters();
+                }
+                
+                if (audioMixer == null)
+                {
+                    EditorGUILayout.Space(5);
+                    
+                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.HelpBox(
+                        "Укажите AudioMixer для автоматического определения каналов громкости.",
+                        MessageType.Info
+                    );
+                    
+                    if (GUILayout.Button("Найти", GUILayout.Width(60), GUILayout.Height(38)))
+                    {
+                        audioMixer = FindAudioMixer();
+                        if (audioMixer != null)
+                        {
+                            RefreshAudioParameters();
+                        }
+                        else
+                        {
+                            EditorUtility.DisplayDialog("Не найдено", 
+                                "AudioMixer не найден в проекте.\n\n" +
+                                "Создайте через:\nTools → ProtoSystem → Sound → Sound Setup Wizard", 
+                                "OK");
+                        }
+                    }
+                    EditorGUILayout.EndHorizontal();
+                }
+                else
+                {
+                    EditorGUILayout.Space(5);
+                    
+                    if (audioParameters.Count == 0)
+                    {
+                        EditorGUILayout.HelpBox(
+                            "AudioMixer не содержит exposed параметров громкости.\n" +
+                            "Добавьте параметры (ПКМ → Expose 'Volume' to script).",
+                            MessageType.Warning
+                        );
+                    }
+                    else
+                    {
+                        // Кнопки выбора
+                        EditorGUILayout.BeginHorizontal();
+                        if (GUILayout.Button("Выбрать все", EditorStyles.miniButtonLeft))
+                        {
+                            foreach (var p in audioParameters) p.enabled = true;
+                        }
+                        if (GUILayout.Button("Снять все", EditorStyles.miniButtonMid))
+                        {
+                            foreach (var p in audioParameters) p.enabled = false;
+                        }
+                        if (GUILayout.Button("Обновить", EditorStyles.miniButtonRight))
+                        {
+                            RefreshAudioParameters();
+                        }
+                        EditorGUILayout.EndHorizontal();
+                        
+                        EditorGUILayout.Space(5);
+                        
+                        // Таблица параметров
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.LabelField("", GUILayout.Width(20));
+                        EditorGUILayout.LabelField("Параметр", EditorStyles.miniLabel, GUILayout.Width(120));
+                        EditorGUILayout.LabelField("Отображаемое имя", EditorStyles.miniLabel);
+                        EditorGUILayout.EndHorizontal();
+                        
+                        foreach (var param in audioParameters)
+                        {
+                            EditorGUILayout.BeginHorizontal();
+                            
+                            param.enabled = EditorGUILayout.Toggle(param.enabled, GUILayout.Width(20));
+                            
+                            EditorGUI.BeginDisabledGroup(!param.enabled);
+                            EditorGUILayout.LabelField(param.name, GUILayout.Width(120));
+                            param.displayName = EditorGUILayout.TextField(param.displayName);
+                            EditorGUI.EndDisabledGroup();
+                            
+                            EditorGUILayout.EndHorizontal();
+                        }
+                        
+                        EditorGUILayout.Space(5);
+                        
+                        int enabledCount = audioParameters.FindAll(p => p.enabled).Count;
+                        EditorGUILayout.LabelField($"Выбрано каналов: {enabledCount}", EditorStyles.centeredGreyMiniLabel);
+                    }
+                }
+                
+                EditorGUILayout.EndVertical();
+            }
+            
+            EditorGUILayout.EndFoldoutHeaderGroup();
+        }
 
         private void DrawPreview()
         {
@@ -463,11 +648,61 @@ namespace ProtoSystem.UI
                 EditorGUILayout.HelpBox("Выберите UIStyleConfiguration для генерации стилизованных префабов.", MessageType.Warning);
             }
         }
+        
+        private void RefreshAudioParameters()
+        {
+            if (audioMixer == null)
+            {
+                audioParameters.Clear();
+                return;
+            }
+            
+            var newParams = AudioMixerUtility.GetExposedParameters(audioMixer);
+            
+            // Сохраняем состояние существующих параметров
+            var oldState = new Dictionary<string, (bool enabled, string displayName)>();
+            foreach (var p in audioParameters)
+            {
+                oldState[p.name] = (p.enabled, p.displayName);
+            }
+            
+            audioParameters = newParams;
+            
+            // Восстанавливаем состояние
+            foreach (var p in audioParameters)
+            {
+                if (oldState.TryGetValue(p.name, out var state))
+                {
+                    p.enabled = state.enabled;
+                    p.displayName = state.displayName;
+                }
+            }
+        }
+        
+        private AudioMixer FindAudioMixer()
+        {
+            // Ищем MainAudioMixer или любой AudioMixer
+            string[] guids = AssetDatabase.FindAssets("MainAudioMixer t:AudioMixer");
+            if (guids.Length > 0)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guids[0]);
+                return AssetDatabase.LoadAssetAtPath<AudioMixer>(path);
+            }
+            
+            guids = AssetDatabase.FindAssets("t:AudioMixer");
+            if (guids.Length > 0)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guids[0]);
+                return AssetDatabase.LoadAssetAtPath<AudioMixer>(path);
+            }
+            
+            return null;
+        }
 
         private void GenerateAll()
         {
             SavePreferences();
-            ApplySoundSettings();
+            ApplyGeneratorSettings();
             
             if (generationMode == GenerationMode.Styled)
             {
@@ -517,7 +752,7 @@ namespace ProtoSystem.UI
             }
             finally
             {
-                ClearSoundSettings();
+                ClearGeneratorSettings();
                 EditorUtility.ClearProgressBar();
             }
         }
@@ -546,7 +781,7 @@ namespace ProtoSystem.UI
             }
             finally
             {
-                ClearSoundSettings();
+                ClearGeneratorSettings();
                 EditorUtility.ClearProgressBar();
             }
         }
@@ -582,7 +817,7 @@ namespace ProtoSystem.UI
         private void GeneratePrefabs()
         {
             SavePreferences();
-            ApplySoundSettings();
+            ApplyGeneratorSettings();
             
             if (generationMode == GenerationMode.Styled)
             {
@@ -609,7 +844,7 @@ namespace ProtoSystem.UI
                 }
                 finally
                 {
-                    ClearSoundSettings();
+                    ClearGeneratorSettings();
                     EditorUtility.ClearProgressBar();
                 }
             }
@@ -619,24 +854,35 @@ namespace ProtoSystem.UI
             }
         }
         
-        private void ApplySoundSettings()
+        private void ApplyGeneratorSettings()
         {
+            // Звуковые настройки
             UIWindowPrefabGenerator.SoundIntegrationEnabled = soundIntegration;
             UIWindowPrefabGenerator.HoverSoundsEnabled = hoverSounds;
+            
+            // Аудио каналы для Settings
+            UIWindowPrefabGenerator.AudioMixerForSettings = audioMixer;
+            UIWindowPrefabGenerator.AudioParametersForSettings = audioParameters.FindAll(p => p.enabled);
         }
         
-        private void ClearSoundSettings()
+        private void ClearGeneratorSettings()
         {
             UIWindowPrefabGenerator.SoundIntegrationEnabled = false;
             UIWindowPrefabGenerator.HoverSoundsEnabled = false;
+            UIWindowPrefabGenerator.AudioMixerForSettings = null;
+            UIWindowPrefabGenerator.AudioParametersForSettings = null;
         }
         
         private void ShowSuccessDialog(string what)
         {
             string soundInfo = soundIntegration ? "\n✓ Звуковые компоненты добавлены" : "";
+            
+            int audioChannels = audioParameters?.FindAll(p => p.enabled).Count ?? 0;
+            string audioInfo = audioChannels > 0 ? $"\n✓ Аудио каналов в Settings: {audioChannels}" : "";
+            
             EditorUtility.DisplayDialog(
                 "Генерация завершена",
-                $"{what} сгенерированы!{soundInfo}\n\nПуть: {outputPath}",
+                $"{what} сгенерированы!{soundInfo}{audioInfo}\n\nПуть: {outputPath}",
                 "OK"
             );
         }

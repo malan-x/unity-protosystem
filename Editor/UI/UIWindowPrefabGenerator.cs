@@ -18,9 +18,13 @@ namespace ProtoSystem.UI
         private const string DEFAULT_PREFAB_PATH = "Assets/Prefabs/UI/Windows";
         private const string OUTPUT_PATH_PREF_KEY = "ProtoSystem.UI.PrefabGenerator.OutputPath";
         
-        // Sound integration settings (set by UIPrefabGeneratorWizard)
+        // Sound integration settings (set by UIGeneratorWindow)
         public static bool SoundIntegrationEnabled { get; set; } = false;
         public static bool HoverSoundsEnabled { get; set; } = false;
+        
+        // Audio settings for Settings window (set by UIGeneratorWindow)
+        public static UnityEngine.Audio.AudioMixer AudioMixerForSettings { get; set; } = null;
+        public static System.Collections.Generic.List<ProtoSystem.Editor.Sound.ExposedAudioParameter> AudioParametersForSettings { get; set; } = null;
         
         // Текущая конфигурация стиля (может быть null для старого режима)
         private static UIStyleConfiguration currentStyleConfig;
@@ -509,137 +513,192 @@ namespace ProtoSystem.UI
 
         [MenuItem("ProtoSystem/UI/Prefabs/Windows/Settings", priority = 113)]
         public static bool GenerateSettings()
+        {
+            var root = CreateWindowBase("Settings", new Vector2(500, 720), 1f);
+
+            // НЕПРОЗРАЧНЫЙ фон
+            var rootImg = root.GetComponent<Image>();
+            if (rootImg != null)
+            {
+                rootImg.color = new Color(0.098f, 0.098f, 0.137f, 1f);
+            }
+
+            // Title
+            var titleGO = CreateText("Title", root.transform, "НАСТРОЙКИ", 28);
+            var titleRect = titleGO.GetComponent<RectTransform>();
+            titleRect.anchorMin = new Vector2(0, 0.91f);
+            titleRect.anchorMax = new Vector2(1, 0.98f);
+            titleRect.offsetMin = new Vector2(30, 0);
+            titleRect.offsetMax = new Vector2(-30, -20);
+            var titleTmp = titleGO.GetComponent<TMP_Text>();
+            titleTmp.fontStyle = FontStyles.Bold;
+            titleTmp.color = Color.white;
+            titleTmp.characterSpacing = 2f;
+
+            // Border-bottom для заголовка
+            var titleBorderGO = new GameObject("TitleBorder");
+            titleBorderGO.transform.SetParent(root.transform, false);
+            var borderRect = titleBorderGO.AddComponent<RectTransform>();
+            borderRect.anchorMin = new Vector2(0, 0.91f);
+            borderRect.anchorMax = new Vector2(1, 0.91f);
+            borderRect.sizeDelta = new Vector2(0, 1);
+            var borderImg = titleBorderGO.AddComponent<Image>();
+            borderImg.color = new Color(1f, 1f, 1f, 0.1f);
+
+            // ScrollView
+            var scrollGO = CreateScrollView("ScrollView", root.transform);
+            var scrollRect = scrollGO.GetComponent<RectTransform>();
+            scrollRect.anchorMin = new Vector2(0, 0.14f);
+            scrollRect.anchorMax = new Vector2(1, 0.90f);
+            scrollRect.offsetMin = new Vector2(30, 0);
+            scrollRect.offsetMax = new Vector2(-30, 0);
+
+            // Content inside scroll
+            var contentGO = scrollGO.transform.Find("Viewport/Content").gameObject;
+
+            var csf = contentGO.AddComponent<ContentSizeFitter>();
+            csf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var vlg = contentGO.AddComponent<VerticalLayoutGroup>();
+            int spacing = currentStyleConfig != null ? currentStyleConfig.elementSpacing : 6;
+            vlg.spacing = spacing;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            vlg.childScaleWidth = false;
+            vlg.childScaleHeight = false;
+            vlg.padding = new RectOffset(0, 0, 10, 10);
+
+            // Audio section - динамическая генерация
+            CreateSectionLabel("AudioLabel", contentGO.transform, "Звук");
+
+            var audioSliders = new System.Collections.Generic.List<(string paramName, string displayName, GameObject sliderGO)>();
+
+            if (AudioParametersForSettings != null && AudioParametersForSettings.Count > 0)
+            {
+                // Динамические слайдеры из AudioMixer
+                foreach (var param in AudioParametersForSettings)
                 {
-                    var root = CreateWindowBase("Settings", new Vector2(500, 720), 1f);
-
-                    // НЕПРОЗРАЧНЫЙ фон - rgba(25, 25, 35, 1.0)
-                    var rootImg = root.GetComponent<Image>();
-                    if (rootImg != null)
-                    {
-                        // Спрайт белый - задаём цвет через Image.color
-                        rootImg.color = new Color(0.098f, 0.098f, 0.137f, 1f); // Полностью непрозрачный!
-                        Debug.Log($"[UIWindowPrefabGenerator] Settings window background: color={rootImg.color}, alpha=1.0 (OPAQUE)");
-                    }
-
-                    // Title - из HTML: padding 24px 30px 20px, border-bottom, font-size 28px
-                    var titleGO = CreateText("Title", root.transform, "НАСТРОЙКИ", 28);
-                    var titleRect = titleGO.GetComponent<RectTransform>();
-                    titleRect.anchorMin = new Vector2(0, 0.91f);
-                    titleRect.anchorMax = new Vector2(1, 0.98f);
-                    titleRect.offsetMin = new Vector2(30, 0);
-                    titleRect.offsetMax = new Vector2(-30, -20);
-                    var titleTmp = titleGO.GetComponent<TMP_Text>();
-                    titleTmp.fontStyle = FontStyles.Bold;
-                    titleTmp.color = Color.white;
-                    titleTmp.characterSpacing = 2f; // letter-spacing из HTML
-
-                    // Border-bottom для заголовка
-                    var titleBorderGO = new GameObject("TitleBorder");
-                    titleBorderGO.transform.SetParent(root.transform, false);
-                    var borderRect = titleBorderGO.AddComponent<RectTransform>();
-                    borderRect.anchorMin = new Vector2(0, 0.91f);
-                    borderRect.anchorMax = new Vector2(1, 0.91f);
-                    borderRect.sizeDelta = new Vector2(0, 1);
-                    var borderImg = titleBorderGO.AddComponent<Image>();
-                    borderImg.color = new Color(1f, 1f, 1f, 0.1f); // border из HTML
-
-                    // ScrollView - padding 20px 30px из HTML
-                    var scrollGO = CreateScrollView("ScrollView", root.transform);
-                    var scrollRect = scrollGO.GetComponent<RectTransform>();
-                    scrollRect.anchorMin = new Vector2(0, 0.14f);
-                    scrollRect.anchorMax = new Vector2(1, 0.90f);
-                    scrollRect.offsetMin = new Vector2(30, 0);
-                    scrollRect.offsetMax = new Vector2(-30, 0);
-
-                    // Content inside scroll - настройки из HTML
-                    var contentGO = scrollGO.transform.Find("Viewport/Content").gameObject;
-
-                    var csf = contentGO.AddComponent<ContentSizeFitter>();
-                    csf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-                    csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-                    var vlg = contentGO.AddComponent<VerticalLayoutGroup>();
-                    int spacing = currentStyleConfig != null ? currentStyleConfig.elementSpacing : 6;
-                    vlg.spacing = spacing;
-                    vlg.childControlWidth = true;
-                    vlg.childControlHeight = true; // ВАЖНО: контролируем высоту детей через LayoutElement!
-                    vlg.childForceExpandWidth = true;
-                    vlg.childForceExpandHeight = false; // НЕ растягиваем детей
-                    vlg.childScaleWidth = false;
-                    vlg.childScaleHeight = false;
-                    vlg.padding = new RectOffset(0, 0, 10, 10);
-                    Debug.Log($"[UIWindowPrefabGenerator] Content VLG: spacing={spacing}, childControlHeight=TRUE");
-
-                    // Audio section
-                    CreateSectionLabel("AudioLabel", contentGO.transform, "Звук");
-                    var masterSlider = CreateSettingsSlider("MasterVolume", contentGO.transform, "Громкость");
-                    var musicSlider = CreateSettingsSlider("MusicVolume", contentGO.transform, "Музыка");
-                    var sfxSlider = CreateSettingsSlider("SfxVolume", contentGO.transform, "Эффекты");
-
-                    // Graphics section
-                    CreateSectionLabel("GraphicsLabel", contentGO.transform, "Графика");
-                    var qualityDropdown = CreateDropdown("QualityDropdown", contentGO.transform, "Качество");
-                    var resolutionDropdown = CreateDropdown("ResolutionDropdown", contentGO.transform, "Разрешение");
-                    var fullscreenToggle = CreateToggle("FullscreenToggle", contentGO.transform, "Полный экран");
-                    var vsyncToggle = CreateToggle("VsyncToggle", contentGO.transform, "V-Sync");
-
-                    // Gameplay section
-                    CreateSectionLabel("GameplayLabel", contentGO.transform, "Управление");
-                    var sensitivitySlider = CreateSettingsSlider("SensitivitySlider", contentGO.transform, "Чувствительность");
-                    var invertYToggle = CreateToggle("InvertYToggle", contentGO.transform, "Инверсия Y");
-
-                    // Buttons - padding: 20px 30px 24px, border-top из HTML
-                    var footerBorderGO = new GameObject("FooterBorder");
-                    footerBorderGO.transform.SetParent(root.transform, false);
-                    var footerBorderRect = footerBorderGO.AddComponent<RectTransform>();
-                    footerBorderRect.anchorMin = new Vector2(0, 0.14f);
-                    footerBorderRect.anchorMax = new Vector2(1, 0.14f);
-                    footerBorderRect.sizeDelta = new Vector2(0, 1);
-                    var footerBorderImg = footerBorderGO.AddComponent<Image>();
-                    footerBorderImg.color = new Color(1f, 1f, 1f, 0.1f);
-
-                    var buttonsGO = new GameObject("Buttons");
-                    buttonsGO.transform.SetParent(root.transform, false);
-                    var buttonsRect = buttonsGO.AddComponent<RectTransform>();
-                    buttonsRect.anchorMin = new Vector2(0, 0.02f);
-                    buttonsRect.anchorMax = new Vector2(1, 0.13f);
-                    buttonsRect.offsetMin = new Vector2(30, 20);
-                    buttonsRect.offsetMax = new Vector2(-30, -20);
-
-                    var hlg = buttonsGO.AddComponent<HorizontalLayoutGroup>();
-                    hlg.spacing = 12;
-                    hlg.childAlignment = TextAnchor.MiddleCenter;
-                    hlg.childControlWidth = false;
-                    hlg.childControlHeight = false;
-
-                    var applyBtn = CreateStyledButton("ApplyButton", buttonsGO.transform, "Применить", new Vector2(120, 40), true);
-                    var resetBtn = CreateStyledButton("ResetButton", buttonsGO.transform, "Сброс", new Vector2(100, 40), false);
-                    var backBtn = CreateStyledButton("BackButton", buttonsGO.transform, "Назад", new Vector2(100, 40), false);
-
-                    var component = root.AddComponent<SettingsWindow>();
-                    // Audio
-                    SetField(component, "masterVolumeSlider", masterSlider.GetComponentInChildren<Slider>());
-                    SetField(component, "musicVolumeSlider", musicSlider.GetComponentInChildren<Slider>());
-                    SetField(component, "sfxVolumeSlider", sfxSlider.GetComponentInChildren<Slider>());
-                    SetField(component, "masterVolumeText", masterSlider.transform.Find("ValueText")?.GetComponent<TMP_Text>());
-                    SetField(component, "musicVolumeText", musicSlider.transform.Find("ValueText")?.GetComponent<TMP_Text>());
-                    SetField(component, "sfxVolumeText", sfxSlider.transform.Find("ValueText")?.GetComponent<TMP_Text>());
-                    // Graphics
-                    SetField(component, "qualityDropdown", qualityDropdown.GetComponentInChildren<TMP_Dropdown>());
-                    SetField(component, "resolutionDropdown", resolutionDropdown.GetComponentInChildren<TMP_Dropdown>());
-                    SetField(component, "fullscreenToggle", fullscreenToggle.GetComponentInChildren<Toggle>());
-                    SetField(component, "vsyncToggle", vsyncToggle.GetComponentInChildren<Toggle>());
-                    // Gameplay
-                    SetField(component, "sensitivitySlider", sensitivitySlider.GetComponentInChildren<Slider>());
-                    SetField(component, "sensitivityText", sensitivitySlider.transform.Find("ValueText")?.GetComponent<TMP_Text>());
-                    SetField(component, "invertYToggle", invertYToggle.GetComponentInChildren<Toggle>());
-                    // Buttons
-                    SetField(component, "applyButton", applyBtn.GetComponent<Button>());
-                    SetField(component, "resetButton", resetBtn.GetComponent<Button>());
-                    SetField(component, "backButton", backBtn.GetComponent<Button>());
-
-                    return SavePrefab(root, "Settings");
+                    string safeName = param.name.Replace(" ", "");
+                    var sliderGO = CreateSettingsSlider($"{safeName}Slider", contentGO.transform, param.displayName);
+                    audioSliders.Add((param.name, param.displayName, sliderGO));
                 }
+            }
+            else
+            {
+                // Legacy слайдеры (fallback)
+                var masterSlider = CreateSettingsSlider("MasterVolume", contentGO.transform, "Громкость");
+                var musicSlider = CreateSettingsSlider("MusicVolume", contentGO.transform, "Музыка");
+                var sfxSlider = CreateSettingsSlider("SfxVolume", contentGO.transform, "Эффекты");
+
+                audioSliders.Add(("MasterVolume", "Громкость", masterSlider));
+                audioSliders.Add(("MusicVolume", "Музыка", musicSlider));
+                audioSliders.Add(("SFXVolume", "Эффекты", sfxSlider));
+            }
+
+            // Graphics section
+            CreateSectionLabel("GraphicsLabel", contentGO.transform, "Графика");
+            var qualityDropdown = CreateDropdown("QualityDropdown", contentGO.transform, "Качество");
+            var resolutionDropdown = CreateDropdown("ResolutionDropdown", contentGO.transform, "Разрешение");
+            var fullscreenToggle = CreateToggle("FullscreenToggle", contentGO.transform, "Полный экран");
+            var vsyncToggle = CreateToggle("VsyncToggle", contentGO.transform, "V-Sync");
+
+            // Gameplay section
+            CreateSectionLabel("GameplayLabel", contentGO.transform, "Управление");
+            var sensitivitySlider = CreateSettingsSlider("SensitivitySlider", contentGO.transform, "Чувствительность");
+            var invertYToggle = CreateToggle("InvertYToggle", contentGO.transform, "Инверсия Y");
+
+            // Footer border
+            var footerBorderGO = new GameObject("FooterBorder");
+            footerBorderGO.transform.SetParent(root.transform, false);
+            var footerBorderRect = footerBorderGO.AddComponent<RectTransform>();
+            footerBorderRect.anchorMin = new Vector2(0, 0.14f);
+            footerBorderRect.anchorMax = new Vector2(1, 0.14f);
+            footerBorderRect.sizeDelta = new Vector2(0, 1);
+            var footerBorderImg = footerBorderGO.AddComponent<Image>();
+            footerBorderImg.color = new Color(1f, 1f, 1f, 0.1f);
+
+            // Buttons
+            var buttonsGO = new GameObject("Buttons");
+            buttonsGO.transform.SetParent(root.transform, false);
+            var buttonsRect = buttonsGO.AddComponent<RectTransform>();
+            buttonsRect.anchorMin = new Vector2(0, 0.02f);
+            buttonsRect.anchorMax = new Vector2(1, 0.13f);
+            buttonsRect.offsetMin = new Vector2(30, 20);
+            buttonsRect.offsetMax = new Vector2(-30, -20);
+
+            var hlg = buttonsGO.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 12;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childControlWidth = false;
+            hlg.childControlHeight = false;
+
+            var applyBtn = CreateStyledButton("ApplyButton", buttonsGO.transform, "Применить", new Vector2(120, 40), true);
+            var resetBtn = CreateStyledButton("ResetButton", buttonsGO.transform, "Сброс", new Vector2(100, 40), false);
+            var backBtn = CreateStyledButton("BackButton", buttonsGO.transform, "Назад", new Vector2(100, 40), false);
+
+            // Настройка компонента SettingsWindow
+            var component = root.AddComponent<SettingsWindow>();
+
+            // Устанавливаем AudioMixer если есть
+            if (AudioMixerForSettings != null)
+            {
+                SetField(component, "audioMixer", AudioMixerForSettings);
+            }
+
+            // Настраиваем слайдеры громкости
+            if (AudioParametersForSettings != null && AudioParametersForSettings.Count > 0)
+            {
+                // Динамический режим - заполняем volumeSliders
+                var volumeSlidersList = new System.Collections.Generic.List<VolumeSliderData>();
+
+                foreach (var (paramName, displayName, sliderGO) in audioSliders)
+                {
+                    var data = new VolumeSliderData
+                    {
+                        parameterName = paramName,
+                        displayName = displayName,
+                        slider = sliderGO.GetComponentInChildren<Slider>(),
+                        valueText = sliderGO.transform.Find("ValueText")?.GetComponent<TMP_Text>(),
+                        currentValue = 1f
+                    };
+                    volumeSlidersList.Add(data);
+                }
+
+                SetField(component, "volumeSliders", volumeSlidersList);
+            }
+            else
+            {
+                // Legacy режим
+                if (audioSliders.Count >= 3)
+                {
+                    SetField(component, "masterVolumeSlider", audioSliders[0].sliderGO.GetComponentInChildren<Slider>());
+                    SetField(component, "musicVolumeSlider", audioSliders[1].sliderGO.GetComponentInChildren<Slider>());
+                    SetField(component, "sfxVolumeSlider", audioSliders[2].sliderGO.GetComponentInChildren<Slider>());
+                    SetField(component, "masterVolumeText", audioSliders[0].sliderGO.transform.Find("ValueText")?.GetComponent<TMP_Text>());
+                    SetField(component, "musicVolumeText", audioSliders[1].sliderGO.transform.Find("ValueText")?.GetComponent<TMP_Text>());
+                    SetField(component, "sfxVolumeText", audioSliders[2].sliderGO.transform.Find("ValueText")?.GetComponent<TMP_Text>());
+                }
+            }
+
+            // Graphics
+            SetField(component, "qualityDropdown", qualityDropdown.GetComponentInChildren<TMP_Dropdown>());
+            SetField(component, "resolutionDropdown", resolutionDropdown.GetComponentInChildren<TMP_Dropdown>());
+            SetField(component, "fullscreenToggle", fullscreenToggle.GetComponentInChildren<Toggle>());
+            SetField(component, "vsyncToggle", vsyncToggle.GetComponentInChildren<Toggle>());
+            // Gameplay
+            SetField(component, "sensitivitySlider", sensitivitySlider.GetComponentInChildren<Slider>());
+            SetField(component, "sensitivityText", sensitivitySlider.transform.Find("ValueText")?.GetComponent<TMP_Text>());
+            SetField(component, "invertYToggle", invertYToggle.GetComponentInChildren<Toggle>());
+            // Buttons
+            SetField(component, "applyButton", applyBtn.GetComponent<Button>());
+            SetField(component, "resetButton", resetBtn.GetComponent<Button>());
+            SetField(component, "backButton", backBtn.GetComponent<Button>());
+
+            return SavePrefab(root, "Settings");
+        }
 
         [MenuItem("ProtoSystem/UI/Prefabs/Windows/Credits", priority = 114)]
         public static bool GenerateCredits()
