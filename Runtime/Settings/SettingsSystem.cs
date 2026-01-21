@@ -94,20 +94,31 @@ namespace ProtoSystem.Settings
                     LogWarning("SettingsConfig not assigned, using defaults");
                 }
 
+                LogMessage("Step 1: InitializeSections...");
                 // Инициализируем секции
                 InitializeSections();
 
+                LogMessage("Step 2: PersistenceFactory.Create...");
                 // Создаём хранилище и мигратор
                 _persistence = PersistenceFactory.Create(
                     config.persistenceMode,
                     config.fileName,
                     SettingsMigrator.CURRENT_VERSION
                 );
+
+                if (_persistence == null)
+                {
+                    LogError("PersistenceFactory.Create returned null!");
+                    return false;
+                }
+
                 _migrator = new SettingsMigrator();
 
+                LogMessage("Step 3: Load...");
                 // Загружаем настройки
                 Load();
 
+                LogMessage("Step 4: ApplyAll...");
                 // Применяем загруженные настройки
                 ApplyAll();
 
@@ -118,7 +129,7 @@ namespace ProtoSystem.Settings
             }
             catch (Exception ex)
             {
-                LogError($"Failed to initialize Settings System: {ex.Message}");
+                LogError($"Failed to initialize Settings System: {ex.Message}\nStackTrace: {ex.StackTrace}");
                 return false;
             }
         }
