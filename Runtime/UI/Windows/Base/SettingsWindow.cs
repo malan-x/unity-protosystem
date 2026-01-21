@@ -37,19 +37,11 @@ namespace ProtoSystem.UI
     [UIWindow("Settings", WindowType.Normal, WindowLayer.Windows, Level = 1, PauseGame = true, CursorMode = WindowCursorMode.Visible)]
     public class SettingsWindow : UIWindowBase
     {
-        [Header("Audio Mixer (для динамических слайдеров)")]
+        [Header("Audio Mixer")]
         [SerializeField] private AudioMixer audioMixer;
         
-        [Header("Volume Sliders (Auto-generated)")]
+        [Header("Volume Sliders (динамические из AudioMixer)")]
         [SerializeField] private List<VolumeSliderData> volumeSliders = new List<VolumeSliderData>();
-        
-        [Header("Audio (стандартные)")]
-        [SerializeField] private Slider masterVolumeSlider;
-        [SerializeField] private Slider musicVolumeSlider;
-        [SerializeField] private Slider sfxVolumeSlider;
-        [SerializeField] private TMP_Text masterVolumeText;
-        [SerializeField] private TMP_Text musicVolumeText;
-        [SerializeField] private TMP_Text sfxVolumeText;
 
         [Header("Graphics")]
         [SerializeField] private TMP_Dropdown qualityDropdown;
@@ -70,15 +62,13 @@ namespace ProtoSystem.UI
         // SettingsSystem reference
         private SettingsSystem _settings;
         
-        // Режим работы аудио
-        private bool _useDynamicAudio = false;
+        // Кастомная секция для дополнительных AudioMixer параметров
+        private DynamicSettingsSection _audioMixerSection;
+        private const string AUDIO_MIXER_SECTION = "AudioMixer";
 
         protected override void Awake()
         {
             base.Awake();
-            
-            // Определяем режим работы аудио
-            _useDynamicAudio = audioMixer != null && volumeSliders.Count > 0;
             
             SetupAudioListeners();
             SetupGraphicsListeners();
@@ -88,24 +78,13 @@ namespace ProtoSystem.UI
 
         private void SetupAudioListeners()
         {
-            if (_useDynamicAudio)
+            foreach (var data in volumeSliders)
             {
-                // Динамические слайдеры из AudioMixer
-                foreach (var data in volumeSliders)
+                if (data.slider != null)
                 {
-                    if (data.slider != null)
-                    {
-                        var captured = data;
-                        data.slider.onValueChanged.AddListener(value => OnDynamicVolumeChanged(captured, value));
-                    }
+                    var captured = data;
+                    data.slider.onValueChanged.AddListener(value => OnVolumeSliderChanged(captured, value));
                 }
-            }
-            else
-            {
-                // Стандартные слайдеры → SettingsSystem
-                masterVolumeSlider?.onValueChanged.AddListener(OnMasterVolumeChanged);
-                musicVolumeSlider?.onValueChanged.AddListener(OnMusicVolumeChanged);
-                sfxVolumeSlider?.onValueChanged.AddListener(OnSfxVolumeChanged);
             }
         }
 
@@ -134,16 +113,71 @@ namespace ProtoSystem.UI
         {
             base.Show(onComplete);
             
-            // Получаем SettingsSystem
             _settings = SettingsSystem.Instance;
             
             if (_settings == null)
             {
-                Debug.LogWarning("[SettingsWindow] SettingsSystem not found! Settings will not be saved.");
+                Debug.LogWarning("[SettingsWindow] SettingsSystem not found!");
+            }
+            else
+            {
+                // Регистрируем кастомные AudioMixer параметры
+                RegisterCustomAudioParameters();
             }
             
             LoadCurrentSettings();
         }
+
+        #region Custom Audio Parameters Registration
+        
+        /// <summary>
+        /// Регистрирует кастомные AudioMixer параметры как секцию в SettingsSystem
+        /// </summary>
+        private void RegisterCustomAudioParameters()
+        {
+            // Собираем кастомные параметры (не стандартные Audio)
+            var customParams = new List<VolumeSliderData>();
+            foreach (var data in volumeSliders)
+            {
+                if (!IsStandardAudioParameter(data.parameterName))
+                {
+                    customParams.Add(data);
+                }
+            }
+            
+            if (customParams.Count == 0) return;
+            
+            // Проверяем, есть ли уже такая секция
+            _audioMixerSection = _settings.GetSection(AUDIO_MIXER_SECTION) as DynamicSettingsSection;
+            
+            if (_audioMixerSection == null)
+            {
+                // Создаём новую секцию
+                _audioMixerSection = new DynamicSettingsSection(AUDIO_MIXER_SECTION, "Custom AudioMixer parameters");
+                
+                foreach (var data in customParams)
+                {
+                    _audioMixerSection.AddFloat(data.parameterName, $"{data.displayName} volume (0.0 - 1.0)", 0, 1f);
+                }
+                
+                _settings.RegisterSection(_audioMixerSection);
+                Debug.Log($"[SettingsWindow] Registered {customParams.Count} custom audio parameters");
+            }
+        }
+        
+        /// <summary>
+        /// Проверить, является ли параметр стандартным (Audio секция)
+        /// </summary>
+        private bool IsStandardAudioParameter(string parameterName)
+        {
+            string lower = parameterName.ToLower();
+            return lower.Contains("master") || lower == "volume" ||
+                   lower.Contains("music") ||
+                   lower.Contains("sfx") || lower.Contains("effect") ||
+                   lower.Contains("voice") || lower.Contains("dialog");
+        }
+
+        #endregion
 
         #region Load Settings
 
@@ -152,53 +186,101 @@ namespace ProtoSystem.UI
             LoadAudioSettings();
             LoadVideoSettings();
             LoadControlsSettings();
-            LoadGameplaySettings();
             UpdateAllTexts();
         }
         
         private void LoadAudioSettings()
         {
-            if (_useDynamicAudio)
-            {
-                LoadDynamicAudioSettings();
-            }
-            else
-            {
-                LoadStandardAudioSettings();
-            }
-        }
-        
-        private void LoadDynamicAudioSettings()
-        {
-            // Динамический режим: AudioMixer параметры хранятся в PlayerPrefs
             foreach (var data in volumeSliders)
             {
                 if (data.slider == null) continue;
                 
-                float savedValue = PlayerPrefs.GetFloat($"Volume_{data.parameterName}", 1f);
+                float savedValue = GetVolumeFromSettings(data.parameterName);
                 data.currentValue = savedValue;
                 data.slider.SetValueWithoutNotify(savedValue);
                 ApplyVolumeToMixer(data.parameterName, savedValue);
-                UpdateVolumeText(data);
             }
         }
         
-        private void LoadStandardAudioSettings()
+        /// <summary>
+        /// Получить значение громкости из SettingsSystem
+        /// </summary>
+        private float GetVolumeFromSettings(string parameterName)
         {
-            if (_settings?.Audio == null) return;
+            if (_settings == null) return 1f;
             
-            float master = _settings.Audio.MasterVolume;
-            float music = _settings.Audio.MusicVolume;
-            float sfx = _settings.Audio.SFXVolume;
+            // Стандартные параметры → Audio секция
+            if (_settings.Audio != null)
+            {
+                string lower = parameterName.ToLower();
+                
+                if (lower.Contains("master") || lower == "volume")
+                    return _settings.Audio.MasterVolume.Value;
+                if (lower.Contains("music"))
+                    return _settings.Audio.MusicVolume.Value;
+                if (lower.Contains("sfx") || lower.Contains("effect"))
+                    return _settings.Audio.SFXVolume.Value;
+                if (lower.Contains("voice") || lower.Contains("dialog"))
+                    return _settings.Audio.VoiceVolume.Value;
+            }
             
-            if (masterVolumeSlider != null) masterVolumeSlider.SetValueWithoutNotify(master);
-            if (musicVolumeSlider != null) musicVolumeSlider.SetValueWithoutNotify(music);
-            if (sfxVolumeSlider != null) sfxVolumeSlider.SetValueWithoutNotify(sfx);
+            // Кастомные параметры → AudioMixer секция
+            if (_audioMixerSection != null)
+            {
+                var setting = _audioMixerSection.GetSetting(parameterName);
+                if (setting != null)
+                {
+                    return (float)setting.GetValue();
+                }
+            }
+            
+            return 1f;
+        }
+        
+        /// <summary>
+        /// Установить значение громкости в SettingsSystem
+        /// </summary>
+        private void SetVolumeToSettings(string parameterName, float value)
+        {
+            if (_settings == null) return;
+            
+            // Стандартные параметры → Audio секция
+            if (_settings.Audio != null)
+            {
+                string lower = parameterName.ToLower();
+                
+                if (lower.Contains("master") || lower == "volume")
+                {
+                    _settings.Audio.MasterVolume.Value = value;
+                    return;
+                }
+                if (lower.Contains("music"))
+                {
+                    _settings.Audio.MusicVolume.Value = value;
+                    return;
+                }
+                if (lower.Contains("sfx") || lower.Contains("effect"))
+                {
+                    _settings.Audio.SFXVolume.Value = value;
+                    return;
+                }
+                if (lower.Contains("voice") || lower.Contains("dialog"))
+                {
+                    _settings.Audio.VoiceVolume.Value = value;
+                    return;
+                }
+            }
+            
+            // Кастомные параметры → AudioMixer секция
+            if (_audioMixerSection != null)
+            {
+                var setting = _audioMixerSection.GetSetting(parameterName);
+                setting?.SetValue(value);
+            }
         }
         
         private void LoadVideoSettings()
         {
-            // Quality dropdown
             if (qualityDropdown != null)
             {
                 qualityDropdown.ClearOptions();
@@ -208,7 +290,6 @@ namespace ProtoSystem.UI
                 qualityDropdown.SetValueWithoutNotify(quality);
             }
             
-            // Fullscreen
             if (fullscreenToggle != null)
             {
                 bool isFullscreen = _settings?.Video != null 
@@ -217,30 +298,22 @@ namespace ProtoSystem.UI
                 SetToggleWithoutNotify(fullscreenToggle, isFullscreen);
             }
             
-            // VSync
             if (vsyncToggle != null)
             {
                 bool vsync = _settings?.Video?.VSync ?? (QualitySettings.vSyncCount > 0);
                 SetToggleWithoutNotify(vsyncToggle, vsync);
             }
-            
-            // TODO: Resolution dropdown
         }
         
         private void LoadControlsSettings()
         {
             if (_settings?.Controls == null) return;
             
-            float sensitivity = _settings.Controls.Sensitivity;
-            bool invertY = _settings.Controls.InvertY;
+            float sensitivity = _settings.Controls.Sensitivity.Value;
+            bool invertY = _settings.Controls.InvertY.Value;
             
             if (sensitivitySlider != null) sensitivitySlider.SetValueWithoutNotify(sensitivity);
             if (invertYToggle != null) SetToggleWithoutNotify(invertYToggle, invertY);
-        }
-        
-        private void LoadGameplaySettings()
-        {
-            // Добавить загрузку Gameplay настроек если нужны UI элементы
         }
 
         #endregion
@@ -255,23 +328,11 @@ namespace ProtoSystem.UI
         
         private void UpdateAudioTexts()
         {
-            if (_useDynamicAudio)
+            foreach (var data in volumeSliders)
             {
-                foreach (var data in volumeSliders)
+                if (data.valueText != null)
                 {
-                    UpdateVolumeText(data);
-                }
-            }
-            else
-            {
-                if (_settings?.Audio != null)
-                {
-                    if (masterVolumeText != null) 
-                        masterVolumeText.text = $"{Mathf.RoundToInt(_settings.Audio.MasterVolume * 100)}%";
-                    if (musicVolumeText != null) 
-                        musicVolumeText.text = $"{Mathf.RoundToInt(_settings.Audio.MusicVolume * 100)}%";
-                    if (sfxVolumeText != null) 
-                        sfxVolumeText.text = $"{Mathf.RoundToInt(_settings.Audio.SFXVolume * 100)}%";
+                    data.valueText.text = $"{Mathf.RoundToInt(data.currentValue * 100)}%";
                 }
             }
         }
@@ -280,15 +341,7 @@ namespace ProtoSystem.UI
         {
             if (_settings?.Controls != null && sensitivityText != null)
             {
-                sensitivityText.text = $"{_settings.Controls.Sensitivity:F1}";
-            }
-        }
-        
-        private void UpdateVolumeText(VolumeSliderData data)
-        {
-            if (data.valueText != null)
-            {
-                data.valueText.text = $"{Mathf.RoundToInt(data.currentValue * 100)}%";
+                sensitivityText.text = $"{_settings.Controls.Sensitivity.Value:F1}";
             }
         }
 
@@ -309,16 +362,12 @@ namespace ProtoSystem.UI
             return Mathf.Log10(linear) * 20f;
         }
         
-        /// <summary>
-        /// Установить значение Toggle без вызова события onValueChanged
-        /// </summary>
         private void SetToggleWithoutNotify(Toggle toggle, bool value)
         {
             if (toggle == null) return;
             toggle.onValueChanged.RemoveAllListeners();
             toggle.isOn = value;
             
-            // Восстанавливаем listener
             if (toggle == fullscreenToggle)
                 toggle.onValueChanged.AddListener(OnFullscreenChanged);
             else if (toggle == vsyncToggle)
@@ -331,37 +380,11 @@ namespace ProtoSystem.UI
 
         #region Event Handlers - Audio
 
-        private void OnDynamicVolumeChanged(VolumeSliderData data, float value)
+        private void OnVolumeSliderChanged(VolumeSliderData data, float value)
         {
             data.currentValue = value;
             ApplyVolumeToMixer(data.parameterName, value);
-            UpdateVolumeText(data);
-        }
-
-        private void OnMasterVolumeChanged(float value)
-        {
-            if (_settings?.Audio != null)
-            {
-                _settings.Audio.MasterVolume.Value = value;
-            }
-            UpdateAudioTexts();
-        }
-
-        private void OnMusicVolumeChanged(float value)
-        {
-            if (_settings?.Audio != null)
-            {
-                _settings.Audio.MusicVolume.Value = value;
-            }
-            UpdateAudioTexts();
-        }
-
-        private void OnSfxVolumeChanged(float value)
-        {
-            if (_settings?.Audio != null)
-            {
-                _settings.Audio.SFXVolume.Value = value;
-            }
+            SetVolumeToSettings(data.parameterName, value);
             UpdateAudioTexts();
         }
 
@@ -395,7 +418,7 @@ namespace ProtoSystem.UI
 
         private void OnResolutionChanged(int index)
         {
-            // TODO: Implement resolution change via SettingsSystem
+            // TODO: Implement resolution change
         }
 
         #endregion
@@ -431,27 +454,12 @@ namespace ProtoSystem.UI
 
         protected virtual void OnResetClicked()
         {
-            // Сбрасываем через SettingsSystem
             _settings?.ResetAllToDefaults();
-            
-            // Для динамического аудио — сбрасываем вручную
-            if (_useDynamicAudio)
-            {
-                foreach (var data in volumeSliders)
-                {
-                    data.currentValue = 1f;
-                    if (data.slider != null) data.slider.SetValueWithoutNotify(1f);
-                    ApplyVolumeToMixer(data.parameterName, 1f);
-                }
-            }
-            
-            // Перезагружаем UI
             LoadCurrentSettings();
         }
 
         protected virtual void OnBackClicked()
         {
-            // Откатываем несохранённые изменения
             _settings?.RevertAll();
             UISystem.Back();
         }
@@ -462,18 +470,13 @@ namespace ProtoSystem.UI
 
         protected virtual void ApplySettings()
         {
-            // Динамическое аудио (AudioMixer) — сохраняем отдельно в PlayerPrefs
-            if (_useDynamicAudio)
+            // Применяем к AudioMixer
+            foreach (var data in volumeSliders)
             {
-                foreach (var data in volumeSliders)
-                {
-                    PlayerPrefs.SetFloat($"Volume_{data.parameterName}", data.currentValue);
-                    ApplyVolumeToMixer(data.parameterName, data.currentValue);
-                }
-                PlayerPrefs.Save();
+                ApplyVolumeToMixer(data.parameterName, data.currentValue);
             }
             
-            // Всё остальное — через SettingsSystem
+            // Сохраняем всё через SettingsSystem
             if (_settings != null)
             {
                 _settings.ApplyAndSave();
@@ -481,17 +484,14 @@ namespace ProtoSystem.UI
             }
             else
             {
-                Debug.LogWarning("[SettingsWindow] SettingsSystem not available, settings not saved!");
+                Debug.LogWarning("[SettingsWindow] SettingsSystem not available!");
             }
         }
 
         #endregion
 
-        #region Public API (для генератора)
+        #region Public API
         
-        /// <summary>
-        /// Программное добавление слайдера громкости
-        /// </summary>
         public void AddVolumeSlider(string parameterName, string displayName, Slider slider, TMP_Text valueText)
         {
             volumeSliders.Add(new VolumeSliderData
@@ -504,9 +504,6 @@ namespace ProtoSystem.UI
             });
         }
         
-        /// <summary>
-        /// Установить AudioMixer
-        /// </summary>
         public void SetAudioMixer(AudioMixer mixer)
         {
             audioMixer = mixer;
