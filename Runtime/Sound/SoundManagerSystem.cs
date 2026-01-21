@@ -56,27 +56,27 @@ namespace ProtoSystem.Sound
         
         protected override void InitEvents()
         {
-            // UI события
-            AddEvent(Evt.UI.WindowOpened, OnWindowOpened);
-            AddEvent(Evt.UI.WindowClosed, OnWindowClosed);
-            
+            // UI события (используем EventBus.UI из UIEvents.cs - это правильные ID)
+            AddEvent(EventBus.UI.WindowOpened, OnWindowOpened);
+            AddEvent(EventBus.UI.WindowClosed, OnWindowClosed);
+
             // GameSession события
             AddEvent(Evt.Session.Started, OnSessionStarted);
             AddEvent(Evt.Session.Ended, OnSessionEnded);
             AddEvent(Evt.Session.Paused, OnSessionPaused);
             AddEvent(Evt.Session.Resumed, OnSessionResumed);
             AddEvent(Evt.Session.StateChanged, OnSessionStateChanged);
-            
+
             // Settings события
             AddEvent(Evt.Settings.Audio.MasterVolumeChanged, v => SetVolume(SoundCategory.Master, (float)v));
             AddEvent(Evt.Settings.Audio.MusicVolumeChanged, v => SetVolume(SoundCategory.Music, (float)v));
             AddEvent(Evt.Settings.Audio.SFXVolumeChanged, v => SetVolume(SoundCategory.SFX, (float)v));
-            
+
             // Scene события
             AddEvent(Evt.Scene.LoadStarted, OnSceneLoadStarted);
             AddEvent(Evt.Scene.LoadCompleted, OnSceneLoadCompleted);
             AddEvent(Evt.Scene.Unloaded, OnSceneUnloaded);
-            
+
             // Sound события (для внешнего управления через EventBus)
             AddEvent(Evt.Sound.Play, OnPlaySoundEvent);
             AddEvent(Evt.Sound.Stop, OnStopSoundEvent);
@@ -331,47 +331,68 @@ namespace ProtoSystem.Sound
         private void OnWindowOpened(object payload)
         {
             if (config?.uiScheme == null) return;
-            
-            var windowId = payload as string;
+
+            string windowId = null;
+            bool isModal = false;
+
+            // Парсим payload
+            if (payload is UI.WindowEventData eventData)
+            {
+                windowId = eventData.WindowId;
+                isModal = eventData.Type == UI.WindowType.Modal;
+            }
+            else if (payload is string id)
+            {
+                windowId = id;
+            }
+
             if (string.IsNullOrEmpty(windowId)) return;
-            
-            // Определить тип окна
-            bool isModal = false; // TODO: Получить из UISystem
-            
+
             // Воспроизвести звук
             var sound = config.uiScheme.GetOpenSound(windowId, isModal);
             if (!string.IsNullOrEmpty(sound))
             {
                 Play(sound);
             }
-            
-            // Применить snapshot
-            var snapshot = config.uiScheme.GetSnapshot(windowId);
-            if (!snapshot.IsEmpty)
+
+            // Применить snapshot для модальных окон
+            if (isModal && !config.uiScheme.modalSnapshot.IsEmpty)
             {
-                SetSnapshot(snapshot);
+                SetSnapshot(config.uiScheme.modalSnapshot);
             }
         }
         
         private void OnWindowClosed(object payload)
         {
             if (config?.uiScheme == null) return;
-            
-            var windowId = payload as string;
-            if (string.IsNullOrEmpty(windowId)) return;
-            
+
+            string windowId = null;
             bool isModal = false;
-            
+
+            // Парсим payload
+            if (payload is UI.WindowEventData eventData)
+            {
+                windowId = eventData.WindowId;
+                isModal = eventData.Type == UI.WindowType.Modal;
+            }
+            else if (payload is string id)
+            {
+                windowId = id;
+            }
+
+            if (string.IsNullOrEmpty(windowId)) return;
+
+            // Воспроизвести звук
             var sound = config.uiScheme.GetCloseSound(windowId, isModal);
             if (!string.IsNullOrEmpty(sound))
             {
                 Play(sound);
             }
-            
-            var snapshot = config.uiScheme.GetSnapshot(windowId);
-            if (!snapshot.IsEmpty)
+
+            // Снять snapshot для модальных окон
+            if (isModal && !config.uiScheme.modalSnapshot.IsEmpty)
             {
-                ClearSnapshot(snapshot);
+                ClearSnapshot(config.uiScheme.modalSnapshot);
             }
         }
         

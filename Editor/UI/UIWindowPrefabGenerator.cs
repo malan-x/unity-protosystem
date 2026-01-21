@@ -18,6 +18,10 @@ namespace ProtoSystem.UI
         private const string DEFAULT_PREFAB_PATH = "Assets/Prefabs/UI/Windows";
         private const string OUTPUT_PATH_PREF_KEY = "ProtoSystem.UI.PrefabGenerator.OutputPath";
         
+        // Sound integration settings (set by UIPrefabGeneratorWizard)
+        public static bool SoundIntegrationEnabled { get; set; } = false;
+        public static bool HoverSoundsEnabled { get; set; } = false;
+        
         // Текущая конфигурация стиля (может быть null для старого режима)
         private static UIStyleConfiguration currentStyleConfig;
         private static string currentOutputPath;
@@ -98,7 +102,7 @@ namespace ProtoSystem.UI
             return DEFAULT_PREFAB_PATH;
         }
 
-        private static void RememberOutputPath(string outputPath)
+        public static void RememberOutputPath(string outputPath)
         {
             outputPath = NormalizeAssetPath(outputPath);
             if (string.IsNullOrEmpty(outputPath))
@@ -1192,6 +1196,25 @@ namespace ProtoSystem.UI
             hoverEffect.pressedBrightness = 0.85f;
             hoverEffect.transitionDuration = 0.15f;
 
+            // Sound integration
+            if (SoundIntegrationEnabled)
+            {
+                // Click sound
+                var clickSound = go.AddComponent<ProtoSystem.Sound.PlaySoundOn>();
+                clickSound.soundId = "ui_click";
+                clickSound.trigger = ProtoSystem.Sound.SoundTrigger.PointerClick;
+                clickSound.volume = 1f;
+
+                // Hover sound (optional)
+                if (HoverSoundsEnabled)
+                {
+                    var hoverSound = go.AddComponent<ProtoSystem.Sound.PlaySoundOn>();
+                    hoverSound.soundId = "ui_hover";
+                    hoverSound.trigger = ProtoSystem.Sound.SoundTrigger.PointerEnter;
+                    hoverSound.volume = 0.5f;
+                }
+            }
+
             // Текст кнопки
             var textGO = CreateText("Text", go.transform, text, 18);
             var textRect = textGO.GetComponent<RectTransform>();
@@ -1569,7 +1592,7 @@ namespace ProtoSystem.UI
                             bgGO.transform.SetParent(sliderGO.transform, false);
                             var bgRect = bgGO.AddComponent<RectTransform>();
                             int trackHeight = currentStyleConfig != null ? currentStyleConfig.sliderTrackHeight : 6;
-                            
+
                             bgRect.anchorMin = new Vector2(0, 0.5f);
                             bgRect.anchorMax = new Vector2(1, 0.5f);
                             bgRect.pivot = new Vector2(0.5f, 0.5f);
@@ -1674,6 +1697,16 @@ namespace ProtoSystem.UI
                             handleHover.scaleOnHover = true;
                             handleHover.hoverScale = 1.15f;
 
+                            // Sound integration
+                            if (SoundIntegrationEnabled)
+                            {
+                                var sliderSound = sliderGO.AddComponent<ProtoSystem.Sound.UISliderSound>();
+                                sliderSound.sliderSound = "ui_slider";
+                                sliderSound.volume = 0.5f;
+                                sliderSound.cooldown = 0.05f;
+                                sliderSound.onlyWhileDragging = false; // Работает и при программном изменении
+                            }
+
                             // Value text
                             var valueText = CreateText("ValueText", go.transform, "80%", 14);
                             valueText.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineRight;
@@ -1693,7 +1726,7 @@ namespace ProtoSystem.UI
                 {
                     // Получаем параметры из конфига
                     int rowHeight = currentStyleConfig != null ? currentStyleConfig.dropdownRowHeight : 32;
-                    
+
                     var go = new GameObject(name);
                     go.transform.SetParent(parent, false);
                     go.AddComponent<RectTransform>();
@@ -1754,7 +1787,7 @@ namespace ProtoSystem.UI
                         dropdownImg.type = Image.Type.Sliced;
                         // Белый для шейдера UI/TwoColor
                         dropdownImg.color = Color.white;
-                        
+
                         // Применяем двухцветный эффект с видимой рамкой
                         Color fillColor = new Color(0.2f, 0.2f, 0.25f, 1f);
                         Color borderColor = new Color(0.4f, 0.4f, 0.5f, 1f); // Светло-серая рамка
@@ -1774,6 +1807,15 @@ namespace ProtoSystem.UI
                     dropdownHover.transitionDuration = 0.15f;
                     dropdownHover.boostAlphaOnHover = true;
                     dropdownHover.hoverAlpha = 0.7f;
+
+                    // Sound integration - открытие dropdown
+                    if (SoundIntegrationEnabled)
+                    {
+                        var dropdownSound = dropdownGO.AddComponent<ProtoSystem.Sound.PlaySoundOn>();
+                        dropdownSound.soundId = "ui_dropdown";
+                        dropdownSound.trigger = ProtoSystem.Sound.SoundTrigger.PointerClick;
+                        dropdownSound.volume = 1f;
+                    }
 
                     var dropdown = dropdownGO.AddComponent<TMP_Dropdown>();
 
@@ -1815,7 +1857,7 @@ namespace ProtoSystem.UI
                     // Template (выпадающий список)
                     int listHeight = currentStyleConfig != null ? currentStyleConfig.dropdownListHeight : 120;
                     int itemHeight = currentStyleConfig != null ? Mathf.Max(24, currentStyleConfig.dropdownRowHeight - 4) : 28;
-                    
+
                     var templateGO = new GameObject("Template");
                     templateGO.transform.SetParent(dropdownGO.transform, false);
                     var templateRect = templateGO.AddComponent<RectTransform>();
@@ -1893,6 +1935,15 @@ namespace ProtoSystem.UI
                     // Setup Toggle
                     itemToggle.targetGraphic = itemBgImg;
                     itemToggle.graphic = checkImg;
+
+                    // Sound integration - выбор элемента
+                    if (SoundIntegrationEnabled)
+                    {
+                        var itemSound = itemGO.AddComponent<ProtoSystem.Sound.PlaySoundOn>();
+                        itemSound.soundId = "ui_select";
+                        itemSound.trigger = ProtoSystem.Sound.SoundTrigger.PointerClick;
+                        itemSound.volume = 1f;
+                    }
 
                     // Setup ScrollRect
                     var scrollRect = templateGO.AddComponent<ScrollRect>();
@@ -1973,7 +2024,7 @@ namespace ProtoSystem.UI
                             // Используем preferredWidth вместо flexibleWidth чтобы checkbox был рядом
                             labelLE.preferredWidth = 130; // Фиксированная ширина как у dropdown label
                             labelLE.preferredHeight = 24;
-                            
+
                             // Checkbox container - ПОТОМ (будет справа, рядом с текстом)
                             var toggleGO = new GameObject("Toggle");
                             toggleGO.transform.SetParent(container.transform, false);
@@ -1983,7 +2034,7 @@ namespace ProtoSystem.UI
                             toggleLE.preferredHeight = checkboxSize;
                             toggleLE.minWidth = checkboxSize;
                             toggleLE.minHeight = checkboxSize;
-                            
+
                             Debug.Log($"[UIWindowPrefabGenerator] Checkbox: size={checkboxSize}, labelWidth=130, gap={textGap}");
 
                             // Background (квадрат с закруглёнными углами)
@@ -2010,7 +2061,7 @@ namespace ProtoSystem.UI
                                 bgImg.type = Image.Type.Sliced;
                                 // БЕЛЫЙ для шейдера UITwoColor
                                 bgImg.color = Color.white;
-                                
+
                                 // Применяем двухцветный эффект
                                 Color fillColor = new Color(0.25f, 0.25f, 0.3f, 1f);
                                 Color borderColor = new Color(0.4f, 0.4f, 0.5f, 1f);
@@ -2060,6 +2111,15 @@ namespace ProtoSystem.UI
                             hoverEffect.boostAlphaOnHover = true;
                             hoverEffect.hoverAlpha = 0.25f;
 
+                            // Sound integration
+                            if (SoundIntegrationEnabled)
+                            {
+                                var toggleSound = toggleGO.AddComponent<ProtoSystem.Sound.UIToggleSound>();
+                                toggleSound.toggleOnSound = "ui_toggle_on";
+                                toggleSound.toggleOffSound = "ui_toggle_off";
+                                toggleSound.volume = 1f;
+                            }
+
                             Debug.Log($"[UIWindowPrefabGenerator] Checkbox created: size={checkboxSize}x{checkboxSize}");
 
                             return container;
@@ -2078,7 +2138,7 @@ namespace ProtoSystem.UI
                             var labelLE = labelGO.AddComponent<LayoutElement>();
                             labelLE.flexibleWidth = 1;
                             labelLE.preferredHeight = 30;
-                            
+
                             // Toggle Switch container (48x26) - ПОТОМ (будет справа)
                             var toggleGO = new GameObject("Toggle");
                             toggleGO.transform.SetParent(container.transform, false);
@@ -2176,6 +2236,15 @@ namespace ProtoSystem.UI
                             toggleHover.transitionDuration = 0.15f;
                             toggleHover.boostAlphaOnHover = true;
                             toggleHover.hoverAlpha = 0.25f;
+
+                            // Sound integration
+                            if (SoundIntegrationEnabled)
+                            {
+                                var toggleSound = toggleGO.AddComponent<ProtoSystem.Sound.UIToggleSound>();
+                                toggleSound.toggleOnSound = "ui_toggle_on";
+                                toggleSound.toggleOffSound = "ui_toggle_off";
+                                toggleSound.volume = 1f;
+                            }
 
                             Debug.Log($"[UIWindowPrefabGenerator] Switch toggle created: size=48x26");
 

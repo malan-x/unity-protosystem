@@ -324,7 +324,7 @@ namespace ProtoSystem.UI
                 ToWindowId = windowId,
                 Trigger = trigger,
                 Result = NavigationResult.Success
-            });
+            }, definition);
 
             return NavigationResult.Success;
         }
@@ -687,7 +687,7 @@ namespace ProtoSystem.UI
             return result;
         }
 
-        private void PublishEvent(NavigationEventData data)
+        private void PublishEvent(NavigationEventData data, WindowDefinition definition = null)
         {
             OnNavigated?.Invoke(data);
             EventBus.Publish(EventBus.UI.NavigationCompleted, data);
@@ -696,7 +696,9 @@ namespace ProtoSystem.UI
             {
                 EventBus.Publish(EventBus.UI.WindowOpened, new WindowEventData
                 {
-                    WindowId = data.ToWindowId
+                    WindowId = data.ToWindowId,
+                    Type = definition?.type ?? WindowType.Normal,
+                    Layer = definition?.layer ?? WindowLayer.Windows
                 });
             }
         }
