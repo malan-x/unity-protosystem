@@ -5,11 +5,12 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Audio;
 using TMPro;
+using ProtoSystem.Settings;
 
 namespace ProtoSystem.UI
 {
     /// <summary>
-    /// Данные слайдера громкости для динамической генерации
+    /// Данные слайдера громкости для динамической генерации (AudioMixer)
     /// </summary>
     [Serializable]
     public class VolumeSliderData
@@ -31,18 +32,18 @@ namespace ProtoSystem.UI
     }
     
     /// <summary>
-    /// Окно настроек с динамической поддержкой AudioMixer
+    /// Окно настроек — UI интерфейс для SettingsSystem
     /// </summary>
     [UIWindow("Settings", WindowType.Normal, WindowLayer.Windows, Level = 1, PauseGame = true, CursorMode = WindowCursorMode.Visible)]
     public class SettingsWindow : UIWindowBase
     {
-        [Header("Audio Mixer")]
+        [Header("Audio Mixer (для динамических слайдеров)")]
         [SerializeField] private AudioMixer audioMixer;
         
         [Header("Volume Sliders (Auto-generated)")]
         [SerializeField] private List<VolumeSliderData> volumeSliders = new List<VolumeSliderData>();
         
-        [Header("Legacy Audio (fallback if no mixer)")]
+        [Header("Audio (стандартные)")]
         [SerializeField] private Slider masterVolumeSlider;
         [SerializeField] private Slider musicVolumeSlider;
         [SerializeField] private Slider sfxVolumeSlider;
@@ -66,26 +67,27 @@ namespace ProtoSystem.UI
         [SerializeField] private Button resetButton;
         [SerializeField] private Button backButton;
 
-        // Cached settings
-        private float _masterVolume = 1f;
-        private float _musicVolume = 1f;
-        private float _sfxVolume = 1f;
-        private int _qualityLevel;
-        private bool _fullscreen;
-        private bool _vsync;
-        private float _sensitivity = 1f;
-        private bool _invertY;
+        // SettingsSystem reference
+        private SettingsSystem _settings;
         
-        // Режим работы
+        // Режим работы аудио
         private bool _useDynamicAudio = false;
 
         protected override void Awake()
         {
             base.Awake();
             
-            // Определяем режим работы
+            // Определяем режим работы аудио
             _useDynamicAudio = audioMixer != null && volumeSliders.Count > 0;
             
+            SetupAudioListeners();
+            SetupGraphicsListeners();
+            SetupGameplayListeners();
+            SetupButtons();
+        }
+
+        private void SetupAudioListeners()
+        {
             if (_useDynamicAudio)
             {
                 // Динамические слайдеры из AudioMixer
@@ -93,29 +95,36 @@ namespace ProtoSystem.UI
                 {
                     if (data.slider != null)
                     {
-                        // Захватываем data в замыкание правильно
                         var captured = data;
-                        data.slider.onValueChanged.AddListener(value => OnVolumeSliderChanged(captured, value));
+                        data.slider.onValueChanged.AddListener(value => OnDynamicVolumeChanged(captured, value));
                     }
                 }
             }
             else
             {
-                // Legacy слайдеры
+                // Стандартные слайдеры → SettingsSystem
                 masterVolumeSlider?.onValueChanged.AddListener(OnMasterVolumeChanged);
                 musicVolumeSlider?.onValueChanged.AddListener(OnMusicVolumeChanged);
                 sfxVolumeSlider?.onValueChanged.AddListener(OnSfxVolumeChanged);
             }
-            
-            // Остальные контролы
-            sensitivitySlider?.onValueChanged.AddListener(OnSensitivityChanged);
+        }
+
+        private void SetupGraphicsListeners()
+        {
             fullscreenToggle?.onValueChanged.AddListener(OnFullscreenChanged);
             vsyncToggle?.onValueChanged.AddListener(OnVsyncChanged);
-            invertYToggle?.onValueChanged.AddListener(OnInvertYChanged);
             qualityDropdown?.onValueChanged.AddListener(OnQualityChanged);
             resolutionDropdown?.onValueChanged.AddListener(OnResolutionChanged);
-            
-            // Кнопки
+        }
+
+        private void SetupGameplayListeners()
+        {
+            sensitivitySlider?.onValueChanged.AddListener(OnSensitivityChanged);
+            invertYToggle?.onValueChanged.AddListener(OnInvertYChanged);
+        }
+
+        private void SetupButtons()
+        {
             applyButton?.onClick.AddListener(OnApplyClicked);
             resetButton?.onClick.AddListener(OnResetClicked);
             backButton?.onClick.AddListener(OnBackClicked);
@@ -124,10 +133,30 @@ namespace ProtoSystem.UI
         public override void Show(Action onComplete = null)
         {
             base.Show(onComplete);
+            
+            // Получаем SettingsSystem
+            _settings = SettingsSystem.Instance;
+            
+            if (_settings == null)
+            {
+                Debug.LogWarning("[SettingsWindow] SettingsSystem not found! Settings will not be saved.");
+            }
+            
             LoadCurrentSettings();
         }
 
+        #region Load Settings
+
         protected virtual void LoadCurrentSettings()
+        {
+            LoadAudioSettings();
+            LoadVideoSettings();
+            LoadControlsSettings();
+            LoadGameplaySettings();
+            UpdateAllTexts();
+        }
+        
+        private void LoadAudioSettings()
         {
             if (_useDynamicAudio)
             {
@@ -135,65 +164,96 @@ namespace ProtoSystem.UI
             }
             else
             {
-                LoadLegacyAudioSettings();
+                LoadStandardAudioSettings();
             }
-            
-            // Graphics
-            _qualityLevel = QualitySettings.GetQualityLevel();
-            _fullscreen = Screen.fullScreen;
-            _vsync = QualitySettings.vSyncCount > 0;
-            
-            if (qualityDropdown != null)
-            {
-                qualityDropdown.ClearOptions();
-                qualityDropdown.AddOptions(new List<string>(QualitySettings.names));
-                qualityDropdown.value = _qualityLevel;
-            }
-            
-            if (fullscreenToggle != null) fullscreenToggle.isOn = _fullscreen;
-            if (vsyncToggle != null) vsyncToggle.isOn = _vsync;
-            
-            // Gameplay
-            _sensitivity = PlayerPrefs.GetFloat("Sensitivity", 1f);
-            _invertY = PlayerPrefs.GetInt("InvertY", 0) == 1;
-            
-            if (sensitivitySlider != null) sensitivitySlider.value = _sensitivity;
-            if (invertYToggle != null) invertYToggle.isOn = _invertY;
-            
-            UpdateTexts();
         }
         
         private void LoadDynamicAudioSettings()
         {
+            // Динамический режим: AudioMixer параметры хранятся в PlayerPrefs
             foreach (var data in volumeSliders)
             {
                 if (data.slider == null) continue;
                 
-                // Загружаем из PlayerPrefs
                 float savedValue = PlayerPrefs.GetFloat($"Volume_{data.parameterName}", 1f);
                 data.currentValue = savedValue;
                 data.slider.SetValueWithoutNotify(savedValue);
-                
-                // Применяем к миксеру
                 ApplyVolumeToMixer(data.parameterName, savedValue);
-                
-                // Обновляем текст
                 UpdateVolumeText(data);
             }
         }
         
-        private void LoadLegacyAudioSettings()
+        private void LoadStandardAudioSettings()
         {
-            _masterVolume = PlayerPrefs.GetFloat("MasterVolume", 1f);
-            _musicVolume = PlayerPrefs.GetFloat("MusicVolume", 1f);
-            _sfxVolume = PlayerPrefs.GetFloat("SfxVolume", 1f);
+            if (_settings?.Audio == null) return;
             
-            if (masterVolumeSlider != null) masterVolumeSlider.value = _masterVolume;
-            if (musicVolumeSlider != null) musicVolumeSlider.value = _musicVolume;
-            if (sfxVolumeSlider != null) sfxVolumeSlider.value = _sfxVolume;
+            float master = _settings.Audio.MasterVolume;
+            float music = _settings.Audio.MusicVolume;
+            float sfx = _settings.Audio.SFXVolume;
+            
+            if (masterVolumeSlider != null) masterVolumeSlider.SetValueWithoutNotify(master);
+            if (musicVolumeSlider != null) musicVolumeSlider.SetValueWithoutNotify(music);
+            if (sfxVolumeSlider != null) sfxVolumeSlider.SetValueWithoutNotify(sfx);
+        }
+        
+        private void LoadVideoSettings()
+        {
+            // Quality dropdown
+            if (qualityDropdown != null)
+            {
+                qualityDropdown.ClearOptions();
+                qualityDropdown.AddOptions(new List<string>(QualitySettings.names));
+                
+                int quality = _settings?.Video?.Quality ?? QualitySettings.GetQualityLevel();
+                qualityDropdown.SetValueWithoutNotify(quality);
+            }
+            
+            // Fullscreen
+            if (fullscreenToggle != null)
+            {
+                bool isFullscreen = _settings?.Video != null 
+                    ? _settings.Video.Fullscreen.Value != "Windowed"
+                    : Screen.fullScreen;
+                SetToggleWithoutNotify(fullscreenToggle, isFullscreen);
+            }
+            
+            // VSync
+            if (vsyncToggle != null)
+            {
+                bool vsync = _settings?.Video?.VSync ?? (QualitySettings.vSyncCount > 0);
+                SetToggleWithoutNotify(vsyncToggle, vsync);
+            }
+            
+            // TODO: Resolution dropdown
+        }
+        
+        private void LoadControlsSettings()
+        {
+            if (_settings?.Controls == null) return;
+            
+            float sensitivity = _settings.Controls.Sensitivity;
+            bool invertY = _settings.Controls.InvertY;
+            
+            if (sensitivitySlider != null) sensitivitySlider.SetValueWithoutNotify(sensitivity);
+            if (invertYToggle != null) SetToggleWithoutNotify(invertYToggle, invertY);
+        }
+        
+        private void LoadGameplaySettings()
+        {
+            // Добавить загрузку Gameplay настроек если нужны UI элементы
         }
 
-        private void UpdateTexts()
+        #endregion
+
+        #region UI Update
+
+        private void UpdateAllTexts()
+        {
+            UpdateAudioTexts();
+            UpdateControlsTexts();
+        }
+        
+        private void UpdateAudioTexts()
         {
             if (_useDynamicAudio)
             {
@@ -204,12 +264,24 @@ namespace ProtoSystem.UI
             }
             else
             {
-                if (masterVolumeText != null) masterVolumeText.text = $"{Mathf.RoundToInt(_masterVolume * 100)}%";
-                if (musicVolumeText != null) musicVolumeText.text = $"{Mathf.RoundToInt(_musicVolume * 100)}%";
-                if (sfxVolumeText != null) sfxVolumeText.text = $"{Mathf.RoundToInt(_sfxVolume * 100)}%";
+                if (_settings?.Audio != null)
+                {
+                    if (masterVolumeText != null) 
+                        masterVolumeText.text = $"{Mathf.RoundToInt(_settings.Audio.MasterVolume * 100)}%";
+                    if (musicVolumeText != null) 
+                        musicVolumeText.text = $"{Mathf.RoundToInt(_settings.Audio.MusicVolume * 100)}%";
+                    if (sfxVolumeText != null) 
+                        sfxVolumeText.text = $"{Mathf.RoundToInt(_settings.Audio.SFXVolume * 100)}%";
+                }
             }
-            
-            if (sensitivityText != null) sensitivityText.text = $"{_sensitivity:F1}";
+        }
+        
+        private void UpdateControlsTexts()
+        {
+            if (_settings?.Controls != null && sensitivityText != null)
+            {
+                sensitivityText.text = $"{_settings.Controls.Sensitivity:F1}";
+            }
         }
         
         private void UpdateVolumeText(VolumeSliderData data)
@@ -219,31 +291,47 @@ namespace ProtoSystem.UI
                 data.valueText.text = $"{Mathf.RoundToInt(data.currentValue * 100)}%";
             }
         }
+
+        #endregion
+
+        #region Audio Mixer Helpers
         
-        /// <summary>
-        /// Применить линейное значение громкости к AudioMixer
-        /// </summary>
         private void ApplyVolumeToMixer(string parameterName, float linearValue)
         {
             if (audioMixer == null) return;
-            
-            // Конвертируем линейное значение (0-1) в децибелы (-80 до 0)
             float dbValue = LinearToDecibel(linearValue);
             audioMixer.SetFloat(parameterName, dbValue);
         }
         
-        /// <summary>
-        /// Конвертировать линейную громкость (0-1) в децибелы
-        /// </summary>
         private float LinearToDecibel(float linear)
         {
             if (linear <= 0.0001f) return -80f;
             return Mathf.Log10(linear) * 20f;
         }
+        
+        /// <summary>
+        /// Установить значение Toggle без вызова события onValueChanged
+        /// </summary>
+        private void SetToggleWithoutNotify(Toggle toggle, bool value)
+        {
+            if (toggle == null) return;
+            toggle.onValueChanged.RemoveAllListeners();
+            toggle.isOn = value;
+            
+            // Восстанавливаем listener
+            if (toggle == fullscreenToggle)
+                toggle.onValueChanged.AddListener(OnFullscreenChanged);
+            else if (toggle == vsyncToggle)
+                toggle.onValueChanged.AddListener(OnVsyncChanged);
+            else if (toggle == invertYToggle)
+                toggle.onValueChanged.AddListener(OnInvertYChanged);
+        }
 
-        #region Event Handlers
+        #endregion
 
-        private void OnVolumeSliderChanged(VolumeSliderData data, float value)
+        #region Event Handlers - Audio
+
+        private void OnDynamicVolumeChanged(VolumeSliderData data, float value)
         {
             data.currentValue = value;
             ApplyVolumeToMixer(data.parameterName, value);
@@ -252,53 +340,88 @@ namespace ProtoSystem.UI
 
         private void OnMasterVolumeChanged(float value)
         {
-            _masterVolume = value;
-            UpdateTexts();
-            AudioListener.volume = value;
+            if (_settings?.Audio != null)
+            {
+                _settings.Audio.MasterVolume.Value = value;
+            }
+            UpdateAudioTexts();
         }
 
         private void OnMusicVolumeChanged(float value)
         {
-            _musicVolume = value;
-            UpdateTexts();
+            if (_settings?.Audio != null)
+            {
+                _settings.Audio.MusicVolume.Value = value;
+            }
+            UpdateAudioTexts();
         }
 
         private void OnSfxVolumeChanged(float value)
         {
-            _sfxVolume = value;
-            UpdateTexts();
+            if (_settings?.Audio != null)
+            {
+                _settings.Audio.SFXVolume.Value = value;
+            }
+            UpdateAudioTexts();
         }
 
-        private void OnSensitivityChanged(float value)
-        {
-            _sensitivity = value;
-            UpdateTexts();
-        }
+        #endregion
+
+        #region Event Handlers - Video
 
         private void OnFullscreenChanged(bool value)
         {
-            _fullscreen = value;
+            if (_settings?.Video != null)
+            {
+                _settings.Video.Fullscreen.Value = value ? "FullScreenWindow" : "Windowed";
+            }
         }
 
         private void OnVsyncChanged(bool value)
         {
-            _vsync = value;
-        }
-
-        private void OnInvertYChanged(bool value)
-        {
-            _invertY = value;
+            if (_settings?.Video != null)
+            {
+                _settings.Video.VSync.Value = value;
+            }
         }
 
         private void OnQualityChanged(int index)
         {
-            _qualityLevel = index;
+            if (_settings?.Video != null)
+            {
+                _settings.Video.Quality.Value = index;
+            }
         }
 
         private void OnResolutionChanged(int index)
         {
-            // Применить разрешение
+            // TODO: Implement resolution change via SettingsSystem
         }
+
+        #endregion
+
+        #region Event Handlers - Controls
+
+        private void OnSensitivityChanged(float value)
+        {
+            if (_settings?.Controls != null)
+            {
+                _settings.Controls.Sensitivity.Value = value;
+            }
+            UpdateControlsTexts();
+        }
+
+        private void OnInvertYChanged(bool value)
+        {
+            if (_settings?.Controls != null)
+            {
+                _settings.Controls.InvertY.Value = value;
+            }
+        }
+
+        #endregion
+
+        #region Buttons
 
         protected virtual void OnApplyClicked()
         {
@@ -308,50 +431,38 @@ namespace ProtoSystem.UI
 
         protected virtual void OnResetClicked()
         {
+            // Сбрасываем через SettingsSystem
+            _settings?.ResetAllToDefaults();
+            
+            // Для динамического аудио — сбрасываем вручную
             if (_useDynamicAudio)
             {
                 foreach (var data in volumeSliders)
                 {
                     data.currentValue = 1f;
-                    if (data.slider != null) data.slider.value = 1f;
+                    if (data.slider != null) data.slider.SetValueWithoutNotify(1f);
                     ApplyVolumeToMixer(data.parameterName, 1f);
                 }
             }
-            else
-            {
-                _masterVolume = 1f;
-                _musicVolume = 1f;
-                _sfxVolume = 1f;
-                if (masterVolumeSlider != null) masterVolumeSlider.value = _masterVolume;
-                if (musicVolumeSlider != null) musicVolumeSlider.value = _musicVolume;
-                if (sfxVolumeSlider != null) sfxVolumeSlider.value = _sfxVolume;
-            }
             
-            _sensitivity = 1f;
-            _invertY = false;
-            _fullscreen = true;
-            _vsync = true;
-            _qualityLevel = QualitySettings.names.Length - 1;
-            
-            if (sensitivitySlider != null) sensitivitySlider.value = _sensitivity;
-            if (invertYToggle != null) invertYToggle.isOn = _invertY;
-            if (fullscreenToggle != null) fullscreenToggle.isOn = _fullscreen;
-            if (vsyncToggle != null) vsyncToggle.isOn = _vsync;
-            if (qualityDropdown != null) qualityDropdown.value = _qualityLevel;
-            
-            UpdateTexts();
+            // Перезагружаем UI
+            LoadCurrentSettings();
         }
 
         protected virtual void OnBackClicked()
         {
+            // Откатываем несохранённые изменения
+            _settings?.RevertAll();
             UISystem.Back();
         }
 
         #endregion
 
+        #region Apply Settings
+
         protected virtual void ApplySettings()
         {
-            // Audio
+            // Динамическое аудио (AudioMixer) — сохраняем отдельно в PlayerPrefs
             if (_useDynamicAudio)
             {
                 foreach (var data in volumeSliders)
@@ -359,31 +470,27 @@ namespace ProtoSystem.UI
                     PlayerPrefs.SetFloat($"Volume_{data.parameterName}", data.currentValue);
                     ApplyVolumeToMixer(data.parameterName, data.currentValue);
                 }
+                PlayerPrefs.Save();
+            }
+            
+            // Всё остальное — через SettingsSystem
+            if (_settings != null)
+            {
+                _settings.ApplyAndSave();
+                Debug.Log("[SettingsWindow] Settings applied via SettingsSystem");
             }
             else
             {
-                PlayerPrefs.SetFloat("MasterVolume", _masterVolume);
-                PlayerPrefs.SetFloat("MusicVolume", _musicVolume);
-                PlayerPrefs.SetFloat("SfxVolume", _sfxVolume);
-                AudioListener.volume = _masterVolume;
+                Debug.LogWarning("[SettingsWindow] SettingsSystem not available, settings not saved!");
             }
-            
-            // Graphics
-            QualitySettings.SetQualityLevel(_qualityLevel);
-            Screen.fullScreen = _fullscreen;
-            QualitySettings.vSyncCount = _vsync ? 1 : 0;
-            
-            // Gameplay
-            PlayerPrefs.SetFloat("Sensitivity", _sensitivity);
-            PlayerPrefs.SetInt("InvertY", _invertY ? 1 : 0);
-            
-            PlayerPrefs.Save();
-            
-            Debug.Log("[SettingsWindow] Settings applied and saved");
         }
+
+        #endregion
+
+        #region Public API (для генератора)
         
         /// <summary>
-        /// Программное добавление слайдера громкости (для генератора)
+        /// Программное добавление слайдера громкости
         /// </summary>
         public void AddVolumeSlider(string parameterName, string displayName, Slider slider, TMP_Text valueText)
         {
@@ -398,11 +505,13 @@ namespace ProtoSystem.UI
         }
         
         /// <summary>
-        /// Установить AudioMixer (для генератора)
+        /// Установить AudioMixer
         /// </summary>
         public void SetAudioMixer(AudioMixer mixer)
         {
             audioMixer = mixer;
         }
+
+        #endregion
     }
 }
