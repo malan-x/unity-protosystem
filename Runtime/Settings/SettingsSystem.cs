@@ -94,11 +94,9 @@ namespace ProtoSystem.Settings
                     LogWarning("SettingsConfig not assigned, using defaults");
                 }
 
-                LogMessage("Step 1: InitializeSections...");
                 // Инициализируем секции
                 InitializeSections();
 
-                LogMessage("Step 2: PersistenceFactory.Create...");
                 // Создаём хранилище и мигратор
                 _persistence = PersistenceFactory.Create(
                     config.persistenceMode,
@@ -114,11 +112,9 @@ namespace ProtoSystem.Settings
 
                 _migrator = new SettingsMigrator();
 
-                LogMessage("Step 3: Load...");
-                // Загружаем настройки
+                // Загружаем настройки (без публикации событий)
                 Load();
 
-                LogMessage("Step 4: ApplyAll...");
                 // Применяем загруженные настройки
                 ApplyAll();
 
@@ -206,29 +202,47 @@ namespace ProtoSystem.Settings
         {
             var data = _persistence.Load();
 
-            if (data.Count > 0)
-            {
-                // Проверяем версию и мигрируем если нужно
-                int version = _migrator.ExtractVersion(data);
-                if (version < SettingsMigrator.CURRENT_VERSION)
-                {
-                    data = _migrator.Migrate(data, version);
-                }
+            // Подавляем события при начальной загрузке
+            // Зависимые системы сами запрашивают настройки после инициализации
+            SettingValue<float>.SuppressEvents = true;
+            SettingValue<int>.SuppressEvents = true;
+            SettingValue<bool>.SuppressEvents = true;
+            SettingValue<string>.SuppressEvents = true;
 
-                // Десериализуем в секции
-                foreach (var section in _allSections)
+            try
+            {
+                if (data.Count > 0)
                 {
-                    if (data.TryGetValue(section.SectionName, out var sectionData))
+                    // Проверяем версию и мигрируем если нужно
+                    int version = _migrator.ExtractVersion(data);
+                    if (version < SettingsMigrator.CURRENT_VERSION)
                     {
-                        section.Deserialize(sectionData);
+                        data = _migrator.Migrate(data, version);
+                    }
+
+                    // Десериализуем в секции
+                    foreach (var section in _allSections)
+                    {
+                        if (data.TryGetValue(section.SectionName, out var sectionData))
+                        {
+                            section.Deserialize(sectionData);
+                        }
                     }
                 }
-            }
 
-            // Помечаем всё как сохранённое
-            foreach (var section in _allSections)
+                // Помечаем всё как сохранённое
+                foreach (var section in _allSections)
+                {
+                    section.MarkAllSaved();
+                }
+            }
+            finally
             {
-                section.MarkAllSaved();
+                // Восстанавливаем публикацию событий
+                SettingValue<float>.SuppressEvents = false;
+                SettingValue<int>.SuppressEvents = false;
+                SettingValue<bool>.SuppressEvents = false;
+                SettingValue<string>.SuppressEvents = false;
             }
 
             LogMessage($"Settings loaded from: {_persistence.GetPath()}");

@@ -394,3 +394,107 @@ migrator.RegisterMigration(2, data => {
 3. **Используйте события** — не опрашивайте значения в Update
 4. **Кастомные секции** — для игровых настроек создавайте отдельные секции
 5. **Проверяйте изменения** — показывайте кнопку "Применить" только при `HasUnsavedChanges()`
+
+---
+
+## Порядок инициализации
+
+### Приоритеты систем
+
+| Priority | Система | Описание |
+|----------|---------|----------|
+| 5 | SettingsSystem | Загружает настройки первой |
+| 10 | UISystem | Интерфейс |
+| 12 | SoundManagerSystem | Звук (зависит от Settings) |
+| 15 | GameSessionSystem | Сессия |
+
+### Подавление событий при загрузке
+
+**Важно:** При инициализации `SettingsSystem` **не публикует события** при загрузке настроек из файла. Это сделано намеренно:
+
+```
+[Startup]
+  SettingsSystem.Init() 
+    → Load() [SuppressEvents = true]
+    → ApplyAll()
+  
+  SoundManagerSystem.Init()
+    → ApplySettingsFromSettingsSystem()  // Сам запрашивает настройки
+    
+[Runtime - пользователь меняет настройки]
+  Settings.Audio.MasterVolume = 0.5f 
+    → публикует EventBus.Settings.Audio.MasterChanged
+  SoundManager получает событие 
+    → SetVolume()
+```
+
+**Почему так:**
+- При старте зависимые системы (SoundManager, UISystem) ещё не инициализированы
+- Публикация событий до инициализации вызывает NullReferenceException
+- Каждая система сама запрашивает начальные значения через `[Dependency]`
+
+### Интеграция с зависимыми системами
+
+Если ваша система зависит от настроек:
+
+```csharp
+public class MySystem : InitializableSystemBase
+{
+    [Dependency(required: false, description: "Интеграция с настройками")]
+    private SettingsSystem _settingsSystem;
+    
+    protected override void InitEvents()
+    {
+        // Подписка на изменения (runtime)
+        AddEvent(EventBus.Settings.Audio.MasterChanged, OnMasterChanged);
+    }
+    
+    public override async Task<bool> InitializeAsync()
+    {
+        // Запрос начальных значений (при старте)
+        ApplyInitialSettings();
+        return true;
+    }
+    
+    private void ApplyInitialSettings()
+    {
+        if (_settingsSystem?.Audio == null) return;
+        
+        // Применяем текущие значения
+        _myVolume = _settingsSystem.Audio.MasterVolume;
+    }
+    
+    private void OnMasterChanged(object payload)
+    {
+        if (payload is SettingChangedData<float> data)
+            _myVolume = data.Value;
+    }
+}
+```
+
+### Флаг SuppressEvents
+
+Для временного подавления событий (например, при массовом импорте):
+
+```csharp
+// Подавить события для всех типов
+SettingValue<float>.SuppressEvents = true;
+SettingValue<int>.SuppressEvents = true;
+SettingValue<bool>.SuppressEvents = true;
+SettingValue<string>.SuppressEvents = true;
+
+try
+{
+    // Массовое изменение без событий
+    settings.Audio.MasterVolume.Value = 0.5f;
+    settings.Audio.MusicVolume.Value = 0.3f;
+}
+finally
+{
+    // Обязательно восстановить!
+    SettingValue<float>.SuppressEvents = false;
+    SettingValue<int>.SuppressEvents = false;
+    SettingValue<bool>.SuppressEvents = false;
+    SettingValue<string>.SuppressEvents = false;
+}
+```

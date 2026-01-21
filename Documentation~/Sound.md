@@ -438,3 +438,105 @@ Editor/Sound/
 AudioMixer создаётся копированием шаблона. Если не работает:
 1. Проверьте наличие шаблона: `Packages/com.protosystem.core/Runtime/Sound/Templates/`
 2. Создайте AudioMixer вручную в Unity
+
+---
+
+## Интеграция с SettingsSystem
+
+### Автоматическая синхронизация громкости
+
+`SoundManagerSystem` автоматически интегрируется с `SettingsSystem`:
+
+1. **При инициализации** — запрашивает текущие значения из `SettingsSystem.Audio`
+2. **При изменении настроек** — подписан на события `EventBus.Settings.Audio.*`
+
+### Порядок инициализации
+
+```
+[Startup - приоритеты]
+  SettingsSystem (5) 
+    → Load() [события подавлены]
+    → ApplyAll()
+  
+  SoundManagerSystem (12)
+    → ApplySettingsFromSettingsSystem()  // Запрашивает настройки
+    → Подписывается на события
+
+[Runtime]
+  Пользователь меняет громкость в UI
+    → settings.Audio.MasterVolume = 0.5f
+    → EventBus.Settings.Audio.MasterChanged
+    → SoundManager.OnMasterVolumeChanged()
+    → SetVolume(SoundCategory.Master, 0.5f)
+```
+
+### Зависимость от SettingsSystem
+
+```csharp
+// SoundManagerSystem.cs
+[Dependency(required: false, description: "Интеграция с системой настроек")]
+private Settings.SettingsSystem _settingsSystem;
+
+private void ApplySettingsFromSettingsSystem()
+{
+    if (_settingsSystem?.Audio == null)
+    {
+        LogMessage("SettingsSystem not available, using default volumes");
+        return;
+    }
+    
+    var audio = _settingsSystem.Audio;
+    SetVolume(SoundCategory.Master, audio.MasterVolume);
+    SetVolume(SoundCategory.Music, audio.MusicVolume);
+    SetVolume(SoundCategory.SFX, audio.SFXVolume);
+}
+```
+
+### События настроек
+
+SoundManager подписан на события из `EventBus.Settings.Audio`:
+
+| Событие | ID | Действие |
+|---------|-----|----------|
+| MasterChanged | 10110 | `SetVolume(Master, value)` |
+| MusicChanged | 10111 | `SetVolume(Music, value)` |
+| SFXChanged | 10112 | `SetVolume(SFX, value)` |
+
+**Важно:** Обработчики проверяют `IsInitialized` — события до инициализации игнорируются.
+
+### Кастомная интеграция
+
+Если нужна своя логика применения настроек:
+
+```csharp
+public class MySoundSystem : InitializableSystemBase
+{
+    [Dependency(required: false)]
+    private Settings.SettingsSystem _settings;
+    
+    protected override void InitEvents()
+    {
+        // Подписка на runtime изменения
+        AddEvent(EventBus.Settings.Audio.MasterChanged, OnVolumeChanged);
+    }
+    
+    public override async Task<bool> InitializeAsync()
+    {
+        // Начальные значения
+        if (_settings?.Audio != null)
+        {
+            ApplyVolume(_settings.Audio.MasterVolume);
+        }
+        return true;
+    }
+    
+    private void OnVolumeChanged(object payload)
+    {
+        // Проверка инициализации обязательна!
+        if (!IsInitialized) return;
+        
+        if (payload is SettingChangedData<float> data)
+            ApplyVolume(data.Value);
+    }
+}
+```

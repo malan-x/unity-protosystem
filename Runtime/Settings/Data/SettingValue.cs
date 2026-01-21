@@ -31,6 +31,11 @@ namespace ProtoSystem.Settings
     /// </summary>
     public class SettingValue<T> : ISettingValue
     {
+        /// <summary>
+        /// Глобальный флаг для подавления событий (используется при загрузке настроек)
+        /// </summary>
+        public static bool SuppressEvents { get; set; } = false;
+        
         public string Key { get; }
         public string Section { get; }
         public string Comment { get; }
@@ -50,6 +55,9 @@ namespace ProtoSystem.Settings
 
                 var prev = _value;
                 _value = value;
+
+                // Не публикуем события если они подавлены (при загрузке)
+                if (SuppressEvents) return;
 
                 // Публикуем событие изменения если задан EventId
                 if (EventId > 0)

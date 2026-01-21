@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using UnityEngine;
+using ProtoSystem.Settings;
 
 namespace ProtoSystem.Sound
 {
@@ -22,6 +23,9 @@ namespace ProtoSystem.Sound
         
         [Dependency(required: false, description: "Интеграция с игровой сессией")]
         private GameSessionSystem _gameSessionSystem;
+        
+        [Dependency(required: false, description: "Интеграция с системой настроек")]
+        private Settings.SettingsSystem _settingsSystem;
         
         // === Провайдер ===
         private ISoundProvider _provider;
@@ -56,7 +60,7 @@ namespace ProtoSystem.Sound
         
         protected override void InitEvents()
         {
-            // UI события (используем EventBus.UI из UIEvents.cs - это правильные ID)
+            // UI события
             AddEvent(EventBus.UI.WindowOpened, OnWindowOpened);
             AddEvent(EventBus.UI.WindowClosed, OnWindowClosed);
 
@@ -67,10 +71,11 @@ namespace ProtoSystem.Sound
             AddEvent(Evt.Session.Resumed, OnSessionResumed);
             AddEvent(Evt.Session.StateChanged, OnSessionStateChanged);
 
-            // Settings события
-            AddEvent(Evt.Settings.Audio.MasterVolumeChanged, v => SetVolume(SoundCategory.Master, (float)v));
-            AddEvent(Evt.Settings.Audio.MusicVolumeChanged, v => SetVolume(SoundCategory.Music, (float)v));
-            AddEvent(Evt.Settings.Audio.SFXVolumeChanged, v => SetVolume(SoundCategory.SFX, (float)v));
+            // Settings события - используем EventBus.Settings.Audio (из SettingsEvents.cs)
+            // с проверкой инициализации и типа payload
+            AddEvent(EventBus.Settings.Audio.MasterChanged, OnMasterVolumeChanged);
+            AddEvent(EventBus.Settings.Audio.MusicChanged, OnMusicVolumeChanged);
+            AddEvent(EventBus.Settings.Audio.SFXChanged, OnSFXVolumeChanged);
 
             // Scene события
             AddEvent(Evt.Scene.LoadStarted, OnSceneLoadStarted);
@@ -82,6 +87,27 @@ namespace ProtoSystem.Sound
             AddEvent(Evt.Sound.Stop, OnStopSoundEvent);
             AddEvent(Evt.Sound.PlayMusic, OnPlayMusicEvent);
             AddEvent(Evt.Sound.StopMusic, OnStopMusicEvent);
+        }
+
+        private void OnMasterVolumeChanged(object payload)
+        {
+            if (!IsInitialized) return;
+            if (payload is SettingChangedData<float> data)
+                SetVolume(SoundCategory.Master, data.Value);
+        }
+
+        private void OnMusicVolumeChanged(object payload)
+        {
+            if (!IsInitialized) return;
+            if (payload is SettingChangedData<float> data)
+                SetVolume(SoundCategory.Music, data.Value);
+        }
+
+        private void OnSFXVolumeChanged(object payload)
+        {
+            if (!IsInitialized) return;
+            if (payload is SettingChangedData<float> data)
+                SetVolume(SoundCategory.SFX, data.Value);
         }
         
         public override async Task<bool> InitializeAsync()
@@ -322,8 +348,20 @@ namespace ProtoSystem.Sound
         
         private void ApplySettingsFromSettingsSystem()
         {
-            // TODO: Интеграция с SettingsSystem когда она будет доступна
-            // SetVolume(SoundCategory.Master, settingsSystem.Audio.MasterVolume);
+            // Запрашиваем начальные значения из SettingsSystem
+            // События не используем - они придут при изменении настроек пользователем
+            if (_settingsSystem?.Audio == null)
+            {
+                LogMessage("SettingsSystem not available, using default volumes");
+                return;
+            }
+
+            var audio = _settingsSystem.Audio;
+            SetVolume(SoundCategory.Master, audio.MasterVolume);
+            SetVolume(SoundCategory.Music, audio.MusicVolume);
+            SetVolume(SoundCategory.SFX, audio.SFXVolume);
+
+            LogMessage($"Applied audio settings from SettingsSystem: Master={audio.MasterVolume:F2}, Music={audio.MusicVolume:F2}, SFX={audio.SFXVolume:F2}");
         }
         
         // === Обработчики событий UI ===
