@@ -14,12 +14,12 @@ namespace ProtoSystem.UI
     public class ChoiceDialogWindow : UIWindowBase, IChoiceDialog
     {
         [Header("UI Elements")]
-        [SerializeField] private TMP_Text titleText;
-        [SerializeField] private TMP_Text messageText;
-        [SerializeField] private Transform choicesContainer;
-        [SerializeField] private Button choiceButtonTemplate;
-        [SerializeField] private Button cancelButton;
-        [SerializeField] private TMP_Text cancelButtonText;
+        [SerializeField] protected TMP_Text titleText;
+        [SerializeField] protected TMP_Text messageText;
+        [SerializeField] protected Transform choicesContainer;
+        [SerializeField] protected Button choiceButtonTemplate;
+        [SerializeField] protected Button cancelButton;
+        [SerializeField] protected TMP_Text cancelButtonText;
 
         private Action<int> _onSelect;
         private Action _onCancel;

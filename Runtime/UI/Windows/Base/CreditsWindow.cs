@@ -12,20 +12,20 @@ namespace ProtoSystem.UI
     public class CreditsWindow : UIWindowBase
     {
         [Header("Data")]
-        [SerializeField] private CreditsData creditsData;
+        [SerializeField] protected CreditsData creditsData;
 
         [Header("Content")]
-        [SerializeField] private TMP_Text creditsText;
-        [SerializeField] private ScrollRect scrollRect;
-        [SerializeField] private RectTransform contentTransform;
+        [SerializeField] protected TMP_Text creditsText;
+        [SerializeField] protected ScrollRect scrollRect;
+        [SerializeField] protected RectTransform contentTransform;
 
         [Header("Auto-scroll")]
-        [SerializeField] private bool autoScroll = true;
-        [SerializeField] private float scrollSpeed = 30f;
+        [SerializeField] protected bool autoScroll = true;
+        [SerializeField] protected float scrollSpeed = 30f;
 
         [Header("Buttons")]
-        [SerializeField] private Button backButton;
-        [SerializeField] private Button skipButton;
+        [SerializeField] protected Button backButton;
+        [SerializeField] protected Button skipButton;
 
         private bool _isScrolling;
         private float _scrollPosition;

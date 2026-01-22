@@ -12,18 +12,18 @@ namespace ProtoSystem.UI
     public class GameOverWindow : UIWindowBase
     {
         [Header("Content")]
-        [SerializeField] private TMP_Text titleText;
-        [SerializeField] private TMP_Text messageText;
-        [SerializeField] private Image iconImage;
+        [SerializeField] protected TMP_Text titleText;
+        [SerializeField] protected TMP_Text messageText;
+        [SerializeField] protected Image iconImage;
         
         [Header("Colors")]
-        [SerializeField] private Color victoryColor = new Color(0.2f, 0.8f, 0.3f);
-        [SerializeField] private Color defeatColor = new Color(0.8f, 0.2f, 0.2f);
+        [SerializeField] protected Color victoryColor = new Color(0.2f, 0.8f, 0.3f);
+        [SerializeField] protected Color defeatColor = new Color(0.8f, 0.2f, 0.2f);
 
         [Header("Buttons")]
-        [SerializeField] private Button restartButton;
-        [SerializeField] private Button mainMenuButton;
-        [SerializeField] private Button quitButton;
+        [SerializeField] protected Button restartButton;
+        [SerializeField] protected Button mainMenuButton;
+        [SerializeField] protected Button quitButton;
 
         private bool _isVictory;
 

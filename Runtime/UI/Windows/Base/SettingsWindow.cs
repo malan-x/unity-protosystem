@@ -38,26 +38,26 @@ namespace ProtoSystem.UI
     public class SettingsWindow : UIWindowBase
     {
         [Header("Audio Mixer")]
-        [SerializeField] private AudioMixer audioMixer;
+        [SerializeField] protected AudioMixer audioMixer;
         
         [Header("Volume Sliders (динамические из AudioMixer)")]
-        [SerializeField] private List<VolumeSliderData> volumeSliders = new List<VolumeSliderData>();
+        [SerializeField] protected List<VolumeSliderData> volumeSliders = new List<VolumeSliderData>();
 
         [Header("Graphics")]
-        [SerializeField] private TMP_Dropdown qualityDropdown;
-        [SerializeField] private TMP_Dropdown resolutionDropdown;
-        [SerializeField] private Toggle fullscreenToggle;
-        [SerializeField] private Toggle vsyncToggle;
+        [SerializeField] protected TMP_Dropdown qualityDropdown;
+        [SerializeField] protected TMP_Dropdown resolutionDropdown;
+        [SerializeField] protected Toggle fullscreenToggle;
+        [SerializeField] protected Toggle vsyncToggle;
 
         [Header("Gameplay")]
-        [SerializeField] private Slider sensitivitySlider;
-        [SerializeField] private TMP_Text sensitivityText;
-        [SerializeField] private Toggle invertYToggle;
+        [SerializeField] protected Slider sensitivitySlider;
+        [SerializeField] protected TMP_Text sensitivityText;
+        [SerializeField] protected Toggle invertYToggle;
 
         [Header("Buttons")]
-        [SerializeField] private Button applyButton;
-        [SerializeField] private Button resetButton;
-        [SerializeField] private Button backButton;
+        [SerializeField] protected Button applyButton;
+        [SerializeField] protected Button resetButton;
+        [SerializeField] protected Button backButton;
 
         // SettingsSystem reference
         private SettingsSystem _settings;

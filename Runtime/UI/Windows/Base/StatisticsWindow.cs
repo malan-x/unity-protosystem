@@ -13,13 +13,13 @@ namespace ProtoSystem.UI
     public class StatisticsWindow : UIWindowBase
     {
         [Header("Content")]
-        [SerializeField] private TMP_Text titleText;
-        [SerializeField] private Transform statsContainer;
-        [SerializeField] private GameObject statRowPrefab;
+        [SerializeField] protected TMP_Text titleText;
+        [SerializeField] protected Transform statsContainer;
+        [SerializeField] protected GameObject statRowPrefab;
 
         [Header("Buttons")]
-        [SerializeField] private Button continueButton;
-        [SerializeField] private Button backButton;
+        [SerializeField] protected Button continueButton;
+        [SerializeField] protected Button backButton;
 
         private readonly List<GameObject> _statRows = new List<GameObject>();
 

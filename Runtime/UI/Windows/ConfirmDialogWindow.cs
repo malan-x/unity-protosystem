@@ -14,12 +14,12 @@ namespace ProtoSystem.UI
     public class ConfirmDialogWindow : UIWindowBase, IConfirmDialog
     {
         [Header("UI Elements")]
-        [SerializeField] private TMP_Text titleText;
-        [SerializeField] private TMP_Text messageText;
-        [SerializeField] private Button yesButton;
-        [SerializeField] private Button noButton;
-        [SerializeField] private TMP_Text yesButtonText;
-        [SerializeField] private TMP_Text noButtonText;
+        [SerializeField] protected TMP_Text titleText;
+        [SerializeField] protected TMP_Text messageText;
+        [SerializeField] protected Button yesButton;
+        [SerializeField] protected Button noButton;
+        [SerializeField] protected TMP_Text yesButtonText;
+        [SerializeField] protected TMP_Text noButtonText;
 
         private Action _onYes;
         private Action _onNo;

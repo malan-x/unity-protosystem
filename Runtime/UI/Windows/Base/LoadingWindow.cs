@@ -12,17 +12,17 @@ namespace ProtoSystem.UI
     public class LoadingWindow : UIWindowBase
     {
         [Header("Progress")]
-        [SerializeField] private Image progressFill;
-        [SerializeField] private TMP_Text progressText;
-        [SerializeField] private TMP_Text statusText;
+        [SerializeField] protected Image progressFill;
+        [SerializeField] protected TMP_Text progressText;
+        [SerializeField] protected TMP_Text statusText;
 
         [Header("Visual")]
-        [SerializeField] private GameObject spinnerObject;
-        [SerializeField] private TMP_Text tipsText;
+        [SerializeField] protected GameObject spinnerObject;
+        [SerializeField] protected TMP_Text tipsText;
 
         [Header("Settings")]
-        [SerializeField] private float fillSmoothing = 5f;
-        [SerializeField] private string[] loadingTips;
+        [SerializeField] protected float fillSmoothing = 5f;
+        [SerializeField] protected string[] loadingTips;
 
         private float _targetProgress;
         private float _currentProgress;

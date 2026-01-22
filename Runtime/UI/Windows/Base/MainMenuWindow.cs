@@ -15,14 +15,14 @@ namespace ProtoSystem.UI
     public class MainMenuWindow : UIWindowBase
     {
         [Header("Buttons")]
-        [SerializeField] private Button playButton;
-        [SerializeField] private Button settingsButton;
-        [SerializeField] private Button creditsButton;
-        [SerializeField] private Button quitButton;
+        [SerializeField] protected Button playButton;
+        [SerializeField] protected Button settingsButton;
+        [SerializeField] protected Button creditsButton;
+        [SerializeField] protected Button quitButton;
 
         [Header("Texts (optional)")]
-        [SerializeField] private TMP_Text titleText;
-        [SerializeField] private TMP_Text versionText;
+        [SerializeField] protected TMP_Text titleText;
+        [SerializeField] protected TMP_Text versionText;
 
         protected override void Awake()
         {

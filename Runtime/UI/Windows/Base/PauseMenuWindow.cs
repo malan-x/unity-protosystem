@@ -14,13 +14,13 @@ namespace ProtoSystem.UI
     public class PauseMenuWindow : UIWindowBase
     {
         [Header("Buttons")]
-        [SerializeField] private Button resumeButton;
-        [SerializeField] private Button settingsButton;
-        [SerializeField] private Button mainMenuButton;
-        [SerializeField] private Button quitButton;
+        [SerializeField] protected Button resumeButton;
+        [SerializeField] protected Button settingsButton;
+        [SerializeField] protected Button mainMenuButton;
+        [SerializeField] protected Button quitButton;
 
         [Header("Title")]
-        [SerializeField] private TMP_Text titleText;
+        [SerializeField] protected TMP_Text titleText;
 
         protected override void Awake()
         {

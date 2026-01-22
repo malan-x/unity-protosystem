@@ -14,14 +14,14 @@ namespace ProtoSystem.UI
     public class InputDialogWindow : UIWindowBase, IInputDialog
     {
         [Header("UI Elements")]
-        [SerializeField] private TMP_Text titleText;
-        [SerializeField] private TMP_Text messageText;
-        [SerializeField] private TMP_InputField inputField;
-        [SerializeField] private Button submitButton;
-        [SerializeField] private Button cancelButton;
-        [SerializeField] private TMP_Text submitButtonText;
-        [SerializeField] private TMP_Text cancelButtonText;
-        [SerializeField] private TMP_Text errorText;
+        [SerializeField] protected TMP_Text titleText;
+        [SerializeField] protected TMP_Text messageText;
+        [SerializeField] protected TMP_InputField inputField;
+        [SerializeField] protected Button submitButton;
+        [SerializeField] protected Button cancelButton;
+        [SerializeField] protected TMP_Text submitButtonText;
+        [SerializeField] protected TMP_Text cancelButtonText;
+        [SerializeField] protected TMP_Text errorText;
 
         private Action<string> _onSubmit;
         private Action _onCancel;
