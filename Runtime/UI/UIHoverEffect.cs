@@ -73,7 +73,6 @@ namespace ProtoSystem.UI
             if (_button != null)
             {
                 _button.transition = Selectable.Transition.None;
-                Debug.Log($"[UIHoverEffect] Disabled Button.ColorTint on {gameObject.name}, using custom hover effect");
             }
         }
         
@@ -87,13 +86,11 @@ namespace ProtoSystem.UI
                 _usesTwoColor = true;
                 _originalFillColor = _twoColorImage.FillColor;
                 _originalBorderColor = _twoColorImage.BorderColor;
-                Debug.Log($"[UIHoverEffect] Initialized (TwoColor) on {gameObject.name}, fill={_originalFillColor}, border={_originalBorderColor}");
             }
             else
             {
                 _usesTwoColor = false;
                 _originalColor = _graphic.color;
-                Debug.Log($"[UIHoverEffect] Initialized on {gameObject.name}, originalColor={_originalColor}");
             }
             
             _initialized = true;
@@ -124,8 +121,6 @@ namespace ProtoSystem.UI
             {
                 LeanTweenScale(hoverScale);
             }
-            
-            Debug.Log($"[UIHoverEffect] Hover ENTER on {gameObject.name}, targetBrightness={_targetBrightness}");
         }
 
         public void OnPointerExit(PointerEventData eventData)
@@ -138,8 +133,6 @@ namespace ProtoSystem.UI
             {
                 LeanTweenScale(1f);
             }
-            
-            Debug.Log($"[UIHoverEffect] Hover EXIT on {gameObject.name}");
         }
 
         public void OnPointerDown(PointerEventData eventData)
@@ -254,12 +247,10 @@ namespace ProtoSystem.UI
             {
                 _originalFillColor = _twoColorImage.FillColor;
                 _originalBorderColor = _twoColorImage.BorderColor;
-                Debug.Log($"[UIHoverEffect] RefreshOriginalColor (TwoColor) on {gameObject.name}, fill={_originalFillColor}");
             }
             else if (_graphic != null)
             {
                 _originalColor = _graphic.color;
-                Debug.Log($"[UIHoverEffect] RefreshOriginalColor on {gameObject.name}, newColor={_originalColor}");
             }
             _initialized = true;
         }

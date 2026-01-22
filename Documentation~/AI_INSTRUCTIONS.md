@@ -68,12 +68,35 @@ public class MyComponent : MonoEventBus
 }
 ```
 
+### IEventBus — для классов, которые не могут наследоваться от MonoEventBus
+
+```csharp
+// Например, UIWindowBase уже наследуется от MonoBehaviour
+public class MyWindow : UIWindowBase, IEventBus
+{
+    public List<(int id, Action<object> action)> events { get; set; } = new();
+
+    void Awake() => InitEvents();
+    
+    public void InitEvents()
+    {
+        AddEvent(Evt.Game.Started, OnGameStarted);
+    }
+
+    protected override void OnShow() => SubscribeEvents();
+    protected override void OnHide() => UnsubscribeEvents();
+    
+    private void OnGameStarted(object payload) { }
+}
+```
+
 ### Правила
 
 ✅ **DO:**
 - Использовать `Evt.Category.EventName` для всех событий
 - Добавлять новые события в enum `EventType`
 - Группировать события по категориям
+- Использовать `IEventBus` когда нельзя наследоваться от `MonoEventBus`
 
 ❌ **DON'T:**
 - Магические числа: `EventBus.Publish(1001, data)`

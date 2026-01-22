@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2025-01-22
+
+### Added
+- **IEventBus** — интерфейс для классов, которые не могут наследоваться от MonoEventBus
+  - Позволяет использовать автоматическую подписку/отписку на события
+  - Default implementation для SubscribeEvents(), UnsubscribeEvents(), AddEvent()
+  - Пример использования: UIWindowBase, который уже наследуется от MonoBehaviour
+
 ## [1.8.0] - 2025-01-21
 
 ### Added
