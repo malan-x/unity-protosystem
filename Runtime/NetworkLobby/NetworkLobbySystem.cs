@@ -16,6 +16,7 @@ namespace ProtoSystem.NetworkLobby
     {
         public override string SystemId => "NetworkLobbySystem";
         public override string DisplayName => "Network Lobby System";
+        public override string Description => "Управляет сетевым лобби: создание, подключение игроков, готовность и старт игры.";
 
         [Header("Configuration")]
         [SerializeField] private NetworkLobbyConfig config;

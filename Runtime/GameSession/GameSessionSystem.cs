@@ -25,6 +25,7 @@ namespace ProtoSystem
         
         public override string SystemId => "game_session";
         public override string DisplayName => "Game Session System";
+        public override string Description => "Управляет жизненным циклом игровой сессии: старт, пауза, рестарт, завершение и статистика.";
         
         #endregion
         

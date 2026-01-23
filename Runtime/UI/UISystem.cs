@@ -17,6 +17,7 @@ namespace ProtoSystem.UI
     {
         public override string SystemId => "UISystem";
         public override string DisplayName => "UI System";
+        public override string Description => "Управляет UI окнами, навигацией между ними, диалогами, тостами и тултипами.";
 
         [Header("Configuration")]
         [SerializeField] private UISystemConfig config;

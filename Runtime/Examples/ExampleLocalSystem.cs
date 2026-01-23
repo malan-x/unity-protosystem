@@ -45,6 +45,7 @@ namespace ProtoSystem.Examples
 
         public string SystemId => "example_local_system";
         public string DisplayName => "Пример локальной системы";
+        public string Description => "Демонстрирует создание локальной системы через MonoEventBus + IInitializableSystem.";
 
         public bool IsInitializedDependencies => initHelper?.IsInitializedDependencies ?? false;
         public bool IsInitializedPostDependencies => initHelper?.IsInitializedPostDependencies ?? false;

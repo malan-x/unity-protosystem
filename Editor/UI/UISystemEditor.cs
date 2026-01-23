@@ -17,6 +17,13 @@ namespace ProtoSystem.UI
         {
             serializedObject.Update();
             
+            var system = target as UISystem;
+            
+            // === Заголовок с описанием ===
+            DrawSystemHeader(system);
+            
+            EditorGUILayout.Space(5);
+            
             // === Configuration ===
             EditorGUILayout.LabelField("Configuration", EditorStyles.boldLabel);
             
@@ -187,6 +194,43 @@ namespace ProtoSystem.UI
                 }
             }
             EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawSystemHeader(UISystem system)
+        {
+            if (system == null || string.IsNullOrEmpty(system.Description))
+                return;
+            
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            
+            EditorGUILayout.LabelField($"🖼️ {system.DisplayName}", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(system.Description, EditorStyles.wordWrappedMiniLabel);
+            
+            EditorGUILayout.Space(3);
+            
+            // Статус
+            var configProp = serializedObject.FindProperty("config");
+            
+            if (configProp != null && configProp.objectReferenceValue == null)
+            {
+                GUI.color = new Color(1f, 0.6f, 0.4f);
+                EditorGUILayout.LabelField("⚠ Требуется конфиг", EditorStyles.boldLabel);
+                GUI.color = Color.white;
+            }
+            else if (Application.isPlaying && system.IsInitializedDependencies)
+            {
+                GUI.color = new Color(0.5f, 0.9f, 0.5f);
+                EditorGUILayout.LabelField("✓ Система активна", EditorStyles.boldLabel);
+                GUI.color = Color.white;
+            }
+            else
+            {
+                GUI.color = new Color(0.5f, 0.9f, 0.5f);
+                EditorGUILayout.LabelField("✓ Готов к работе", EditorStyles.boldLabel);
+                GUI.color = Color.white;
+            }
+            
+            EditorGUILayout.EndVertical();
         }
 
         private void ShowCreateInitializerMenu()

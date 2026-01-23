@@ -21,6 +21,11 @@ namespace ProtoSystem
         string DisplayName { get; }
 
         /// <summary>
+        /// Краткое описание назначения системы
+        /// </summary>
+        string Description { get; }
+
+        /// <summary>
         /// Текущий статус инициализации
         /// </summary>
         InitializationStatus Status { get; }

@@ -51,7 +51,7 @@ namespace ProtoSystem.Editor.Sound
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             
             EditorGUILayout.LabelField("🔊 Sound Manager System", EditorStyles.boldLabel);
-            EditorGUILayout.LabelField("Центральная система управления звуком. Воспроизводит звуки, музыку, управляет громкостью и snapshots.", EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.LabelField(system.Description, EditorStyles.wordWrappedMiniLabel);
             
             EditorGUILayout.Space(5);
             

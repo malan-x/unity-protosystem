@@ -46,6 +46,7 @@ namespace ProtoSystem.Examples
 
         public string SystemId => "example_network_system";
         public string DisplayName => "Пример сетевой системы";
+        public string Description => "Демонстрирует создание сетевой системы через NetworkEventBus + IInitializableSystem.";
 
         public bool IsInitializedDependencies => initHelper?.IsInitializedDependencies ?? false;
         public bool IsInitializedPostDependencies => initHelper?.IsInitializedPostDependencies ?? false;

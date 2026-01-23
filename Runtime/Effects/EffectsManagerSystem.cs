@@ -23,6 +23,7 @@ namespace ProtoSystem.Effects
     {
         public override string SystemId => "effects_manager";
         public override string DisplayName => "Effects Manager";
+        public override string Description => "Воспроизводит VFX, аудио и UI-эффекты с пулингом объектов и автоматическими триггерами.";
 
         [Header("Пул эффектов")]
         [Tooltip("Максимальный размер пула эффектов")]

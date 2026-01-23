@@ -13,6 +13,7 @@ namespace ProtoSystem.Sound
     {
         public override string SystemId => "sound_manager";
         public override string DisplayName => "Sound Manager";
+        public override string Description => "Центральная система управления звуком. Воспроизводит звуки, музыку, управляет громкостью и snapshots.";
         
         [Header("Configuration")]
         [SerializeField] private SoundManagerConfig config;

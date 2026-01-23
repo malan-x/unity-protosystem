@@ -16,6 +16,7 @@ namespace ProtoSystem.SceneFlow
     {
         public override string SystemId => "SceneFlowSystem";
         public override string DisplayName => "Scene Flow System";
+        public override string Description => "Управляет загрузкой сцен с переходами, экраном загрузки и прогрессом.";
 
         [Header("Configuration")]
         [SerializeField] private SceneFlowConfig config;

@@ -16,6 +16,7 @@ namespace ProtoSystem.Cursor
     {
         public override string SystemId => "CursorManager";
         public override string DisplayName => "Cursor Manager";
+        public override string Description => "Управляет курсором: видимость, блокировка, кастомные текстуры и стек состояний.";
 
         [Header("Configuration")]
         [SerializeField] private CursorConfig config;

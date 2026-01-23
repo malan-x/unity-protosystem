@@ -49,6 +49,11 @@ namespace ProtoSystem
         public abstract string DisplayName { get; }
 
         /// <summary>
+        /// Краткое описание назначения системы (отображается в инспекторе)
+        /// </summary>
+        public virtual string Description => null;
+
+        /// <summary>
         /// Флаги инициализации
         /// </summary>
         public bool IsInitializedDependencies => initHelper?.IsInitializedDependencies ?? false;
