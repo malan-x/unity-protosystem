@@ -17,7 +17,9 @@ namespace ProtoSystem
         [Header("Настройки инициализации")]
         [SerializeField] private bool autoStartInitialization = true;
         [SerializeField] private float maxInitializationTimeoutSeconds = 30f;
-        [SerializeField] private bool verboseLogging = true;
+
+        [Header("Логирование")]
+        [SerializeField] private LogSettings logSettings = new LogSettings();
 
         [Header("Системы")]
         [SerializeField] private List<SystemEntry> systems = new List<SystemEntry>();
@@ -53,7 +55,7 @@ namespace ProtoSystem
         // Публичные свойства для доступа к настройкам
         public bool AutoStartInitialization => autoStartInitialization;
         public float MaxInitializationTimeoutSeconds => maxInitializationTimeoutSeconds;
-        public bool VerboseLogging => verboseLogging;
+        public LogSettings LogSettings => logSettings;
         public List<SystemEntry> Systems => systems;
         public string DependencyGraph => dependencyGraph;
 
@@ -63,6 +65,9 @@ namespace ProtoSystem
             {
                 Instance = this;
                 DontDestroyOnLoad(gameObject);
+
+                // Инициализируем логгер
+                ProtoLogger.Settings = logSettings;
 
                 systemProvider = new SystemProvider();
                 systemInstances = new Dictionary<string, IInitializableSystem>();
@@ -161,11 +166,8 @@ namespace ProtoSystem
                         {
                             entry.detectedDependencies.Add(dependentSystem.systemName);
 
-                            if (verboseLogging)
-                            {
-                                string depType = dependencyAttr != null ? "Critical" : "Post";
-                                LogMessage($"Обнаружена {depType} зависимость {entry.systemName} -> {dependentSystem.systemName} ({methodContext})");
-                            }
+                            string depType = dependencyAttr != null ? "Critical" : "Post";
+                            LogMessage($"Обнаружена {depType} зависимость {entry.systemName} -> {dependentSystem.systemName} ({methodContext})", LogCategory.Dependencies);
                         }
                     }
                 }
@@ -697,11 +699,7 @@ namespace ProtoSystem
                     {
                         resettable.ResetState();
                         resetCount++;
-
-                        if (verboseLogging)
-                        {
-                            LogMessage($"Reset: {system.SystemId}");
-                        }
+                        LogMessage($"Reset: {system.SystemId}", LogCategory.Runtime);
                     }
                     catch (System.Exception ex)
                     {
@@ -710,10 +708,7 @@ namespace ProtoSystem
                 }
             }
 
-            if (verboseLogging)
-            {
-                LogMessage($"Reset {resetCount} resettable systems");
-            }
+            LogMessage($"Reset {resetCount} resettable systems", LogCategory.Runtime);
         }
 
         /// <summary>
@@ -736,15 +731,16 @@ namespace ProtoSystem
 
         #region Утилиты
 
-        private void LogMessage(string message)
+        private const string LOG_ID = "SystemInit";
+
+        private void LogMessage(string message, LogCategory category = LogCategory.Initialization)
         {
-            if (verboseLogging)
-                Debug.Log($"[SystemInitializer] {message}");
+            ProtoLogger.Log(LOG_ID, category, LogLevel.Info, message);
         }
 
         private void LogError(string message)
         {
-            Debug.LogError($"[SystemInitializer] {message}");
+            ProtoLogger.LogError(LOG_ID, message);
         }
 
         private void OnDestroy()

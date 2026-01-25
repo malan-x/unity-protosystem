@@ -13,7 +13,6 @@ namespace ProtoSystem
     {
         private readonly IInitializableSystem system;
         private readonly MonoBehaviour component;
-        private bool verboseLogging;
 
         /// <summary>
         /// Статус инициализации
@@ -37,12 +36,11 @@ namespace ProtoSystem
         /// </summary>
         /// <param name="system">Система для инициализации</param>
         /// <param name="component">Unity компонент системы</param>
-        /// <param name="verboseLogging">Включить подробное логирование</param>
+        /// <param name="verboseLogging">Устаревший параметр, игнорируется (для обратной совместимости)</param>
         public InitializationHelper(IInitializableSystem system, MonoBehaviour component, bool verboseLogging = false)
         {
             this.system = system;
             this.component = component;
-            this.verboseLogging = verboseLogging;
         }
 
         /// <summary>
@@ -146,7 +144,7 @@ namespace ProtoSystem
                 ChangeStatus(InitializationStatus.InProgress);
                 ReportProgress(0f);
 
-                LogMessage($"Начало инициализации {system.DisplayName}");
+                LogInit($"Начало инициализации {system.DisplayName}");
 
                 // Сначала инициализируем критические зависимости
                 InitializeDependencies(provider);
@@ -159,7 +157,7 @@ namespace ProtoSystem
                 {
                     ChangeStatus(InitializationStatus.Completed);
                     ReportProgress(1f);
-                    LogMessage($"Инициализация {system.DisplayName} завершена успешно");
+                    LogInit($"Инициализация {system.DisplayName} завершена успешно");
                 }
                 else
                 {
@@ -184,11 +182,11 @@ namespace ProtoSystem
         {
             try
             {
-                LogMessage($"Начало инициализации post-зависимостей {system.DisplayName}");
+                LogInit($"Начало инициализации post-зависимостей {system.DisplayName}");
 
                 InitializePostDependencies(provider);
 
-                LogMessage($"Post-зависимости {system.DisplayName} инициализированы успешно");
+                LogInit($"Post-зависимости {system.DisplayName} инициализированы успешно");
                 return IsInitializedPostDependencies;
             }
             catch (Exception ex)
@@ -286,18 +284,22 @@ namespace ProtoSystem
         /// </summary>
         protected void LogMessage(string message)
         {
-            if (verboseLogging)
-                Debug.Log($"[{system.SystemId}] {message}");
+            ProtoLogger.LogDep(system.SystemId, message);
         }
 
         protected void LogError(string message)
         {
-            Debug.LogError($"[{system.SystemId}] {message}");
+            ProtoLogger.LogError(system.SystemId, message);
         }
 
         protected void LogWarning(string message)
         {
-            Debug.LogWarning($"[{system.SystemId}] {message}");
+            ProtoLogger.LogWarning(system.SystemId, message);
+        }
+
+        protected void LogInit(string message)
+        {
+            ProtoLogger.LogInit(system.SystemId, message);
         }
     }
 }

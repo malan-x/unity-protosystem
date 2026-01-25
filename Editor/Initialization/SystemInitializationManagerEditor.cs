@@ -25,6 +25,10 @@ namespace ProtoSystem
 
         // ProtoSystem Components секция
         private bool showProtoSystemComponents = true;
+        
+        // Режим отображения списка систем
+        private enum SystemsViewMode { Normal, LogSettings }
+        private SystemsViewMode viewMode = SystemsViewMode.Normal;
 
         private void OnEnable()
         {
@@ -182,65 +186,206 @@ namespace ProtoSystem
 
             EditorGUILayout.PropertyField(serializedObject.FindProperty("maxInitializationTimeoutSeconds"),
                 new GUIContent("⏱️ Таймаут (сек)", "Максимальное время инициализации одной системы"));
-
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("verboseLogging"),
-                new GUIContent("📝 Подробные логи", "Выводить детальную информацию в консоль"));
         }
 
         private void DrawSystemsSection(SystemInitializationManager manager)
         {
+            // Заголовок с переключателем режимов
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField($"🔧 Системы ({manager.Systems.Count})", EditorStyles.boldLabel);
 
-            // Счетчики статусов
-            int enabledCount = 0, disabledCount = 0, errorCount = 0;
-            foreach (var system in manager.Systems)
-            {
-                if (system.enabled) enabledCount++;
-                else disabledCount++;
-                if (system.hasCyclicDependency) errorCount++;
-            }
-
             GUILayout.FlexibleSpace();
-
-            if (enabledCount > 0)
+            
+            // Переключатель режимов
+            var normalStyle = viewMode == SystemsViewMode.Normal ? EditorStyles.toolbarButton : EditorStyles.toolbarButton;
+            var logStyle = viewMode == SystemsViewMode.LogSettings ? EditorStyles.toolbarButton : EditorStyles.toolbarButton;
+            
+            if (GUILayout.Toggle(viewMode == SystemsViewMode.Normal, "📋 Обычный", "ToolbarButton", GUILayout.Width(80)))
             {
-                EditorGUILayout.LabelField($"✅ {enabledCount}", GUILayout.Width(40));
+                viewMode = SystemsViewMode.Normal;
             }
-            if (disabledCount > 0)
+            if (GUILayout.Toggle(viewMode == SystemsViewMode.LogSettings, "📝 Логи", "ToolbarButton", GUILayout.Width(60)))
             {
-                EditorGUILayout.LabelField($"⭕ {disabledCount}", GUILayout.Width(40));
-            }
-            if (errorCount > 0)
-            {
-                var oldColor = GUI.color;
-                GUI.color = Color.red;
-                EditorGUILayout.LabelField($"❌ {errorCount}", GUILayout.Width(40));
-                GUI.color = oldColor;
+                viewMode = SystemsViewMode.LogSettings;
             }
 
             EditorGUILayout.EndHorizontal();
 
-            // Строка метрик
-            EditorGUILayout.BeginHorizontal();
-            
-            bool showMetrics = SystemMetricsSettings.ShowMetrics;
-            bool newShowMetrics = EditorGUILayout.Toggle("📊 Метрики", showMetrics, GUILayout.Width(100));
-            if (newShowMetrics != showMetrics)
+            // В режиме логов — показываем tri-state кнопки для массового управления
+            if (viewMode == SystemsViewMode.LogSettings)
             {
-                SystemMetricsSettings.ShowMetrics = newShowMetrics;
+                DrawLogSettingsToolbar(manager);
             }
-            
-            GUILayout.FlexibleSpace();
-            
-            if (GUILayout.Button("⚙️ Настройки метрик", GUILayout.Width(130)))
+            else
             {
-                SystemMetricsSettingsWindow.ShowWindow();
+                // Строка метрик (только в обычном режиме)
+                EditorGUILayout.BeginHorizontal();
+                
+                bool showMetrics = SystemMetricsSettings.ShowMetrics;
+                bool newShowMetrics = EditorGUILayout.Toggle("📊 Метрики", showMetrics, GUILayout.Width(100));
+                if (newShowMetrics != showMetrics)
+                {
+                    SystemMetricsSettings.ShowMetrics = newShowMetrics;
+                }
+                
+                GUILayout.FlexibleSpace();
+                
+                if (GUILayout.Button("⚙️ Настройки метрик", GUILayout.Width(130)))
+                {
+                    SystemMetricsSettingsWindow.ShowWindow();
+                }
+                
+                EditorGUILayout.EndHorizontal();
             }
-            
-            EditorGUILayout.EndHorizontal();
 
             systemsList.DoLayoutList();
+        }
+        
+        /// <summary>
+        /// Toolbar с tri-state кнопками для массового управления логами
+        /// </summary>
+        private void DrawLogSettingsToolbar(SystemInitializationManager manager)
+        {
+            EditorGUILayout.BeginHorizontal();
+            
+            // Tri-state для включения логов
+            DrawTriStateButton(manager, "Логи", "Логирование", 
+                e => e.logEnabled, 
+                (e, v) => e.logEnabled = v, 55);
+            
+            GUILayout.Space(8);
+            EditorGUILayout.LabelField("Уровень:", GUILayout.Width(50));
+            
+            // Tri-state для уровней
+            DrawTriStateLevelButton(manager, "Err", LogLevel.Errors, new Color(0.96f, 0.31f, 0.31f), 42);
+            DrawTriStateLevelButton(manager, "Warn", LogLevel.Warnings, new Color(1f, 0.76f, 0.03f), 50);
+            DrawTriStateLevelButton(manager, "Info", LogLevel.Info, new Color(0.5f, 0.8f, 0.5f), 42);
+            
+            GUILayout.Space(8);
+            EditorGUILayout.LabelField("Категории:", GUILayout.Width(65));
+            
+            // Tri-state для категорий
+            DrawTriStateCategoryButton(manager, "Init", LogCategory.Initialization, new Color(0.30f, 0.69f, 0.31f), 42);
+            DrawTriStateCategoryButton(manager, "Dep", LogCategory.Dependencies, new Color(1f, 0.60f, 0f), 42);
+            DrawTriStateCategoryButton(manager, "Event", LogCategory.Events, new Color(0.13f, 0.59f, 0.95f), 50);
+            DrawTriStateCategoryButton(manager, "Run", LogCategory.Runtime, new Color(0.61f, 0.15f, 0.69f), 42);
+            
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+        }
+        
+        /// <summary>
+        /// Tri-state кнопка для bool поля
+        /// </summary>
+        private void DrawTriStateButton(SystemInitializationManager manager, string label, string tooltip,
+            System.Func<SystemEntry, bool> getter, System.Action<SystemEntry, bool> setter, float width)
+        {
+            int enabledCount = manager.Systems.Count(s => getter(s));
+            int totalCount = manager.Systems.Count;
+            
+            // Определяем состояние: все вкл, все выкл, частично
+            string stateIcon;
+            Color bgColor;
+            if (enabledCount == totalCount)
+            {
+                stateIcon = "✓";
+                bgColor = new Color(0.3f, 0.7f, 0.3f);
+            }
+            else if (enabledCount == 0)
+            {
+                stateIcon = "✗";
+                bgColor = Color.gray;
+            }
+            else
+            {
+                stateIcon = "◐";
+                bgColor = new Color(0.7f, 0.7f, 0.3f);
+            }
+            
+            var oldBg = GUI.backgroundColor;
+            GUI.backgroundColor = bgColor;
+            
+            if (GUILayout.Button(new GUIContent($"{stateIcon} {label}", $"{tooltip}: {enabledCount}/{totalCount}"), 
+                GUILayout.Width(width)))
+            {
+                // При клике переключаем все
+                bool newValue = enabledCount < totalCount;
+                foreach (var entry in manager.Systems)
+                {
+                    setter(entry, newValue);
+                }
+                EditorUtility.SetDirty(manager);
+            }
+            
+            GUI.backgroundColor = oldBg;
+        }
+        
+        /// <summary>
+        /// Tri-state кнопка для уровня логов (флаговая)
+        /// </summary>
+        private void DrawTriStateLevelButton(SystemInitializationManager manager, string label, LogLevel level, Color color, float width)
+        {
+            int enabledCount = manager.Systems.Count(s => (s.logLevel & level) != 0);
+            int totalCount = manager.Systems.Count;
+            
+            string stateIcon = enabledCount == totalCount ? "✓" : (enabledCount > 0 ? "◐" : "○");
+            
+            var oldBg = GUI.backgroundColor;
+            if (enabledCount == totalCount)
+                GUI.backgroundColor = color;
+            else if (enabledCount > 0)
+                GUI.backgroundColor = color * 0.5f;
+            
+            if (GUILayout.Button(new GUIContent($"{stateIcon} {label}", $"{enabledCount}/{totalCount} систем"), 
+                GUILayout.Width(width)))
+            {
+                // Переключаем: если не все включены — включаем всем, иначе выключаем всем
+                bool enable = enabledCount < totalCount;
+                foreach (var entry in manager.Systems)
+                {
+                    if (enable)
+                        entry.logLevel |= level;
+                    else
+                        entry.logLevel &= ~level;
+                }
+                EditorUtility.SetDirty(manager);
+            }
+            
+            GUI.backgroundColor = oldBg;
+        }
+        
+        /// <summary>
+        /// Tri-state кнопка для категории логов
+        /// </summary>
+        private void DrawTriStateCategoryButton(SystemInitializationManager manager, string label, LogCategory category, Color color, float width)
+        {
+            int enabledCount = manager.Systems.Count(s => (s.logCategories & category) != 0);
+            int totalCount = manager.Systems.Count;
+            
+            string stateIcon = enabledCount == totalCount ? "✓" : (enabledCount > 0 ? "◐" : "○");
+            
+            var oldBg = GUI.backgroundColor;
+            if (enabledCount == totalCount)
+                GUI.backgroundColor = color;
+            else if (enabledCount > 0)
+                GUI.backgroundColor = color * 0.5f;
+            
+            if (GUILayout.Button(new GUIContent($"{stateIcon} {label}", $"{enabledCount}/{totalCount} систем"), 
+                GUILayout.Width(width)))
+            {
+                // Переключаем: если не все включены — включаем всем, иначе выключаем всем
+                bool enable = enabledCount < totalCount;
+                foreach (var entry in manager.Systems)
+                {
+                    if (enable)
+                        entry.logCategories |= category;
+                    else
+                        entry.logCategories &= ~category;
+                }
+                EditorUtility.SetDirty(manager);
+            }
+            
+            GUI.backgroundColor = oldBg;
         }
 
         private void DrawControlButtonsSection(SystemInitializationManager manager)
@@ -840,6 +985,12 @@ namespace ProtoSystem
 
         private float GetElementHeight(int index)
         {
+            // В режиме логов — компактная высота
+            if (viewMode == SystemsViewMode.LogSettings)
+            {
+                return 44f; // Две строки: название + настройки
+            }
+            
             var element = systemsProperty.GetArrayElementAtIndex(index);
 
             // Базовая высота
@@ -871,7 +1022,207 @@ namespace ProtoSystem
         private void DrawElement(Rect rect, int index, bool isActive, bool isFocused)
         {
             var element = systemsProperty.GetArrayElementAtIndex(index);
-
+            
+            // В режиме логов — упрощённый вид
+            if (viewMode == SystemsViewMode.LogSettings)
+            {
+                DrawElementLogMode(rect, element, index);
+                return;
+            }
+            
+            // Обычный режим
+            DrawElementNormalMode(rect, element, index);
+        }
+        
+        /// <summary>
+        /// Отрисовка элемента в режиме настройки логов
+        /// </summary>
+        private void DrawElementLogMode(Rect rect, SerializedProperty element, int index)
+        {
+            rect.y += 2;
+            rect.height -= 4;
+            
+            string systemName = element.FindPropertyRelative("systemName").stringValue;
+            var logEnabled = element.FindPropertyRelative("logEnabled");
+            var logLevel = element.FindPropertyRelative("logLevel");
+            var logCategories = element.FindPropertyRelative("logCategories");
+            var logColor = element.FindPropertyRelative("logColor");
+            
+            // Устанавливаем дефолтный цвет если белый (первый раз)
+            if (logColor.colorValue == Color.white)
+            {
+                logColor.colorValue = GetDefaultSystemColor(index);
+            }
+            
+            // Определяем, это ProtoSystem или кастомная система
+            bool isProtoSystem = IsProtoSystemType(element);
+            
+            // Фон в зависимости от состояния логирования и типа системы
+            Color bgColor;
+            if (logEnabled.boolValue)
+            {
+                bgColor = isProtoSystem 
+                    ? new Color(0.25f, 0.4f, 0.55f, 0.2f)   // Синеватый для ProtoSystem
+                    : new Color(0.3f, 0.5f, 0.3f, 0.15f);   // Зеленоватый для кастомных
+            }
+            else
+            {
+                bgColor = new Color(0.3f, 0.3f, 0.3f, 0.1f);
+            }
+            EditorGUI.DrawRect(new Rect(rect.x - 2, rect.y - 1, rect.width + 4, rect.height + 2), bgColor);
+            
+            float currentY = rect.y;
+            
+            // Первая строка: чекбокс + название + цвет
+            Rect row1 = new Rect(rect.x, currentY, rect.width, 18);
+            
+            // Чекбокс логирования
+            Rect enableRect = new Rect(row1.x, row1.y, 18, 18);
+            logEnabled.boolValue = EditorGUI.Toggle(enableRect, logEnabled.boolValue);
+            
+            // Иконка типа системы
+            string typeIcon = isProtoSystem ? "📦" : "🎮";
+            Rect typeIconRect = new Rect(row1.x + 20, row1.y, 18, 18);
+            EditorGUI.LabelField(typeIconRect, typeIcon);
+            
+            // Название системы
+            Rect nameRect = new Rect(row1.x + 40, row1.y, row1.width - 100, 18);
+            EditorGUI.LabelField(nameRect, systemName, logEnabled.boolValue ? EditorStyles.boldLabel : EditorStyles.label);
+            
+            // Цвет логов
+            Rect colorRect = new Rect(row1.x + row1.width - 55, row1.y, 50, 16);
+            logColor.colorValue = EditorGUI.ColorField(colorRect, GUIContent.none, logColor.colorValue, false, false, false);
+            
+            currentY += 20;
+            
+            // Вторая строка: уровень + категории (только если логирование включено)
+            if (logEnabled.boolValue)
+            {
+                Rect row2 = new Rect(rect.x + 22, currentY, rect.width - 22, 18);
+                
+                // Уровень логирования (флаги)
+                float levelX = row2.x;
+                var levels = new (LogLevel level, string label, Color color, float width)[]
+                {
+                    (LogLevel.Errors, "Err", new Color(0.96f, 0.31f, 0.31f), 36),
+                    (LogLevel.Warnings, "Warn", new Color(1f, 0.76f, 0.03f), 44),
+                    (LogLevel.Info, "Info", new Color(0.5f, 0.8f, 0.5f), 36),
+                };
+                
+                var currentLevels = (LogLevel)logLevel.intValue;
+                foreach (var lvl in levels)
+                {
+                    Rect btnRect = new Rect(levelX, row2.y, lvl.width, 16);
+                    bool isEnabled = (currentLevels & lvl.level) != 0;
+                    
+                    var oldBg = GUI.backgroundColor;
+                    if (isEnabled) GUI.backgroundColor = lvl.color;
+                    
+                    if (GUI.Button(btnRect, lvl.label, EditorStyles.miniButton))
+                    {
+                        // Переключаем флаг
+                        if (isEnabled)
+                            logLevel.intValue = (int)(currentLevels & ~lvl.level);
+                        else
+                            logLevel.intValue = (int)(currentLevels | lvl.level);
+                    }
+                    
+                    GUI.backgroundColor = oldBg;
+                    levelX += lvl.width + 2;
+                }
+                
+                // Разделитель
+                levelX += 12;
+                
+                // Категории
+                var categories = new (LogCategory cat, string label, Color color, float width)[]
+                {
+                    (LogCategory.Initialization, "Init", new Color(0.30f, 0.69f, 0.31f), 34),
+                    (LogCategory.Dependencies, "Dep", new Color(1f, 0.60f, 0f), 34),
+                    (LogCategory.Events, "Event", new Color(0.13f, 0.59f, 0.95f), 42),
+                    (LogCategory.Runtime, "Run", new Color(0.61f, 0.15f, 0.69f), 34)
+                };
+                
+                var currentCategories = (LogCategory)logCategories.intValue;
+                foreach (var cat in categories)
+                {
+                    Rect catRect = new Rect(levelX, row2.y, cat.width, 16);
+                    bool isEnabled = (currentCategories & cat.cat) != 0;
+                    
+                    var oldBg = GUI.backgroundColor;
+                    if (isEnabled) GUI.backgroundColor = cat.color;
+                    
+                    if (GUI.Button(catRect, cat.label, EditorStyles.miniButton))
+                    {
+                        if (isEnabled)
+                            logCategories.intValue = (int)(currentCategories & ~cat.cat);
+                        else
+                            logCategories.intValue = (int)(currentCategories | cat.cat);
+                    }
+                    
+                    GUI.backgroundColor = oldBg;
+                    levelX += cat.width + 2;
+                }
+            }
+            else
+            {
+                // Показываем подсказку что логирование выключено
+                Rect hintRect = new Rect(rect.x + 22, currentY, rect.width - 22, 18);
+                EditorGUI.LabelField(hintRect, "Логирование выключено", EditorStyles.centeredGreyMiniLabel);
+            }
+        }
+        
+        /// <summary>
+        /// Проверяет, является ли система из пакета ProtoSystem
+        /// </summary>
+        private bool IsProtoSystemType(SerializedProperty element)
+        {
+            var existingObj = element.FindPropertyRelative("existingSystemObject").objectReferenceValue;
+            if (existingObj != null)
+            {
+                string ns = existingObj.GetType().Namespace;
+                return ns != null && ns.StartsWith("ProtoSystem");
+            }
+            
+            string typeName = element.FindPropertyRelative("systemTypeName").stringValue;
+            if (!string.IsNullOrEmpty(typeName))
+            {
+                return typeName.Contains("ProtoSystem");
+            }
+            
+            return false;
+        }
+        
+        /// <summary>
+        /// Возвращает дефолтный цвет для системы по индексу
+        /// </summary>
+        private Color GetDefaultSystemColor(int index)
+        {
+            // Набор различимых цветов
+            Color[] defaultColors = new Color[]
+            {
+                new Color(0.35f, 0.70f, 0.90f), // Голубой
+                new Color(0.90f, 0.60f, 0.30f), // Оранжевый
+                new Color(0.60f, 0.80f, 0.40f), // Салатовый
+                new Color(0.85f, 0.45f, 0.55f), // Розовый
+                new Color(0.70f, 0.55f, 0.85f), // Фиолетовый
+                new Color(0.95f, 0.75f, 0.30f), // Жёлтый
+                new Color(0.45f, 0.80f, 0.75f), // Бирюзовый
+                new Color(0.85f, 0.55f, 0.40f), // Коралловый
+                new Color(0.55f, 0.70f, 0.55f), // Зелёный приглушённый
+                new Color(0.75f, 0.65f, 0.55f), // Бежевый
+                new Color(0.60f, 0.60f, 0.85f), // Сиреневый
+                new Color(0.80f, 0.70f, 0.50f), // Песочный
+            };
+            
+            return defaultColors[index % defaultColors.Length];
+        }
+        
+        /// <summary>
+        /// Отрисовка элемента в обычном режиме
+        /// </summary>
+        private void DrawElementNormalMode(Rect rect, SerializedProperty element, int index)
+        {
             rect.y += 2;
             rect.height -= 4;
 

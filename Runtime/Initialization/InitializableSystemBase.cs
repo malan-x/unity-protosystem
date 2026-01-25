@@ -15,7 +15,9 @@ namespace ProtoSystem
     public abstract class InitializableSystemBase : MonoEventBus, IInitializableSystem
     {
         [Header("Система")]
-        [SerializeField] protected bool verboseLogging = false;
+        [Tooltip("Индивидуальный уровень логирования (если не Use Global)")]
+        [SerializeField] protected bool useGlobalLogLevel = true;
+        [SerializeField] protected LogLevel logLevel = LogLevel.Info;
 
         /// <summary>
         /// Вспомогательный класс для инициализации
@@ -66,7 +68,14 @@ namespace ProtoSystem
         protected override void Awake()
         {
             base.Awake();
-            initHelper = new InitializationHelper(this, this, verboseLogging);
+            
+            // Регистрируем override для системы если не используем глобальный уровень
+            if (!useGlobalLogLevel && ProtoLogger.Settings != null)
+            {
+                ProtoLogger.Settings.SetOverride(SystemId, logLevel, false);
+            }
+            
+            initHelper = new InitializationHelper(this, this);
             initHelper.OnProgressChanged += (id, progress) => OnProgressChanged?.Invoke(id, progress);
             initHelper.OnStatusChanged += (id, status) => OnStatusChanged?.Invoke(id, status);
         }
@@ -140,49 +149,64 @@ namespace ProtoSystem
             }
             else
             {
-                LogMessage($"Зависимость от {system.name}:{system.GetType().Name} успешно установлена");
+                LogDep($"Зависимость от {system.name}:{system.GetType().Name} успешно установлена");
                 return true;
             }
         }
 
         protected void LogMessage(string message)
         {
-            if (verboseLogging)
-                Debug.Log($"[{SystemId}] {message}");
+            ProtoLogger.LogRuntime(SystemId, message);
         }
 
         protected void LogError(string message)
         {
-            Debug.LogError($"[{SystemId}] {message}");
+            ProtoLogger.LogError(SystemId, message);
         }
 
         protected void LogWarning(string message)
         {
-            Debug.LogWarning($"[{SystemId}] {message}");
+            ProtoLogger.LogWarning(SystemId, message);
+        }
+
+        protected void LogInit(string message)
+        {
+            ProtoLogger.LogInit(SystemId, message);
+        }
+
+        protected void LogDep(string message)
+        {
+            ProtoLogger.LogDep(SystemId, message);
+        }
+
+        protected void LogEvent(string message)
+        {
+            ProtoLogger.LogEvent(SystemId, message);
+        }
+
+        protected void LogRuntime(string message)
+        {
+            ProtoLogger.LogRuntime(SystemId, message);
         }
 
         protected void LogMessageInitSystemStart(string message)
         {
-            if (verboseLogging)
-                Debug.Log($"[{SystemId}] Начало инициализации системы {message}");
+            ProtoLogger.LogInit(SystemId, $"Начало инициализации системы {message}");
         }
 
         protected void LogMessageInitSystemEnd(string message)
         {
-            if (verboseLogging)
-                Debug.Log($"[{SystemId}] Система {message} завершена успешно");
+            ProtoLogger.LogInit(SystemId, $"Система {message} завершена успешно");
         }
 
         protected void LogMessageInitInterfaceStart(string message)
         {
-            if (verboseLogging)
-                Debug.Log($"[{SystemId}] Начало инициализации интерфейса {message}");
+            ProtoLogger.LogInit(SystemId, $"Начало инициализации интерфейса {message}");
         }
 
         protected void LogMessageInitInterfaceEnd(string message)
         {
-            if (verboseLogging)
-                Debug.Log($"[{SystemId}] Интерфейс {message} завершён успешно");
+            ProtoLogger.LogInit(SystemId, $"Интерфейс {message} завершён успешно");
         }
     }
 

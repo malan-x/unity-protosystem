@@ -25,6 +25,19 @@ namespace ProtoSystem
 
         [Header("Отладка")]
         public bool verboseLogging = true;
+        
+        [Header("Логирование")]
+        [Tooltip("Включить логирование для этой системы")]
+        public bool logEnabled = true;
+        
+        [Tooltip("Уровни логов (флаги)")]
+        public LogLevel logLevel = LogLevel.Errors | LogLevel.Warnings | LogLevel.Info;
+        
+        [Tooltip("Категории логов для этой системы")]
+        public LogCategory logCategories = LogCategory.All;
+        
+        [Tooltip("Цвет логов этой системы в консоли")]
+        public Color logColor = Color.white;
 
         // Скрытые поля для редактора
         [HideInInspector] public List<string> detectedDependencies = new List<string>();
@@ -234,7 +247,11 @@ namespace ProtoSystem
                 useExistingObject = useExistingObject,
                 existingSystemObject = existingSystemObject,
                 systemTypeName = systemTypeName,
-                verboseLogging = verboseLogging
+                verboseLogging = verboseLogging,
+                logEnabled = logEnabled,
+                logLevel = logLevel,
+                logCategories = logCategories,
+                logColor = logColor
             };
 
             // Копируем зависимости
