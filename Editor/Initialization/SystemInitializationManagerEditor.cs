@@ -33,23 +33,35 @@ namespace ProtoSystem
         private void OnEnable()
         {
             systemsProperty = serializedObject.FindProperty("systems");
-            SetupStyles();
             CreateSystemsList();
         }
 
         private void SetupStyles()
         {
-            headerStyle = new GUIStyle(EditorStyles.boldLabel)
+            // Проверяем, инициализированы ли стили
+            if (headerStyle != null) return;
+            
+            try
             {
-                fontSize = 14,
-                normal = { textColor = new Color(0.8f, 0.8f, 0.8f) }
-            };
+                // EditorStyles может быть null при первом вызове
+                if (EditorStyles.boldLabel == null) return;
+                
+                headerStyle = new GUIStyle(EditorStyles.boldLabel)
+                {
+                    fontSize = 14,
+                    normal = { textColor = new Color(0.8f, 0.8f, 0.8f) }
+                };
 
-            boxStyle = new GUIStyle("Box")
+                boxStyle = new GUIStyle("Box")
+                {
+                    padding = new RectOffset(10, 10, 10, 10),
+                    margin = new RectOffset(0, 0, 5, 5)
+                };
+            }
+            catch
             {
-                padding = new RectOffset(10, 10, 10, 10),
-                margin = new RectOffset(0, 0, 5, 5)
-            };
+                // Стили ещё не готовы, попробуем в следующем кадре
+            }
         }
 
         private void CreateSystemsList()
@@ -66,6 +78,9 @@ namespace ProtoSystem
 
         public override void OnInspectorGUI()
         {
+            // Инициализируем стили при первом вызове OnInspectorGUI
+            SetupStyles();
+            
             serializedObject.Update();
             SystemInitializationManager manager = target as SystemInitializationManager;
 

@@ -12,6 +12,7 @@ namespace ProtoSystem
     /// Главный менеджер инициализации систем
     /// </summary>
     [AddComponentMenu("ProtoSystem/System Initialization Manager")]
+    [DefaultExecutionOrder(-1000)]
     public class SystemInitializationManager : MonoBehaviour
     {
         [Header("Настройки инициализации")]
@@ -489,6 +490,9 @@ namespace ProtoSystem
                     systemInstances[entry.systemName] = systemInstance;
                     systemProgress[entry.systemName] = 0f;
 
+                    // Регистрируем per-system настройки логирования
+                    RegisterSystemLogSettings(entry, systemInstance);
+
                     // Подписываемся на события
                     systemInstance.OnProgressChanged += OnSystemProgressChanged;
                     systemInstance.OnStatusChanged += OnSystemStatusChanged;
@@ -503,6 +507,43 @@ namespace ProtoSystem
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Регистрирует настройки логирования для системы из SystemEntry
+        /// </summary>
+        private void RegisterSystemLogSettings(SystemEntry entry, IInitializableSystem systemInstance)
+        {
+            if (ProtoLogger.Settings == null) return;
+
+            string systemId = systemInstance.SystemId;
+
+            // Если логирование выключено для этой системы — ставим None
+            if (!entry.logEnabled)
+            {
+                ProtoLogger.Settings.SetOverride(systemId, LogLevel.None, false);
+                return;
+            }
+
+            // Регистрируем override с настройками из SystemEntry
+            var existingOverride = ProtoLogger.Settings.GetOverride(systemId);
+            if (existingOverride != null)
+            {
+                existingOverride.logLevel = entry.logLevel;
+                existingOverride.useGlobal = false;
+            }
+            else
+            {
+                ProtoLogger.Settings.systemOverrides.Add(new SystemLogOverride
+                {
+                    systemId = systemId,
+                    logLevel = entry.logLevel,
+                    useGlobal = false
+                });
+            }
+
+            // Применяем фильтр категорий через глобальные настройки
+            // (категории работают глобально, но можно расширить)
         }
 
         /// <summary>

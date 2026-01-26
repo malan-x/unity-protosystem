@@ -141,9 +141,10 @@ namespace ProtoSystem
         };
 
         /// <summary>
-        /// Текущие настройки (берутся из SystemInitializationManager или дефолтные)
+        /// Текущие настройки (берутся из SystemInitializationManager)
+        /// Если null — логируются только ошибки и предупреждения
         /// </summary>
-        public static LogSettings Settings { get; set; } = new LogSettings();
+        public static LogSettings Settings { get; set; }
 
         /// <summary>
         /// Проверяет, должен ли лог быть выведен
