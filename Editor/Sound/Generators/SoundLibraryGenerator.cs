@@ -22,7 +22,7 @@ namespace ProtoSystem.Editor.Sound
         private Vector2 _previewScroll;
         private List<AudioClipInfo> _foundClips = new();
         
-        [MenuItem("Tools/ProtoSystem/Sound/Sound Library Generator", priority = 110)]
+        [MenuItem("ProtoSystem/Sound/Sound Library Generator", priority = 110)]
         public static void ShowWindow()
         {
             var window = GetWindow<SoundLibraryGenerator>("Sound Library Generator");

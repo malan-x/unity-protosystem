@@ -25,7 +25,7 @@ namespace ProtoSystem
             Publish(eventId, payload);
             if (log)
             {
-                Debug.Log($"Event published: {GetEventPath(eventId)} with payload: {payload}");
+                ProtoLogger.LogEvent("EventBus", $"Event published: {GetEventPath(eventId)} with payload: {payload}");
             }
         }
 
@@ -43,7 +43,7 @@ namespace ProtoSystem
             Subscribe(eventId, handler);
             if (log)
             {
-                Debug.Log($"Subscribed to event: {GetEventPath(eventId)}");
+                ProtoLogger.LogEvent("EventBus", $"Subscribed to event: {GetEventPath(eventId)}");
             }
         }
 
@@ -60,7 +60,7 @@ namespace ProtoSystem
             Unsubscribe(eventId, handler);
             if (log)
             {
-                Debug.Log($"Unsubscribed from event: {GetEventPath(eventId)}");
+                ProtoLogger.LogEvent("EventBus", $"Unsubscribed from event: {GetEventPath(eventId)}");
             }
         }
 

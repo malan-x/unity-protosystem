@@ -477,7 +477,7 @@ namespace ProtoSystem.UI
                         {
                             EditorUtility.DisplayDialog("Не найдено", 
                                 "AudioMixer не найден в проекте.\n\n" +
-                                "Создайте через:\nTools → ProtoSystem → Sound → Sound Setup Wizard", 
+                                "Создайте через:\nProtoSystem → Sound → Sound Setup Wizard", 
                                 "OK");
                         }
                     }

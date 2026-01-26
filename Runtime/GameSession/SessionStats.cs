@@ -37,7 +37,7 @@ namespace ProtoSystem
                 }
                 catch
                 {
-                    Debug.LogWarning($"[SessionStats] Cannot convert '{key}' to {typeof(T).Name}");
+                    ProtoLogger.LogWarning("SessionStats", $"Cannot convert '{key}' to {typeof(T).Name}");
                     return defaultValue;
                 }
             }

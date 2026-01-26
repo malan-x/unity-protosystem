@@ -53,8 +53,7 @@ namespace ProtoSystem.UI
 
             if (result == NavigationResult.WindowNotFound)
             {
-                Debug.LogWarning("[DialogBuilder] ConfirmDialog window not found in graph. " +
-                    "Register it or assign confirmDialogPrefab in UISystemConfig");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Warnings, "ConfirmDialog window not found in graph. Register it or assign confirmDialogPrefab in UISystemConfig");
                 
                 // Fallback - вызываем callback сразу
                 config.OnYes?.Invoke();
@@ -74,8 +73,7 @@ namespace ProtoSystem.UI
 
             if (dialog == null)
             {
-                Debug.LogError("[DialogBuilder] ConfirmDialog opened but no IConfirmDialog found on the instance. " +
-                               "Your ConfirmDialog prefab is likely outdated. Regenerate/overwrite it so it has ConfirmDialogWindow with wired references.");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Errors, "ConfirmDialog opened but no IConfirmDialog found on the instance. Your ConfirmDialog prefab is likely outdated.");
             }
             else
             {
@@ -133,7 +131,7 @@ namespace ProtoSystem.UI
             
             if (result == NavigationResult.WindowNotFound)
             {
-                Debug.LogWarning("[DialogBuilder] InputDialog window not found");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Warnings, "InputDialog window not found");
                 config.OnCancel?.Invoke();
                 return;
             }
@@ -148,8 +146,7 @@ namespace ProtoSystem.UI
 
             if (dialog == null)
             {
-                Debug.LogError("[DialogBuilder] InputDialog opened but no IInputDialog found on the instance. " +
-                               "Your InputDialog prefab is likely outdated. Regenerate/overwrite it so it has InputDialogWindow with wired references.");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Errors, "InputDialog opened but no IInputDialog found on the instance. Your InputDialog prefab is likely outdated.");
             }
             else
             {
@@ -190,7 +187,7 @@ namespace ProtoSystem.UI
             
             if (result == NavigationResult.WindowNotFound)
             {
-                Debug.LogWarning("[DialogBuilder] ChoiceDialog window not found");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Warnings, "ChoiceDialog window not found");
                 config.OnCancel?.Invoke();
                 return;
             }
@@ -205,8 +202,7 @@ namespace ProtoSystem.UI
 
             if (dialog == null)
             {
-                Debug.LogError("[DialogBuilder] ChoiceDialog opened but no IChoiceDialog found on the instance. " +
-                               "Your ChoiceDialog prefab is likely outdated. Regenerate/overwrite it so it has ChoiceDialogWindow with wired references.");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Errors, "ChoiceDialog opened but no IChoiceDialog found on the instance. Your ChoiceDialog prefab is likely outdated.");
             }
             else
             {

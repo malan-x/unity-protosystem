@@ -19,7 +19,7 @@ namespace ProtoSystem
             var config = Resources.Load<ProjectConfig>("ProjectConfig");
             if (config == null)
             {
-                Debug.LogWarning("ProjectConfig not found in Resources. Using default namespace.");
+                ProtoLogger.LogWarning("ProjectConfig", "ProjectConfig not found in Resources. Using default namespace.");
                 config = CreateInstance<ProjectConfig>();
             }
             return config;

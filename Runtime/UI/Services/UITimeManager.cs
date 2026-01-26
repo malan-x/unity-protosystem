@@ -34,7 +34,7 @@ namespace ProtoSystem.UI
         {
             BaseTimeScale = Mathf.Clamp(scale, 0f, 10f);
             ApplyTimeScale();
-            Debug.Log($"[UITimeManager] BaseTimeScale set to {BaseTimeScale}");
+            ProtoLogger.LogRuntime("UITimeManager", $"BaseTimeScale set to {BaseTimeScale}");
         }
 
         /// <summary>
@@ -43,7 +43,7 @@ namespace ProtoSystem.UI
         public void RequestPause(string windowId)
         {
             PauseRequestCount++;
-            Debug.Log($"[UITimeManager] Pause requested by '{windowId}'. Count: {PauseRequestCount}");
+            ProtoLogger.LogRuntime("UITimeManager", $"Pause requested by '{windowId}'. Count: {PauseRequestCount}");
             ApplyTimeScale();
         }
 
@@ -53,7 +53,7 @@ namespace ProtoSystem.UI
         public void ReleasePause(string windowId)
         {
             PauseRequestCount = Mathf.Max(0, PauseRequestCount - 1);
-            Debug.Log($"[UITimeManager] Pause released by '{windowId}'. Count: {PauseRequestCount}");
+            ProtoLogger.LogRuntime("UITimeManager", $"Pause released by '{windowId}'. Count: {PauseRequestCount}");
             ApplyTimeScale();
         }
 
@@ -64,7 +64,7 @@ namespace ProtoSystem.UI
         {
             PauseRequestCount = 0;
             ApplyTimeScale();
-            Debug.Log("[UITimeManager] All pauses reset");
+            ProtoLogger.LogRuntime("UITimeManager", "All pauses reset");
         }
 
         /// <summary>

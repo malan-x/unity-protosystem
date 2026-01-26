@@ -141,7 +141,7 @@ namespace ProtoSystem.Effects
                 if (effect == null) continue;
                 if (!ids.Add(effect.effectId))
                 {
-                    Debug.LogWarning($"[EffectContainer] Дублированный ID эффекта: {effect.effectId} в контейнере '{containerName}'");
+                    ProtoLogger.Log("EffectsSystem", LogCategory.Runtime, LogLevel.Warnings, $"Дублированный ID эффекта: {effect.effectId} в контейнере '{containerName}'");
                     return false;
                 }
             }
@@ -154,7 +154,7 @@ namespace ProtoSystem.Effects
             // Автоматическая валидация при изменении в Inspector
             if (!IsValid())
             {
-                Debug.LogWarning($"[EffectContainer] Контейнер '{containerName}' содержит ошибки!");
+                ProtoLogger.Log("EffectsSystem", LogCategory.Runtime, LogLevel.Warnings, $"Контейнер '{containerName}' содержит ошибки!");
             }
         }
     }

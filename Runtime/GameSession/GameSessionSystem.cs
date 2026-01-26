@@ -507,7 +507,7 @@ namespace ProtoSystem
         {
             if (config != null && config.logEvents)
             {
-                Debug.Log($"[GameSession] {message}");
+                LogRuntime(message);
             }
         }
         
@@ -533,7 +533,7 @@ namespace ProtoSystem
         private void DebugReturnToMenu() => ReturnToMenu();
         
         [ContextMenu("Debug: Print Stats")]
-        private void DebugPrintStats() => Debug.Log(_stats.ToString());
+        private void DebugPrintStats() => LogRuntime(_stats.ToString());
         
         #endregion
     }

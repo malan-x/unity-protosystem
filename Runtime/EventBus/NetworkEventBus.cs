@@ -39,7 +39,7 @@ namespace ProtoSystem
             }
             catch (Exception e)
             {
-                Debug.LogError($"[{GetType().Name}] Error in OnNetworkSpawn: {e.Message}", this);
+                ProtoLogger.LogError(GetType().Name, $"Error in OnNetworkSpawn: {e.Message}");
             }
         }
 
@@ -54,7 +54,7 @@ namespace ProtoSystem
             }
             catch (Exception e)
             {
-                Debug.LogError($"[{GetType().Name}] Error in OnNetworkDespawn: {e.Message}", this);
+                ProtoLogger.LogError(GetType().Name, $"Error in OnNetworkDespawn: {e.Message}");
             }
 
             base.OnNetworkDespawn();
@@ -77,7 +77,7 @@ namespace ProtoSystem
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError($"[{GetType().Name}] Error in OnEnable: {e.Message}", this);
+                    ProtoLogger.LogError(GetType().Name, $"Error in OnEnable: {e.Message}");
                 }
             }
         }
@@ -95,7 +95,7 @@ namespace ProtoSystem
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError($"[{GetType().Name}] Error in OnDisable: {e.Message}", this);
+                    ProtoLogger.LogError(GetType().Name, $"Error in OnDisable: {e.Message}");
                 }
             }
         }
@@ -259,16 +259,16 @@ namespace ProtoSystem
         [ContextMenu("Show Subscribed Events")]
         private void ShowSubscribedEvents()
         {
-            Debug.Log($"[{GetType().Name}] Subscribed to {events.Count} events:");
-            Debug.Log($"  Network State: IsSpawned={IsSpawned}, IsServer={IsServer}, IsClient={IsClient}, IsLocalPlayer={IsLocalPlayer}");
-            Debug.Log($"  Events Subscribed: {eventsSubscribed}");
+            ProtoLogger.LogEvent(GetType().Name, $"Subscribed to {events.Count} events:");
+            ProtoLogger.LogEvent(GetType().Name, $"  Network State: IsSpawned={IsSpawned}, IsServer={IsServer}, IsClient={IsClient}, IsLocalPlayer={IsLocalPlayer}");
+            ProtoLogger.LogEvent(GetType().Name, $"  Events Subscribed: {eventsSubscribed}");
 
             for (int i = 0; i < events.Count; i++)
             {
                 var eventItem = events[i];
                 string eventPath = EventBus.GetEventPath(eventItem.id);
                 string methodName = eventItem.action?.Method?.Name ?? "Unknown";
-                Debug.Log($"  {i + 1}. {eventPath} -> {methodName}");
+                ProtoLogger.LogEvent(GetType().Name, $"  {i + 1}. {eventPath} -> {methodName}");
             }
         }
 
@@ -280,13 +280,13 @@ namespace ProtoSystem
         {
             if (!IsSpawned)
             {
-                Debug.LogWarning($"[{GetType().Name}] Cannot resubscribe - object is not spawned!");
+                ProtoLogger.LogWarning(GetType().Name, "Cannot resubscribe - object is not spawned!");
                 return;
             }
 
             UnsubscribeEvents();
             SubscribeEvents();
-            Debug.Log($"[{GetType().Name}] Force resubscribed to {events.Count} events");
+            ProtoLogger.LogEvent(GetType().Name, $"Force resubscribed to {events.Count} events");
         }
 
         /// <summary>
@@ -295,15 +295,15 @@ namespace ProtoSystem
         [ContextMenu("Show Network Info")]
         private void ShowNetworkInfo()
         {
-            Debug.Log($"[{GetType().Name}] Network Info:");
-            Debug.Log($"  NetworkObjectId: {NetworkObjectId}");
-            Debug.Log($"  IsSpawned: {IsSpawned}");
-            Debug.Log($"  IsServer: {IsServer}");
-            Debug.Log($"  IsHost: {IsHost}");
-            Debug.Log($"  IsClient: {IsClient}");
-            Debug.Log($"  IsLocalPlayer: {IsLocalPlayer}");
-            Debug.Log($"  IsOwner: {IsOwner}");
-            Debug.Log($"  OwnerClientId: {OwnerClientId}");
+            ProtoLogger.LogRuntime(GetType().Name, "Network Info:");
+            ProtoLogger.LogRuntime(GetType().Name, $"  NetworkObjectId: {NetworkObjectId}");
+            ProtoLogger.LogRuntime(GetType().Name, $"  IsSpawned: {IsSpawned}");
+            ProtoLogger.LogRuntime(GetType().Name, $"  IsServer: {IsServer}");
+            ProtoLogger.LogRuntime(GetType().Name, $"  IsHost: {IsHost}");
+            ProtoLogger.LogRuntime(GetType().Name, $"  IsClient: {IsClient}");
+            ProtoLogger.LogRuntime(GetType().Name, $"  IsLocalPlayer: {IsLocalPlayer}");
+            ProtoLogger.LogRuntime(GetType().Name, $"  IsOwner: {IsOwner}");
+            ProtoLogger.LogRuntime(GetType().Name, $"  OwnerClientId: {OwnerClientId}");
         }
 #endif
 

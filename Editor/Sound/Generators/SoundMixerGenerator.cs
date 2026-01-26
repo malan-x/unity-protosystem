@@ -17,7 +17,7 @@ namespace ProtoSystem.Editor.Sound
         /// <summary>
         /// Создать AudioMixer копированием шаблона
         /// </summary>
-        [MenuItem("Tools/ProtoSystem/Sound/Create Audio Mixer", priority = 100)]
+        [MenuItem("ProtoSystem/Sound/Create Audio Mixer", priority = 100)]
         public static void CreateAudioMixer()
         {
             string savePath = EditorUtility.SaveFilePanelInProject(

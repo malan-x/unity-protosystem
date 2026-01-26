@@ -82,13 +82,13 @@ namespace ProtoSystem.Effects
             // Проверить контейнер эффектов
             if (effectContainer == null)
             {
-                Debug.LogError("[EffectsManagerSystem] EffectContainer не назначен!");
+                LogError("EffectContainer не назначен!");
                 return System.Threading.Tasks.Task.FromResult(false);
             }
 
             if (!effectContainer.IsValid())
             {
-                Debug.LogError($"[EffectsManagerSystem] EffectContainer '{effectContainer.ContainerName}' содержит ошибки!");
+                LogError($"EffectContainer '{effectContainer.ContainerName}' содержит ошибки!");
                 return System.Threading.Tasks.Task.FromResult(false);
             }
             InitializePool();
@@ -175,7 +175,7 @@ namespace ProtoSystem.Effects
             // GraphicRaycaster для интерактивности (если UI эффекты интерактивные)
             canvasGO.AddComponent<GraphicRaycaster>();
 
-            Debug.Log("[EffectsManagerSystem] Создан Canvas для UI эффектов");
+            LogInit("Создан Canvas для UI эффектов");
         }
 
         /// <summary>
@@ -188,7 +188,7 @@ namespace ProtoSystem.Effects
 
             audioSource = gameObject.AddComponent<AudioSource>();
             audioSource.playOnAwake = false;
-            Debug.Log("[EffectsManagerSystem] Создан AudioSource для эффектов");
+            LogInit("Создан AudioSource для эффектов");
 #endif
         }
 
@@ -290,7 +290,7 @@ namespace ProtoSystem.Effects
                 AddEvent(eventId, data => OnAutoStopEffect(eventId, data));
             }
 
-            Debug.Log($"[EffectsManagerSystem] Настроено {_autoTriggerEffects.Count} триггеров запуска и {_autoStopEffects.Count} триггеров остановки");
+            LogInit($"Настроено {_autoTriggerEffects.Count} триггеров запуска и {_autoStopEffects.Count} триггеров остановки");
         }
 
         /// <summary>
@@ -301,7 +301,7 @@ namespace ProtoSystem.Effects
             var config = GetEffectConfig(effectId);
             if (config == null)
             {
-                Debug.LogWarning($"[EffectsManagerSystem] Эффект '{effectId}' не найден!");
+                LogWarning("$1");
                 return;
             }
 
@@ -570,13 +570,13 @@ namespace ProtoSystem.Effects
                     // Проверяем требования категории эффекта
                     if (effectConfig.RequiresEffectTarget() && !hasSpawnData)
                     {
-                        Debug.LogWarning($"[EffectsManagerSystem] Эффект '{effectConfig.effectId}' требует IEffectTarget, но данные события не содержат позицию. Пропускаем.");
+                        LogWarning("$1");
                         continue;
                     }
 
                     // Запускаем эффект с данными
                     PlayEffectWithSpawnData(effectConfig, hasSpawnData ? spawnData : default, hasSpawnData);
-                    Debug.Log($"[EffectsManagerSystem] Автоматически запущен эффект '{effectConfig.effectId}' по событию {eventId}");
+                    LogEvent($"Автоматически запущен эффект '{effectConfig.effectId}' по событию {eventId}");
                 }
             }
         }
@@ -652,7 +652,7 @@ namespace ProtoSystem.Effects
 
                     // Останавливаем эффект
                     StopEffect(effectConfig.effectId);
-                    Debug.Log($"[EffectsManagerSystem] Автоматически остановлен эффект '{effectConfig.effectId}' по событию {eventId}");
+                    LogEvent($"Автоматически остановлен эффект '{effectConfig.effectId}' по событию {eventId}");
                 }
             }
         }

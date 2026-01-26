@@ -134,7 +134,7 @@ namespace ProtoSystem.Cursor
                     break;
             }
             
-            Debug.Log($"[CursorManager] Window '{windowId}' applied {mode}. Stack depth: {_fallbackStack.Count}");
+            ProtoLogger.Log("CursorSystem", LogCategory.Runtime, LogLevel.Info, $"Window '{windowId}' applied {mode}. Stack depth: {_fallbackStack.Count}");
         }
 
         /// <summary>Восстановить режим курсора (всегда использует статический стек)</summary>
@@ -145,11 +145,11 @@ namespace ProtoSystem.Cursor
             if (_fallbackStack.Count > 0)
             {
                 _fallbackStack.Pop(); // Убираем из стека, но не применяем - применит ForceApply
-                Debug.Log($"[CursorManager] Window '{windowId}' popped from stack. Stack depth: {_fallbackStack.Count}");
+                ProtoLogger.Log("CursorSystem", LogCategory.Runtime, LogLevel.Info, $"Window '{windowId}' popped from stack. Stack depth: {_fallbackStack.Count}");
             }
             else
             {
-                Debug.LogWarning($"[CursorManager] Window '{windowId}' tried to restore but stack is empty!");
+                ProtoLogger.LogWarning("CursorManager", $"Window '{windowId}' tried to restore but stack is empty!");
             }
         }
 
@@ -174,7 +174,7 @@ namespace ProtoSystem.Cursor
                     break;
             }
             
-            Debug.Log($"[CursorManager] Force applied {mode}: lockState={UnityEngine.Cursor.lockState}, visible={UnityEngine.Cursor.visible}");
+            ProtoLogger.Log("CursorSystem", LogCategory.Runtime, LogLevel.Info, $"Force applied {mode}: lockState={UnityEngine.Cursor.lockState}, visible={UnityEngine.Cursor.visible}");
         }
 
         #endregion

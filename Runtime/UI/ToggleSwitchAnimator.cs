@@ -34,7 +34,7 @@ namespace ProtoSystem.UI
             
             if (handleTransform == null)
             {
-                Debug.LogWarning("[ToggleSwitchAnimator] handleTransform is not assigned!");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Warnings, "ToggleSwitchAnimator: handleTransform is not assigned!");
                 return;
             }
             
@@ -67,7 +67,7 @@ namespace ProtoSystem.UI
             _targetX = isOn ? onPositionX : offPositionX;
             _isAnimating = true;
             
-            Debug.Log($"[ToggleSwitchAnimator] Toggle changed to {isOn}, moving handle to X={_targetX}");
+            ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Info, $"Toggle changed to {isOn}, moving handle to X={_targetX}");
         }
 
         private void Update()

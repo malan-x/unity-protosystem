@@ -65,7 +65,7 @@ namespace ProtoSystem.UI
         {
             if (definition == null || definition.prefab == null)
             {
-                Debug.LogError($"[UIWindowFactory] Cannot create window: definition or prefab is null");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Errors, "Cannot create window: definition or prefab is null");
                 return null;
             }
 
@@ -89,7 +89,7 @@ namespace ProtoSystem.UI
                 window = instance.GetComponent<UIWindowBase>();
                 if (window == null)
                 {
-                    Debug.LogError($"[UIWindowFactory] Prefab for '{definition.id}' doesn't have UIWindowBase component");
+                    ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Errors, $"Prefab for '{definition.id}' doesn't have UIWindowBase component");
                     Object.Destroy(instance);
                     return null;
                 }

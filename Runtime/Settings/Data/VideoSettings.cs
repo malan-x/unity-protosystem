@@ -98,28 +98,28 @@ namespace ProtoSystem.Settings
                 var (width, height) = ParseResolution(Resolution.Value);
                 var mode = ParseFullscreenMode(Fullscreen.Value);
                 Screen.SetResolution(width, height, mode);
-                Debug.Log($"[VideoSettings] Resolution set to {width}x{height} {mode}");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Info, $"Resolution set to {width}x{height} {mode}");
             }
 
             // VSync
             if (VSync.IsModified)
             {
                 QualitySettings.vSyncCount = VSync.Value ? 1 : 0;
-                Debug.Log($"[VideoSettings] VSync set to {VSync.Value}");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Info, $"VSync set to {VSync.Value}");
             }
 
             // Quality
             if (Quality.IsModified)
             {
                 QualitySettings.SetQualityLevel(Quality.Value, true);
-                Debug.Log($"[VideoSettings] Quality set to {QualitySettings.names[Quality.Value]}");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Info, $"Quality set to {QualitySettings.names[Quality.Value]}");
             }
 
             // FrameRate
             if (TargetFrameRate.IsModified)
             {
                 Application.targetFrameRate = TargetFrameRate.Value;
-                Debug.Log($"[VideoSettings] Target frame rate set to {TargetFrameRate.Value}");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Info, $"Target frame rate set to {TargetFrameRate.Value}");
             }
         }
 
@@ -182,7 +182,7 @@ namespace ProtoSystem.Settings
             {
                 // Примечание: полная смена монитора требует PlayerPrefs и перезапуска
                 // или использования platform-specific API
-                Debug.Log($"[VideoSettings] Monitor set to {monitorIndex}. May require restart.");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Info, $"Monitor set to {monitorIndex}. May require restart.");
             }
 #endif
         }

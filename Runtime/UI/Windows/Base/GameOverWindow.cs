@@ -73,19 +73,19 @@ namespace ProtoSystem.UI
 
         protected virtual void OnRestartClicked()
         {
-            Debug.Log("[GameOver] Restart clicked");
+            ProtoLogger.LogRuntime("GameOverWindow", "Restart clicked");
             // Переопределить в наследниках для логики рестарта
         }
 
         protected virtual void OnMainMenuClicked()
         {
-            Debug.Log("[GameOver] Main Menu clicked");
+            ProtoLogger.LogRuntime("GameOverWindow", "Main Menu clicked");
             UISystem.Navigate("main_menu");
         }
 
         protected virtual void OnQuitClicked()
         {
-            Debug.Log("[GameOver] Quit clicked");
+            ProtoLogger.LogRuntime("GameOverWindow", "Quit clicked");
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
 #else

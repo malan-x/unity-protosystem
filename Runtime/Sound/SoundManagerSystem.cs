@@ -647,7 +647,7 @@ namespace ProtoSystem.Sound
         {
             if (_provider != null)
             {
-                Debug.Log($"[SoundManager] Active: {_provider.ActiveSoundCount}/{_provider.MaxSimultaneousSounds}");
+                LogRuntime($"Active: {_provider.ActiveSoundCount}/{_provider.MaxSimultaneousSounds}");
             }
         }
     }

@@ -55,7 +55,7 @@ namespace ProtoSystem.UI
                     if (_instance == null)
                     {
                         _instance = CreateInstance<UIWindowGraph>();
-                        Debug.Log("[UIWindowGraph] Created new instance (will be saved on compilation)");
+                        ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Info, "Created new instance (will be saved on compilation)");
                     }
                     #endif
                 }
@@ -213,10 +213,10 @@ namespace ProtoSystem.UI
                 {
                     int removed = globalTransitions.RemoveAll(t => t.trigger == transition.trigger);
                     if (removed > 0)
-                        Debug.Log($"[UIWindowGraph:{context}] Override: removed {removed} global transitions with trigger '{transition.trigger}'");
+                        ProtoLogger.LogInit("UIWindowGraph", $"{context} Override: removed {removed} global transitions with trigger '{transition.trigger}'");;
                 }
                 globalTransitions.Add(transition);
-                Debug.Log($"[UIWindowGraph:{context}] Added global transition: * --({transition.trigger})--> {transition.toWindowId}");
+                ProtoLogger.LogInit("UIWindowGraph", $"{context} Added global transition: * --({transition.trigger})--> {transition.toWindowId}");
             }
             else
             {
@@ -227,10 +227,10 @@ namespace ProtoSystem.UI
                         t.fromWindowId == transition.fromWindowId && 
                         t.trigger == transition.trigger);
                     if (removed > 0)
-                        Debug.Log($"[UIWindowGraph:{context}] Override: removed {removed} transitions from '{transition.fromWindowId}' with trigger '{transition.trigger}'");
+                        ProtoLogger.LogInit("UIWindowGraph", $"{context} Override: removed {removed} transitions from '{transition.fromWindowId}' with trigger '{transition.trigger}'");;
                 }
                 transitions.Add(transition);
-                Debug.Log($"[UIWindowGraph:{context}] Added transition: {transition.fromWindowId} --({transition.trigger})--> {transition.toWindowId}");
+                ProtoLogger.LogRuntime("UIWindowGraph", $"{context} Added transition: {transition.fromWindowId} --({transition.trigger})--> {transition.toWindowId}");
             }
         }
 

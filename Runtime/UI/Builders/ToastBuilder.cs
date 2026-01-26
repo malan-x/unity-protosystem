@@ -85,7 +85,7 @@ namespace ProtoSystem.UI
             var toastPrefab = _system.Config?.toastPrefab;
             if (toastPrefab == null)
             {
-                Debug.LogWarning("[ToastBuilder] Toast prefab not assigned in UISystemConfig");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Warnings, "Toast prefab not assigned in UISystemConfig");
                 return null;
             }
 
@@ -94,7 +94,7 @@ namespace ProtoSystem.UI
             
             if (toast == null)
             {
-                Debug.LogWarning("[ToastBuilder] Toast prefab doesn't implement IToast interface");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Warnings, "Toast prefab doesn't implement IToast interface");
                 Object.Destroy(instance);
                 return null;
             }

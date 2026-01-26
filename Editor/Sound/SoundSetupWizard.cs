@@ -42,7 +42,7 @@ namespace ProtoSystem.Editor.Sound
         // Scroll
         private Vector2 _scrollPos;
         
-        [MenuItem("Tools/ProtoSystem/Sound/Sound Setup Wizard", priority = 50)]
+        [MenuItem("ProtoSystem/Sound/Sound Setup Wizard", priority = 50)]
         public static void ShowWindow()
         {
             var window = GetWindow<SoundSetupWizard>("Sound Setup Wizard");

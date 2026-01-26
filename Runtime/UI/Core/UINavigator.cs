@@ -76,7 +76,7 @@ namespace ProtoSystem.UI
                 fromId = windowFromId;
             }
 
-            Debug.Log($"[UINavigator] Navigate('{trigger}') from '{fromId}' -> {(transition != null ? transition.toWindowId : "NOT FOUND")}");
+            ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Info, $"Navigate('{trigger}') from '{fromId}' -> {(transition != null ? transition.toWindowId : "NOT FOUND")}");
 
             if (transition == null)
                 return Fail(NavigationResult.TriggerNotFound, fromId, null, trigger);
@@ -106,7 +106,7 @@ namespace ProtoSystem.UI
         /// </summary>
         public NavigationResult Back()
         {
-            Debug.Log($"[UINavigator] Back() called. WindowStack={_windowStack.Count}, ModalStack={_modalStack.Count}");
+            ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Info, $"Back() called. WindowStack={_windowStack.Count}, ModalStack={_modalStack.Count}");
 
             // Сначала закрываем модальные
             if (_modalStack.Count > 0)
@@ -117,14 +117,14 @@ namespace ProtoSystem.UI
             // Затем обычные окна
             if (_windowStack.Count <= 1)
             {
-                Debug.Log("[UINavigator] Back() failed - stack has only 1 window");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Info, "Back() failed - stack has only 1 window");
                 return Fail(NavigationResult.StackEmpty, CurrentWindow?.WindowId, null, "Back");
             }
 
             var closing = _windowStack.Pop();
             var opening = _windowStack.Peek();
 
-            Debug.Log($"[UINavigator] Back: closing '{closing.WindowId}', showing '{opening.WindowId}'");
+            ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Info, $"Back: closing '{closing.WindowId}', showing '{opening.WindowId}'");
 
             // Получаем определения окон
             var closingDef = _graph?.GetWindow(closing.WindowId);
@@ -262,7 +262,7 @@ namespace ProtoSystem.UI
             var definition = _graph?.GetWindow(windowId);
             if (definition == null && TryResolveWindowId(windowId, out var resolvedId))
             {
-                Debug.Log($"[UINavigator] Resolved window id '{windowId}' -> '{resolvedId}'");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Info, $"Resolved window id '{windowId}' -> '{resolvedId}'");
                 windowId = resolvedId;
                 definition = _graph?.GetWindow(windowId);
             }
@@ -270,7 +270,7 @@ namespace ProtoSystem.UI
             if (definition == null)
             {
                 // Диагностика: какие окна есть в графе?
-                Debug.LogError($"[UINavigator] Window '{windowId}' not found in graph. Available windows: {string.Join(", ", _graph?.GetAllWindows().Select(w => w.id) ?? System.Array.Empty<string>())}. " +
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Errors, $"Window '{windowId}' not found in graph. Available windows: {string.Join(", ", _graph?.GetAllWindows().Select(w => w.id) ?? System.Array.Empty<string>())}. " +
                                "Hint: Open expects UIWindowAttribute.WindowId (e.g. 'MainMenu'), not the class name (e.g. 'MainMenuWindow').");
                 return Fail(NavigationResult.WindowNotFound, fromId, windowId, trigger);
             }
@@ -278,7 +278,7 @@ namespace ProtoSystem.UI
             // Диагностика prefab
             if (definition.prefab == null)
             {
-                Debug.LogError($"[UINavigator] Window '{windowId}' found but prefab is NULL! Check UISystemConfig.");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Errors, $"Window '{windowId}' found but prefab is NULL! Check UISystemConfig.");
             }
 
             // Проверяем что не открываем то же самое окно
@@ -399,7 +399,7 @@ namespace ProtoSystem.UI
 
         private void OpenNormal(UIWindowBase window, WindowDefinition definition)
         {
-            Debug.Log($"[UINavigator] OpenNormal '{definition.id}' level={definition.level}");
+            ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Info, $"OpenNormal '{definition.id}' level={definition.level}");
 
             // Закрываем все Normal окна с уровнем >= открываемого
             // Это гарантирует что Level 0 окна взаимоисключающие,
@@ -432,7 +432,7 @@ namespace ProtoSystem.UI
                 var fill = twoColor.FillColor;
                 fill.a = 1f;
                 twoColor.FillColor = fill;
-                Debug.Log($"[UINavigator] Made '{window.WindowId}' opaque via UITwoColorImage");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Info, $"Made '{window.WindowId}' opaque via UITwoColorImage");
                 return;
             }
 
@@ -443,7 +443,7 @@ namespace ProtoSystem.UI
                 var color = image.color;
                 color.a = 1f;
                 image.color = color;
-                Debug.Log($"[UINavigator] Made '{window.WindowId}' opaque via Image.color");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Info, $"Made '{window.WindowId}' opaque via Image.color");
             }
         }
 
@@ -472,7 +472,7 @@ namespace ProtoSystem.UI
                 if (def != null && def.type == WindowType.Normal && windowLevel >= targetLevel)
                 {
                     windowsToClose.Add((w, def));
-                    Debug.Log($"[UINavigator] Closing level {windowLevel} window '{w.WindowId}' (targetLevel={targetLevel})");
+                    ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Info, $"Closing level {windowLevel} window '{w.WindowId}' (targetLevel={targetLevel})");
                 }
                 else
                 {
@@ -681,7 +681,7 @@ namespace ProtoSystem.UI
                 Result = result
             };
 
-            Debug.LogWarning($"[UINavigator] Navigation failed: {result}. From: {from}, To: {to}, Trigger: {trigger}");
+            ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Warnings, $"Navigation failed: {result}. From: {from}, To: {to}, Trigger: {trigger}");
             
             EventBus.Publish(EventBus.UI.NavigationFailed, data);
             return result;
@@ -714,7 +714,7 @@ namespace ProtoSystem.UI
         {
             if (_graph == null || string.IsNullOrEmpty(_graph.startWindowId))
             {
-                Debug.LogWarning("[UINavigator] No start window defined in graph");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Warnings, "No start window defined in graph");
                 return;
             }
 

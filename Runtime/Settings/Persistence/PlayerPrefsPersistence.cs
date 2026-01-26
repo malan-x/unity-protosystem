@@ -37,7 +37,7 @@ namespace ProtoSystem.Settings
 
             if (!Exists())
             {
-                Debug.Log("[PlayerPrefsPersistence] No saved settings found in PlayerPrefs");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Info, "No saved settings found in PlayerPrefs");
                 return result;
             }
 
@@ -68,11 +68,11 @@ namespace ProtoSystem.Settings
                     }
                 }
 
-                Debug.Log($"[PlayerPrefsPersistence] Loaded settings from PlayerPrefs");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Info, "Loaded settings from PlayerPrefs");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[PlayerPrefsPersistence] Failed to load settings: {ex.Message}");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Errors, $"Failed to load settings: {ex.Message}");
             }
 
             return result;
@@ -107,11 +107,11 @@ namespace ProtoSystem.Settings
                 PlayerPrefs.SetInt(VERSION_KEY, _version);
 
                 PlayerPrefs.Save();
-                Debug.Log("[PlayerPrefsPersistence] Settings saved to PlayerPrefs");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Info, "Settings saved to PlayerPrefs");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[PlayerPrefsPersistence] Failed to save settings: {ex.Message}");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Errors, $"Failed to save settings: {ex.Message}");
             }
         }
 
@@ -148,11 +148,11 @@ namespace ProtoSystem.Settings
                 PlayerPrefs.DeleteKey(VERSION_KEY);
                 PlayerPrefs.Save();
 
-                Debug.Log("[PlayerPrefsPersistence] Deleted settings from PlayerPrefs");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Info, "Deleted settings from PlayerPrefs");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[PlayerPrefsPersistence] Failed to delete settings: {ex.Message}");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Errors, $"Failed to delete settings: {ex.Message}");
             }
         }
 

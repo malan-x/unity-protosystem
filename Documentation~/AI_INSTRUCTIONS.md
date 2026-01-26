@@ -381,7 +381,7 @@ Dropdown
 
 ### Быстрая настройка
 
-**Tools → ProtoSystem → Sound → Sound Setup Wizard**
+**ProtoSystem → Sound → Sound Setup Wizard**
 
 Wizard создаёт всё автоматически:
 - SoundManagerConfig, SoundLibrary, AudioMixer
@@ -582,14 +582,236 @@ Assets/ProjectName/
 
 ### Sound System
 
-1. **Tools → ProtoSystem → Sound → Sound Setup Wizard**
+1. **ProtoSystem → Sound → Sound Setup Wizard**
 2. Добавить `SoundManagerSystem` на сцену
 3. Назначить `SoundManagerConfig`
 4. Добавить свои звуки в `SoundLibrary`
 
 ---
 
-## 9. Отладка
+## 9. Логирование (ProtoLogger)
+
+### Обзор
+
+ProtoSystem использует централизованную систему логирования `ProtoLogger` с:
+- **Уровни** — флаги (можно комбинировать): `Errors`, `Warnings`, `Info`, `Verbose`
+- **Категории** — типы сообщений: `Initialization`, `Dependencies`, `Events`, `Runtime`
+- **Фильтры** — `All`, `Whitelist`, `Blacklist` по системам
+- **Per-system настройки** — в инспекторе SystemInitializationManager
+
+### API логирования
+
+```csharp
+public class MySystem : InitializableSystemBase
+{
+    public override string SystemId => "my_system";
+    
+    public override async Task<bool> InitializeAsync()
+    {
+        // Логирование с категорией и уровнем
+        LogInfo(LogCategory.Initialization, "Начало инициализации");
+        LogWarning(LogCategory.Initialization, "Что-то подозрительно");
+        LogError(LogCategory.Initialization, "Критическая ошибка!");
+        
+        // Runtime логи
+        LogInfo(LogCategory.Runtime, $"Обработано {count} объектов");
+        
+        // События
+        LogInfo(LogCategory.Events, $"Получено событие {eventId}");
+        
+        // Зависимости
+        LogInfo(LogCategory.Dependencies, "Зависимость разрешена");
+        
+        return true;
+    }
+}
+```
+
+### Уровни логирования (LogLevel) — ФЛАГИ
+
+```csharp
+[Flags]
+public enum LogLevel
+{
+    None = 0,
+    Errors = 1 << 0,      // Критические ошибки
+    Warnings = 1 << 1,    // Предупреждения
+    Info = 1 << 2,        // Информационные сообщения
+    Verbose = 1 << 3,     // Подробные отладочные данные
+    All = Errors | Warnings | Info | Verbose
+}
+
+// Можно комбинировать:
+LogLevel level = LogLevel.Errors | LogLevel.Warnings;  // Только ошибки и предупреждения
+LogLevel level = LogLevel.Errors | LogLevel.Info;      // Ошибки и инфо, без предупреждений
+```
+
+### Категории (LogCategory) — ФЛАГИ
+
+```csharp
+[Flags]
+public enum LogCategory
+{
+    None = 0,
+    Initialization = 1 << 0,  // Init: Инициализация системы
+    Dependencies = 1 << 1,    // Dep: Разрешение зависимостей
+    Events = 1 << 2,          // Event: Подписка/публикация событий
+    Runtime = 1 << 3,         // Run: Runtime логика
+    All = Initialization | Dependencies | Events | Runtime
+}
+```
+
+### Настройка в инспекторе
+
+В `SystemInitializationManager` → вкладка "📝 Логи":
+
+1. **Глобальные настройки** (toolbar):
+   - Кнопки уровней: `✓ Err`, `✓ Warn`, `✓ Info`
+   - Кнопки категорий: `✓ Init`, `✓ Dep`, `✓ Event`, `✓ Run`
+   - Tri-state: ✓ = все вкл, ○ = все выкл, ◐ = частично
+
+2. **Per-system настройки** (каждая система):
+   - Чекбокс логирования
+   - Кнопки уровней и категорий
+   - Цвет логов в консоли (ColorPicker)
+
+3. **Визуальные индикаторы**:
+   - 📦 Синий фон — системы ProtoSystem
+   - 🎮 Зелёный фон — кастомные системы проекта
+
+### Методы InitializableSystemBase
+
+```csharp
+// Базовые методы (категория обязательна)
+protected void LogInfo(LogCategory category, string message);
+protected void LogWarning(LogCategory category, string message);
+protected void LogError(LogCategory category, string message);
+
+// С форматированием
+LogInfo(LogCategory.Runtime, $"Player {playerId} joined at {position}");
+
+// Условное логирование (проверяет настройки перед форматированием)
+if (ProtoLogger.ShouldLog(SystemId, LogCategory.Runtime, LogLevel.Verbose))
+{
+    LogInfo(LogCategory.Runtime, ExpensiveDebugString());
+}
+```
+
+### Прямой доступ к ProtoLogger
+
+```csharp
+// Основной метод (порядок: systemId, category, level, message)
+ProtoLogger.Log("my_system", LogCategory.Runtime, LogLevel.Info, "Message");
+
+// Shortcut методы (категория + уровень зафиксированы)
+ProtoLogger.LogInit("my_system", "Initializing...");      // Initialization, Info
+ProtoLogger.LogDep("my_system", "Dependency resolved");   // Dependencies, Info
+ProtoLogger.LogEvent("my_system", "Event received");      // Events, Info
+ProtoLogger.LogRuntime("my_system", "Processing...");     // Runtime, Info
+
+// Ошибки и предупреждения (всегда Runtime категория)
+ProtoLogger.LogError("my_system", "Critical error!");
+ProtoLogger.LogWarning("my_system", "Something suspicious");
+
+// Проверка перед логированием (для дорогих операций)
+if (ProtoLogger.ShouldLog("my_system", LogCategory.Runtime, LogLevel.Verbose))
+{
+    ProtoLogger.Log("my_system", LogCategory.Runtime, LogLevel.Verbose, BuildExpensiveMessage());
+}
+```
+
+### ⚠️ ОБЯЗАТЕЛЬНОЕ ТРЕБОВАНИЕ
+
+**Все классы пакета ProtoSystem ДОЛЖНЫ использовать ProtoLogger вместо Debug.Log!**
+
+Это относится к:
+- Системы (`*System.cs`)
+- Конфиги (`*Config.cs`) 
+- Контейнеры (`*Container.cs`)
+- Вспомогательные Runtime классы
+- UI компоненты
+- EventBus классы
+
+**Исключения:** Editor код (`/Editor/`)
+
+### Правила логирования
+
+⚠️ **ВАЖНО: В системах ProtoSystem использовать ТОЛЬКО ProtoLogger!**
+
+Все системы, наследующиеся от `InitializableSystemBase`, `NetworkInitializableSystem`, `MonoEventBus` должны использовать методы `LogInfo()`, `LogWarning()`, `LogError()` вместо `Debug.Log()`.
+
+✅ **DO:**
+- Использовать `LogInfo()`, `LogWarning()`, `LogError()` в системах
+- Указывать правильную категорию для контекста
+- Использовать `LogCategory.Initialization` в `InitializeAsync()`
+- Использовать `LogCategory.Events` в обработчиках событий
+- Использовать `LogCategory.Runtime` для игровой логики
+- Проверять `ShouldLog()` перед дорогим форматированием
+
+❌ **DON'T:**
+- `Debug.Log()` / `Debug.LogWarning()` / `Debug.LogError()` в системах ProtoSystem — **ЗАПРЕЩЕНО**
+- Логировать в tight loops без проверки `ShouldLog()`
+- Использовать неправильную категорию (Events для Init и т.д.)
+
+```csharp
+// ❌ НЕПРАВИЛЬНО — не использовать в системах ProtoSystem!
+Debug.Log("Система инициализирована");
+Debug.LogWarning("Что-то пошло не так");
+Debug.LogError("Критическая ошибка");
+
+// ✅ ПРАВИЛЬНО — использовать ProtoLogger
+LogInfo(LogCategory.Initialization, "Система инициализирована");
+LogWarning(LogCategory.Initialization, "Что-то пошло не так");
+LogError(LogCategory.Initialization, "Критическая ошибка");
+```
+
+### Пример системы с логированием
+
+```csharp
+public class InventorySystem : InitializableSystemBase
+{
+    public override string SystemId => "inventory";
+    public override string DisplayName => "Inventory System";
+    
+    [Dependency(required: true)]
+    private PlayerSystem _playerSystem;
+    
+    protected override void InitEvents()
+    {
+        LogInfo(LogCategory.Events, "Подписка на события инвентаря");
+        AddEvent(Evt.Inventory.ItemAdded, OnItemAdded);
+        AddEvent(Evt.Inventory.ItemRemoved, OnItemRemoved);
+    }
+    
+    public override async Task<bool> InitializeAsync()
+    {
+        LogInfo(LogCategory.Initialization, "Загрузка данных инвентаря...");
+        ReportProgress(0.3f);
+        
+        await LoadInventoryData();
+        
+        LogInfo(LogCategory.Initialization, $"Загружено {_items.Count} предметов");
+        ReportProgress(1.0f);
+        return true;
+    }
+    
+    private void OnItemAdded(object payload)
+    {
+        var item = (ItemData)payload;
+        LogInfo(LogCategory.Events, $"Добавлен предмет: {item.Name}");
+    }
+    
+    public void UseItem(string itemId)
+    {
+        LogInfo(LogCategory.Runtime, $"Использование предмета: {itemId}");
+        // ...
+    }
+}
+```
+
+---
+
+## 10. Отладка
 
 ### EventBus
 ```csharp
@@ -613,7 +835,7 @@ Debug.Log($"Stack: {UISystem.Instance.Navigator.GetStackInfo()}");
 
 ---
 
-## 10. Частые ошибки
+## 11. Частые ошибки
 
 | Ошибка | Причина | Решение |
 |--------|---------|---------|
@@ -626,7 +848,7 @@ Debug.Log($"Stack: {UISystem.Instance.Navigator.GetStackInfo()}");
 
 ---
 
-## 11. Анти-паттерны
+## 12. Анти-паттерны
 
 ❌ **Избегать:**
 
@@ -645,6 +867,11 @@ Cursor.lockState = CursorLockMode.Locked;  // Использовать CursorMan
 
 // Хардкод AudioClip
 audioSource.PlayOneShot(myClip);  // Использовать SoundManagerSystem
+
+// Debug.Log в системах ProtoSystem — ЗАПРЕЩЕНО!
+Debug.Log("Initialized");        // Использовать LogInfo()
+Debug.LogWarning("Warning");     // Использовать LogWarning()
+Debug.LogError("Error");         // Использовать LogError()
 
 // Синхронная тяжёлая инициализация
 public override Task<bool> InitializeAsync()
@@ -671,6 +898,11 @@ CursorManagerSystem.Instance.ApplyWindowCursorMode(WindowCursorMode.Visible);
 
 // SoundManagerSystem для звука
 SoundManagerSystem.Play("ui_click");
+
+// ProtoLogger для логирования в системах
+LogInfo(LogCategory.Initialization, "Initialized");
+LogWarning(LogCategory.Runtime, "Warning");
+LogError(LogCategory.Runtime, "Error");
 
 // Асинхронная инициализация
 public override async Task<bool> InitializeAsync()

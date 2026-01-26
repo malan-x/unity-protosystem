@@ -172,7 +172,7 @@ namespace ProtoSystem.Examples
         private void LogMessage(string message)
         {
             if (verboseLogging)
-                Debug.Log($"[{SystemId}] {message}");
+                ProtoLogger.Log(SystemId, LogCategory.Runtime, LogLevel.Info, message);
         }
 
         #endregion
@@ -196,7 +196,7 @@ namespace ProtoSystem.Examples
             var ui = UISystem.Instance;
             if (ui == null || ui.Dialog == null)
             {
-                Debug.LogWarning("[ExampleLocalSystem] UISystem or DialogBuilder not ready. Ensure UISystem is present and initialized.");
+                ProtoLogger.LogWarning("ExampleLocalSystem", "UISystem or DialogBuilder not ready. Ensure UISystem is present and initialized.");
                 return;
             }
 

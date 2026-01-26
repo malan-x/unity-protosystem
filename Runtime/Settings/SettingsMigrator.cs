@@ -55,7 +55,7 @@ namespace ProtoSystem.Settings
             if (fromVersion >= CURRENT_VERSION)
                 return data;
 
-            Debug.Log($"[SettingsMigrator] Migrating settings from v{fromVersion} to v{CURRENT_VERSION}");
+            ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Info, $"Migrating settings from v{fromVersion} to v{CURRENT_VERSION}");
 
             var result = data;
             for (int version = fromVersion + 1; version <= CURRENT_VERSION; version++)
@@ -65,11 +65,11 @@ namespace ProtoSystem.Settings
                     try
                     {
                         result = migration(result);
-                        Debug.Log($"[SettingsMigrator] Successfully migrated to v{version}");
+                        ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Info, $"Successfully migrated to v{version}");
                     }
                     catch (Exception ex)
                     {
-                        Debug.LogError($"[SettingsMigrator] Migration to v{version} failed: {ex.Message}");
+                        ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Errors, $"Migration to v{version} failed: {ex.Message}");
                         // Продолжаем с текущими данными
                     }
                 }

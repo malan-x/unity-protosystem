@@ -28,7 +28,7 @@ namespace ProtoSystem
             }
             catch (Exception e)
             {
-                Debug.LogError($"[{GetType().Name}] Error in InitEvents: {e.Message}", this);
+                ProtoLogger.LogError(GetType().Name, $"Error in InitEvents: {e.Message}");
             }
         }
 
@@ -43,7 +43,7 @@ namespace ProtoSystem
             }
             catch (Exception e)
             {
-                Debug.LogError($"[{GetType().Name}] Error in SubscribeEvents: {e.Message}", this);
+                ProtoLogger.LogError(GetType().Name, $"Error in SubscribeEvents: {e.Message}");
             }
         }
 
@@ -58,7 +58,7 @@ namespace ProtoSystem
             }
             catch (Exception e)
             {
-                Debug.LogError($"[{GetType().Name}] Error in UnsubscribeEvents: {e.Message}", this);
+                ProtoLogger.LogError(GetType().Name, $"Error in UnsubscribeEvents: {e.Message}");
             }
         }
 
@@ -156,13 +156,13 @@ namespace ProtoSystem
         [ContextMenu("Show Subscribed events")]
         private void ShowSubscribedEvents()
         {
-            Debug.Log($"[{GetType().Name}] Subscribed to {events.Count} events:");
+            ProtoLogger.LogEvent(GetType().Name, $"Subscribed to {events.Count} events:");
             for (int i = 0; i < events.Count; i++)
             {
                 var eventItem = events[i];
                 string eventPath = EventBus.GetEventPath(eventItem.id);
                 string methodName = eventItem.action?.Method?.Name ?? "Unknown";
-                Debug.Log($"  {i + 1}. {eventPath} -> {methodName}");
+                ProtoLogger.LogEvent(GetType().Name, $"  {i + 1}. {eventPath} -> {methodName}");
             }
         }
 
@@ -174,7 +174,7 @@ namespace ProtoSystem
         {
             UnsubscribeEvents();
             SubscribeEvents();
-            Debug.Log($"[{GetType().Name}] Force resubscribed to {events.Count} events");
+            ProtoLogger.LogEvent(GetType().Name, $"Force resubscribed to {events.Count} events");
         }
 #endif
 

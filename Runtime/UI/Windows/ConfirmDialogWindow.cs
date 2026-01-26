@@ -70,7 +70,7 @@ namespace ProtoSystem.UI
         {
             if (_onYes == null)
             {
-                Debug.LogWarning("[ConfirmDialogWindow] Yes clicked but no handler is set. " +
+                ProtoLogger.LogWarning("ConfirmDialogWindow", "Yes clicked but no handler is set. " +
                                  "Open this dialog via UISystem.Instance.Dialog.Confirm(...) (or ensure DialogBuilder.Setup runs). " +
                                  "If you recently updated ProtoSystem, regenerate/overwrite the ConfirmDialog prefab.");
             }
@@ -90,7 +90,7 @@ namespace ProtoSystem.UI
             if (_onNo == null)
             {
                 // It's valid to omit OnNo, but warn because users often expect it to do something.
-                Debug.LogWarning("[ConfirmDialogWindow] No clicked but no handler is set (OnNo is null). " +
+                ProtoLogger.LogWarning("ConfirmDialogWindow", "No clicked but no handler is set (OnNo is null). " +
                                  "If you expect custom behavior on cancel, pass onNo to UISystem.Instance.Dialog.Confirm(...). ");
             }
             _onNo?.Invoke();

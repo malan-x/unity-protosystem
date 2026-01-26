@@ -56,7 +56,7 @@ namespace ProtoSystem.Effects
             var evtType = _eventIdsType ?? FindEventIdsType();
             if (evtType == null)
             {
-                Debug.LogWarning("[EventPathResolver] Класс событий (Evt) не найден. Сгенерируйте EventIds через ProtoSystem.");
+                ProtoLogger.Log("EventPathResolver", LogCategory.Initialization, LogLevel.Warnings, "Класс событий (Evt) не найден. Сгенерируйте EventIds через ProtoSystem.");
                 _initialized = true;
                 return;
             }
@@ -72,7 +72,7 @@ namespace ProtoSystem.Effects
             }
 
             _initialized = true;
-            Debug.Log($"[EventPathResolver] Инициализировано {_pathToIdCache.Count} путей событий");
+            ProtoLogger.Log("EventPathResolver", LogCategory.Initialization, LogLevel.Info, $"Инициализировано {_pathToIdCache.Count} путей событий");
         }
 
         /// <summary>
@@ -156,7 +156,7 @@ namespace ProtoSystem.Effects
                         var evtType = assembly.GetType(fullName);
                         if (evtType != null)
                         {
-                            Debug.Log($"[EventPathResolver] Найден класс событий '{fullName}' в сборке {name}");
+                            ProtoLogger.Log("EventPathResolver", LogCategory.Initialization, LogLevel.Info, $"Найден класс событий '{fullName}' в сборке {name}");
                             return evtType;
                         }
                     }
@@ -189,7 +189,7 @@ namespace ProtoSystem.Effects
                             {
                                 if (type.Name == className)
                                 {
-                                    Debug.Log($"[EventPathResolver] Найден класс событий '{type.FullName}' в сборке {name} (fallback)");
+                                    ProtoLogger.Log("EventPathResolver", LogCategory.Initialization, LogLevel.Info, $"Найден класс событий '{type.FullName}' в сборке {name} (fallback)");
                                     return type;
                                 }
                             }

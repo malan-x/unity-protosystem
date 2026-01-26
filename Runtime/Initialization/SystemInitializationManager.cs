@@ -82,10 +82,10 @@ namespace ProtoSystem
             // Валидируем настройки
             if (!Validate(out List<string> errors))
             {
-                Debug.LogError("Ошибки в настройках инициализации:");
+                ProtoLogger.LogError("SystemInitializationManager", "Ошибки в настройках инициализации:");
                 foreach (var error in errors)
                 {
-                    Debug.LogError($"  - {error}");
+                    ProtoLogger.LogError("SystemInitializationManager", $"  - {error}");
                 }
                 return;
             }

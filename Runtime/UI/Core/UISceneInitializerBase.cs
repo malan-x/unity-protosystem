@@ -36,7 +36,7 @@ namespace ProtoSystem.UI
                     var result = uiSystem.Navigator.Open(windowId);
                     if (result != NavigationResult.Success)
                     {
-                        Debug.LogWarning($"[UISceneInitializer] Failed to open '{windowId}': {result}");
+                        ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Warnings, $"Failed to open '{windowId}': {result}");
                     }
                 }
             }

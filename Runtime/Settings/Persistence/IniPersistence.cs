@@ -43,7 +43,7 @@ namespace ProtoSystem.Settings
 
             if (!File.Exists(path))
             {
-                Debug.Log($"[IniPersistence] Settings file not found: {path}");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Info, $"Settings file not found: {path}");
                 return result;
             }
 
@@ -80,11 +80,11 @@ namespace ProtoSystem.Settings
                     }
                 }
 
-                Debug.Log($"[IniPersistence] Loaded settings from: {path}");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Info, $"Loaded settings from: {path}");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[IniPersistence] Failed to load settings: {ex.Message}");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Errors, $"Failed to load settings: {ex.Message}");
             }
 
             return result;
@@ -117,11 +117,11 @@ namespace ProtoSystem.Settings
                     }
                 }
 
-                Debug.Log($"[IniPersistence] Settings saved to: {path}");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Info, $"Settings saved to: {path}");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[IniPersistence] Failed to save settings: {ex.Message}");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Errors, $"Failed to save settings: {ex.Message}");
             }
         }
 
@@ -163,11 +163,11 @@ namespace ProtoSystem.Settings
                 try
                 {
                     File.Delete(path);
-                    Debug.Log($"[IniPersistence] Deleted settings file: {path}");
+                    ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Info, $"Deleted settings file: {path}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogError($"[IniPersistence] Failed to delete settings: {ex.Message}");
+                    ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Errors, $"Failed to delete settings: {ex.Message}");
                 }
             }
         }

@@ -171,7 +171,7 @@ namespace ProtoSystem.Settings
             if (value is T typedValue)
                 Value = typedValue;
             else
-                Debug.LogError($"[SettingValue] Cannot set value of type {value?.GetType()} to setting {Key} of type {typeof(T)}");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Errors, $"Cannot set value of type {value?.GetType()} to setting {Key} of type {typeof(T)}");
         }
 
         public string Serialize()
@@ -203,7 +203,7 @@ namespace ProtoSystem.Settings
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[SettingValue] Failed to deserialize '{value}' for {Key}: {ex.Message}. Using default.");
+                ProtoLogger.Log("SettingsSystem", LogCategory.Runtime, LogLevel.Warnings, $"Failed to deserialize '{value}' for {Key}: {ex.Message}. Using default.");
                 _value = _defaultValue;
                 _savedValue = _defaultValue;
             }

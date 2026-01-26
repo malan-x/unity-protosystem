@@ -115,7 +115,7 @@ namespace ProtoSystem.Sound
             var bank = banks.Find(b => b != null && b.bankId == bankId);
             if (bank == null)
             {
-                Debug.LogWarning($"[SoundLibrary] Bank not found: {bankId}");
+                ProtoLogger.Log("SoundSystem", LogCategory.Runtime, LogLevel.Warnings, $"Bank not found: {bankId}");
                 return false;
             }
             
@@ -144,7 +144,7 @@ namespace ProtoSystem.Sound
             }
             
             _loadedBankIds.Remove(bankId);
-            Debug.Log($"[SoundLibrary] Unloaded bank: {bankId}");
+            ProtoLogger.Log("SoundSystem", LogCategory.Runtime, LogLevel.Info, $"Unloaded bank: {bankId}");
         }
         
         /// <summary>
@@ -184,7 +184,7 @@ namespace ProtoSystem.Sound
             }
             
             _loadedBankIds.Add(bank.bankId);
-            Debug.Log($"[SoundLibrary] Loaded bank: {bank.bankId} ({bank.entries.Count} sounds)");
+            ProtoLogger.Log("SoundSystem", LogCategory.Runtime, LogLevel.Info, $"Loaded bank: {bank.bankId} ({bank.entries.Count} sounds)");
         }
         
         /// <summary>
@@ -209,7 +209,7 @@ namespace ProtoSystem.Sound
                 
                 if (!ids.Add(entry.id))
                 {
-                    Debug.LogWarning($"[SoundLibrary] Duplicate id in core: {entry.id}", this);
+                    ProtoLogger.Log("SoundSystem", LogCategory.Runtime, LogLevel.Warnings, $"Duplicate id in core: {entry.id}", this);
                 }
             }
             
@@ -224,7 +224,7 @@ namespace ProtoSystem.Sound
                     
                     if (!ids.Add(entry.id))
                     {
-                        Debug.LogWarning($"[SoundLibrary] Duplicate id '{entry.id}' in bank: {bank.bankId}", this);
+                        ProtoLogger.Log("SoundSystem", LogCategory.Runtime, LogLevel.Warnings, $"Duplicate id '{entry.id}' in bank: {bank.bankId}", this);
                     }
                 }
             }

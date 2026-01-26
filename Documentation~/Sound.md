@@ -18,7 +18,7 @@
 
 ### 1. Sound Setup Wizard (рекомендуется)
 
-**Tools → ProtoSystem → Sound → Sound Setup Wizard**
+**ProtoSystem → Sound → Sound Setup Wizard**
 
 Wizard автоматически создаёт:
 - `SoundManagerConfig.asset` — главный конфиг

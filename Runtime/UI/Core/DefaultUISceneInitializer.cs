@@ -17,7 +17,7 @@ namespace ProtoSystem.UI
         public override void Initialize(UISystem uiSystem)
         {
             if (logInitialization)
-                Debug.Log($"[DefaultUISceneInitializer] Initializing with {startupWindows.Count} startup windows");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Info, $"Initializing with {startupWindows.Count} startup windows");
 
             base.Initialize(uiSystem);
         }

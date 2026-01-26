@@ -73,7 +73,7 @@ namespace ProtoSystem.UI
             }
             else
             {
-                Debug.LogWarning($"[UITwoColorImage] Shader 'UI/TwoColor' not found on {gameObject.name}");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Warnings, $"Shader 'UI/TwoColor' not found on {gameObject.name}");
             }
         }
 

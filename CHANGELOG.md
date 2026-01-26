@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.1] - 2025-01-26
+
+### Changed
+- **ProtoLogger Migration** — полная миграция Debug.Log → ProtoLogger в пакете
+  - EventBus: 28 вызовов
+  - GameSession: 3 вызова
+  - Initialization: 14 вызовов
+  - UI: 14 вызовов
+  - Examples: 4 вызова
+  - **Итого: 63 вызова мигрированы**
+
+### Fixed
+- Документация ProtoLogger — исправлены сигнатуры методов в AI_INSTRUCTIONS.md
+- ProtoLogger_Migration.md — полностью переписан с актуальным API
+
+### Technical Details
+- Shortcut методы: `LogInit`, `LogDep`, `LogEvent`, `LogRuntime` + Verbose варианты
+- `LogError` и `LogWarning` принимают только (systemId, message)
+- Основной метод: `Log(systemId, category, level, message)`
+
 ## [1.8.1] - 2025-01-22
 
 ### Added
@@ -31,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Создаёт SoundManagerConfig, SoundLibrary, AudioMixer
   - Генерирует 19 готовых UI звуков (процедурная генерация)
   - Настраивает UISoundScheme с правильными ID
-  - Tools → ProtoSystem → Sound → Sound Setup Wizard
+  - ProtoSystem → Sound → Sound Setup Wizard
 
 - **Процедурный генератор звуков** (ProceduralSoundGenerator)
   - 19 UI звуков: window, button, navigation, feedback, controls

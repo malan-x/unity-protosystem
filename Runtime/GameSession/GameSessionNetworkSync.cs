@@ -152,7 +152,7 @@ namespace ProtoSystem
                     _networkIsVictory.Value);
             }
             
-            Debug.Log("[GameSessionNetworkSync] Spawned, registered with GameSessionSystem");
+            ProtoLogger.LogInit("GameSessionNetworkSync", "Spawned, registered with GameSessionSystem");
         }
         
         public override void OnNetworkDespawn()
@@ -242,7 +242,7 @@ namespace ProtoSystem
                 
                 _session.SetStateInternal(newState);
                 
-                Debug.Log($"[GameSessionNetworkSync] Client state sync: {prevState} → {newState}");
+                ProtoLogger.LogRuntime("GameSessionNetworkSync", $"Client state sync: {prevState} → {newState}");
             }
         }
         

@@ -706,8 +706,11 @@ namespace ProtoSystem.Editor
                         (Path.Combine("Documentation~", "UISystem_TestScenarios.md"), "UISystem_TestScenarios.md"),
                         (Path.Combine("Documentation~", "GameSession.md"), "GameSession.md"),
                         (Path.Combine("Documentation~", "SettingsSystem.md"), "SettingsSystem.md"),
+                        (Path.Combine("Documentation~", "Sound.md"), "Sound.md"),
+                        (Path.Combine("Documentation~", "SettingsSystem-Guide.md"), "SettingsSystem-Guide.md"),
                         ("QUICKSTART.md", "QUICKSTART.md"),
                         ("README.md", "README.md"),
+                        ("CHANGELOG.md", "CHANGELOG.md"),
                         (Path.Combine("Editor", "Initialization", "UI_INITIALIZER_QUICK_GUIDE.md"), "UI_INITIALIZER_QUICK_GUIDE.md"),
                     };
 

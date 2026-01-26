@@ -326,35 +326,65 @@ namespace ProtoSystem
             initHelper?.ReportProgress(progress);
         }
 
+        /// <summary>Получить сетевой контекст для логов</summary>
+        private string GetNetworkContext()
+        {
+            return $"[{(IsServer ? "S" : "")}{(IsClient ? "C" : "")}{(IsOwner ? "O" : "")}]";
+        }
+
         protected void LogMessage(string message)
         {
-            if (verboseLogging)
-            {
-                string networkInfo = $"[{(IsServer ? "S" : "")}{(IsClient ? "C" : "")}{(IsOwner ? "O" : "")}]";
-                Debug.Log($"[{SystemId}]{networkInfo} {message}");
-            }
+            ProtoLogger.LogRuntime(SystemId, $"{GetNetworkContext()} {message}");
         }
 
         protected void LogError(string message)
         {
-            string networkInfo = $"[{(IsServer ? "S" : "")}{(IsClient ? "C" : "")}{(IsOwner ? "O" : "")}]";
-            Debug.LogError($"[{SystemId}]{networkInfo} {message}");
+            ProtoLogger.LogError(SystemId, $"{GetNetworkContext()} {message}");
         }
 
         protected void LogWarning(string message)
         {
-            string networkInfo = $"[{(IsServer ? "S" : "")}{(IsClient ? "C" : "")}{(IsOwner ? "O" : "")}]";
-            Debug.LogWarning($"[{SystemId}]{networkInfo} {message}");
+            ProtoLogger.LogWarning(SystemId, $"{GetNetworkContext()} {message}");
+        }
+
+        protected void LogInit(string message)
+        {
+            ProtoLogger.LogInit(SystemId, $"{GetNetworkContext()} {message}");
+        }
+
+        protected void LogDep(string message)
+        {
+            ProtoLogger.LogDep(SystemId, $"{GetNetworkContext()} {message}");
+        }
+
+        protected void LogEvent(string message)
+        {
+            ProtoLogger.LogEvent(SystemId, $"{GetNetworkContext()} {message}");
+        }
+
+        protected void LogRuntime(string message)
+        {
+            ProtoLogger.LogRuntime(SystemId, $"{GetNetworkContext()} {message}");
         }
 
         protected void LogMessageInitSystemStart(string message)
         {
-            LogMessage($"Начало инициализации системы {message}");
+            ProtoLogger.LogInit(SystemId, $"{GetNetworkContext()} [START] {message}");
         }
 
         protected void LogMessageInitSystemEnd(string message)
         {
-            LogMessage($"Система {message} завершена успешно");
+            ProtoLogger.LogInit(SystemId, $"{GetNetworkContext()} [END] {message}");
+        }
+
+        protected void LogMessageInitInterfaceStart(string message)
+        {
+            ProtoLogger.LogInit(SystemId, $"{GetNetworkContext()} [INTERFACE START] {message}");
+        }
+
+        protected void LogMessageInitInterfaceEnd(string message)
+        {
+            ProtoLogger.LogInit(SystemId, $"{GetNetworkContext()} [INTERFACE END] {message}");
         }
 
         #endregion

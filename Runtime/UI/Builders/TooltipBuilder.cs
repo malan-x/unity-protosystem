@@ -177,7 +177,7 @@ namespace ProtoSystem.UI
             var prefab = _system.Config?.tooltipPrefab;
             if (prefab == null)
             {
-                Debug.LogWarning("[TooltipBuilder] Tooltip prefab not assigned in UISystemConfig");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Warnings, "Tooltip prefab not assigned in UISystemConfig");
                 return;
             }
 
@@ -186,7 +186,7 @@ namespace ProtoSystem.UI
 
             if (_tooltipComponent == null)
             {
-                Debug.LogWarning("[TooltipBuilder] Tooltip prefab doesn't implement ITooltip interface");
+                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Warnings, "Tooltip prefab doesn't implement ITooltip interface");
                 Object.Destroy(_currentTooltip);
                 _currentTooltip = null;
                 return;

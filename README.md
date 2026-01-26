@@ -219,7 +219,7 @@ public class GameplayInitializer : UISceneInitializerBase
 
 #### Быстрая настройка
 
-**Tools → ProtoSystem → Sound → Sound Setup Wizard**
+**ProtoSystem → Sound → Sound Setup Wizard**
 
 Wizard создаёт всё автоматически: конфиги, библиотеку, миксер и 19 готовых UI звуков.
 

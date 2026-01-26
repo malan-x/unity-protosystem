@@ -243,14 +243,14 @@ namespace ProtoSystem.Examples
             if (verboseLogging)
             {
                 string networkInfo = $"[{(IsServer ? "S" : "")}{(IsClient ? "C" : "")}{(IsOwner ? "O" : "")}]";
-                Debug.Log($"[{SystemId}]{networkInfo} {message}");
+                ProtoLogger.Log(SystemId, LogCategory.Runtime, LogLevel.Info, $"{networkInfo} {message}");
             }
         }
 
         private void LogWarning(string message)
         {
             string networkInfo = $"[{(IsServer ? "S" : "")}{(IsClient ? "C" : "")}{(IsOwner ? "O" : "")}]";
-            Debug.LogWarning($"[{SystemId}]{networkInfo} {message}");
+            ProtoLogger.LogWarning(SystemId, $"{networkInfo} {message}");
         }
 
         #endregion

@@ -108,7 +108,7 @@ namespace ProtoSystem.Effects
                     }
                     else
                     {
-                        Debug.LogWarning($"[EffectTargetComponent] Событие '{eventPath}' не найдено на {name}");
+                        ProtoLogger.Log("EffectsSystem", LogCategory.Runtime, LogLevel.Warnings, $"Событие '{eventPath}' не найдено на {name}");
                     }
                 }
             }
@@ -123,14 +123,14 @@ namespace ProtoSystem.Effects
                     var eventId = EventPathResolver.Resolve(eventPath);
                     if (eventId <= 0)
                     {
-                        Debug.LogWarning($"[EffectTargetComponent] Событие переадресации '{eventPath}' не найдено на {name}");
+                        ProtoLogger.Log("EffectsSystem", LogCategory.Runtime, LogLevel.Warnings, $"Событие переадресации '{eventPath}' не найдено на {name}");
                         continue;
                     }
 
                     // Проверка на зацикливание
                     if (_reactEventIds.Contains(eventId))
                     {
-                        Debug.LogError($"[EffectTargetComponent] ⚠️ ЗАЦИКЛИВАНИЕ! Событие '{eventPath}' есть и во входных, и в выходных событиях на {name}. Событие пропущено.");
+                        ProtoLogger.Log("EffectsSystem", LogCategory.Runtime, LogLevel.Errors, $"ЗАЦИКЛИВАНИЕ! Событие '{eventPath}' есть и во входных, и в выходных событиях на {name}. Событие пропущено.");
                         continue;
                     }
 
@@ -287,7 +287,7 @@ namespace ProtoSystem.Effects
             }
 
             // Fallback на дефолт
-            Debug.LogWarning($"[EffectTarget] Точка привязки '{attachPointName}' не найдена на {name}, используем default");
+            ProtoLogger.Log("EffectsSystem", LogCategory.Runtime, LogLevel.Warnings, $"Точка привязки '{attachPointName}' не найдена на {name}, используем default");
             return GetEffectSpawnData();
         }
 
@@ -395,7 +395,7 @@ namespace ProtoSystem.Effects
             // Проверка на зацикливание в Editor
             if (HasLoopWarning(out var looped))
             {
-                Debug.LogWarning($"[EffectTargetComponent] ⚠️ Обнаружено зацикливание событий на {name}: {string.Join(", ", looped)}. Эти события будут проигнорированы при запуске.");
+                ProtoLogger.Log("EffectsSystem", LogCategory.Runtime, LogLevel.Warnings, $"Обнаружено зацикливание событий на {name}: {string.Join(", ", looped)}. Эти события будут проигнорированы при запуске.");
             }
         }
         #endif

@@ -21,14 +21,14 @@ namespace ProtoSystem
         {
             if (system == null)
             {
-                Debug.LogError("Attempted to register null system!");
+                ProtoLogger.LogError("SystemProvider", "Attempted to register null system!");
                 return;
             }
 
             Type actualType = system.GetType();
             systems[actualType] = system;
 
-            if (isDebug) Debug.Log($"Registering system: {actualType.Name} (ID: {system.SystemId})");
+            if (isDebug) ProtoLogger.LogDep("SystemProvider", $"Registering system: {actualType.Name} (ID: {system.SystemId})");
 
             // Регистрируем по всем интерфейсам для удобства поиска
             foreach (var interfaceType in actualType.GetInterfaces())
@@ -36,7 +36,7 @@ namespace ProtoSystem
                 if (!systems.ContainsKey(interfaceType))
                 {
                     systems[interfaceType] = system;
-                    if (isDebug) Debug.Log($"Also registering under interface: {interfaceType.Name}");
+                    if (isDebug) ProtoLogger.LogDep("SystemProvider", $"Also registering under interface: {interfaceType.Name}");
                 }
             }
 
@@ -47,7 +47,7 @@ namespace ProtoSystem
                 if (!systems.ContainsKey(baseType))
                 {
                     systems[baseType] = system;
-                    if (isDebug) Debug.Log($"Also registering under base type: {baseType.Name}");
+                    if (isDebug) ProtoLogger.LogDep("SystemProvider", $"Also registering under base type: {baseType.Name}");
                 }
                 baseType = baseType.BaseType;
             }
@@ -56,7 +56,7 @@ namespace ProtoSystem
             if (isDebug)
             {
                 var typesForThisSystem = systems.Keys.Where(k => systems[k] == system).ToList();
-                Debug.Log($"System {system.SystemId} registered under types: {string.Join(", ", typesForThisSystem.Select(t => t.Name))}");
+                ProtoLogger.LogDep("SystemProvider", $"System {system.SystemId} registered under types: {string.Join(", ", typesForThisSystem.Select(t => t.Name))}");
             }
         }
 
@@ -67,7 +67,7 @@ namespace ProtoSystem
         {
             if (system == null)
             {
-                Debug.LogError("Attempted to register null system!");
+                ProtoLogger.LogError("SystemProvider", "Attempted to register null system!");
                 return;
             }
 
@@ -82,7 +82,7 @@ namespace ProtoSystem
             Type actualType = system.GetType();
             systems[actualType] = system;
 
-            if (isDebug) Debug.Log($"Registering legacy system: {actualType.Name}");
+            if (isDebug) ProtoLogger.LogDep("SystemProvider", $"Registering legacy system: {actualType.Name}");
 
             // Регистрируем по базовым типам
             Type baseType = actualType.BaseType;
@@ -105,7 +105,7 @@ namespace ProtoSystem
 
             if (systems.TryGetValue(requestedType, out var system))
             {
-                if (isDebug) Debug.Log($"Found system {requestedType.Name}: {(system as IInitializableSystem)?.SystemId ?? system.GetType().Name}");
+                if (isDebug) ProtoLogger.LogDep("SystemProvider", $"Found system {requestedType.Name}: {(system as IInitializableSystem)?.SystemId ?? system.GetType().Name}");
                 return system as T;
             }
 
@@ -113,11 +113,11 @@ namespace ProtoSystem
             var foundSystem = systems.Values.FirstOrDefault(s => s is T);
             if (foundSystem != null)
             {
-                if (isDebug) Debug.Log($"Found system {requestedType.Name} by instance check");
+                if (isDebug) ProtoLogger.LogDep("SystemProvider", $"Found system {requestedType.Name} by instance check");
                 return foundSystem as T;
             }
 
-            if (isDebug) Debug.LogError($"System of type {requestedType.Name} not found! Available systems: {string.Join(", ", systems.Keys.Select(k => k.Name))}");
+            if (isDebug) ProtoLogger.LogError("SystemProvider", $"System of type {requestedType.Name} not found! Available systems: {string.Join(", ", systems.Keys.Select(k => k.Name))}");
             return null;
         }
 
@@ -162,7 +162,7 @@ namespace ProtoSystem
         public void Clear()
         {
             systems.Clear();
-            if (isDebug) Debug.Log("SystemProvider cleared");
+            if (isDebug) ProtoLogger.LogDep("SystemProvider", "SystemProvider cleared");
         }
 
         /// <summary>

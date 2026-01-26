@@ -146,16 +146,16 @@ namespace ProtoSystem.UI
                 _sceneInitializer = sceneInitializerComponent as IUISceneInitializer;
                 if (_sceneInitializer == null)
                 {
-                    Debug.LogWarning($"[UISystem] {sceneInitializerComponent.name} does not implement IUISceneInitializer");
+                    LogWarning($"{sceneInitializerComponent.name} does not implement IUISceneInitializer");
                 }
                 else
                 {
-                    Debug.Log($"[UISystem] SceneInitializer assigned: {sceneInitializerComponent.GetType().Name}");
+                    LogInit($"SceneInitializer assigned: {sceneInitializerComponent.GetType().Name}");
                 }
             }
             else
             {
-                Debug.LogWarning("[UISystem] No sceneInitializerComponent assigned in Inspector!");
+                LogWarning("No sceneInitializerComponent assigned in Inspector!");
             }
         }
 
@@ -236,7 +236,7 @@ namespace ProtoSystem.UI
         /// </summary>
         private UIWindowGraph BuildOrLoadGraph()
         {
-            Debug.Log($"[UISystem] BuildOrLoadGraph: config={config != null}, prefabs={config?.windowPrefabs?.Count ?? 0}, override={windowGraphOverride != null}");
+            LogInit($"BuildOrLoadGraph: config={config != null}, prefabs={config?.windowPrefabs?.Count ?? 0}, override={windowGraphOverride != null}");
 
             // 1. Приоритет: строим из prefab'ов в Config (всегда актуальные ссылки)
             if (config != null && config.windowPrefabs != null && config.windowPrefabs.Count > 0)
@@ -268,7 +268,7 @@ namespace ProtoSystem.UI
         /// </summary>
         private UIWindowGraph BuildGraphFromPrefabs()
         {
-            Debug.Log($"[UISystem] BuildGraphFromPrefabs: _sceneInitializer = {(_sceneInitializer != null ? _sceneInitializer.GetType().Name : "NULL")}");
+            LogInit($"BuildGraphFromPrefabs: _sceneInitializer = {(_sceneInitializer != null ? _sceneInitializer.GetType().Name : "NULL")}");
 
             var graph = ScriptableObject.CreateInstance<UIWindowGraph>();
             graph.ClearForRebuild();
@@ -276,11 +276,11 @@ namespace ProtoSystem.UI
             // Диагностика prefabs
             int totalPrefabs = config.windowPrefabs?.Count ?? 0;
             int nullPrefabs = config.windowPrefabs?.Count(p => p == null) ?? 0;
-            Debug.Log($"[UISystem] Config has {totalPrefabs} prefabs, {nullPrefabs} are NULL");
+            LogInit($"Config has {totalPrefabs} prefabs, {nullPrefabs} are NULL");
 
             if (nullPrefabs > 0)
             {
-                Debug.LogWarning($"[UISystem] {nullPrefabs} prefabs are NULL! Open UISystemConfig and click 'Scan & Add Prefabs'");
+                LogWarning($"{nullPrefabs} prefabs are NULL! Open UISystemConfig and click 'Scan & Add Prefabs'");
             }
 
             // Сканируем prefab'ы
@@ -291,7 +291,7 @@ namespace ProtoSystem.UI
                 var windowComponent = prefab.GetComponent<UIWindowBase>();
                 if (windowComponent == null)
                 {
-                    Debug.LogWarning($"[UISystem] Prefab '{prefab.name}' has no UIWindowBase component");
+                    LogWarning($"Prefab '{prefab.name}' has no UIWindowBase component");
                     continue;
                 }
 
@@ -301,11 +301,11 @@ namespace ProtoSystem.UI
 
                 if (windowAttr == null)
                 {
-                    Debug.LogWarning($"[UISystem] {type.Name} has no [UIWindow] attribute");
+                    LogWarning($"{type.Name} has no [UIWindow] attribute");
                     continue;
                 }
 
-                Debug.Log($"[UISystem] Adding window '{windowAttr.WindowId}' from prefab '{prefab.name}'");
+                LogInit($"Adding window '{windowAttr.WindowId}' from prefab '{prefab.name}'");
 
                 // Добавляем окно
                 graph.AddWindow(new WindowDefinition
@@ -352,13 +352,13 @@ namespace ProtoSystem.UI
             // Добавляем переходы из SceneInitializer (с приоритетом над атрибутами)
             if (_sceneInitializer != null)
             {
-                Debug.Log($"[UISystem] Adding transitions from SceneInitializer: {sceneInitializerComponent?.GetType().Name}");
+                LogInit($"Adding transitions from SceneInitializer: {sceneInitializerComponent?.GetType().Name}");
 
                 var additionalTransitions = _sceneInitializer.GetAdditionalTransitions();
                 int count = 0;
                 foreach (var trans in additionalTransitions)
                 {
-                    Debug.Log($"[UISystem] SceneInitializer transition: {trans.fromWindowId} --({trans.trigger})--> {trans.toWindowId}");
+                    LogInit($"SceneInitializer transition: {trans.fromWindowId} --({trans.trigger})--> {trans.toWindowId}");
                     graph.AddTransition(new TransitionDefinition
                     {
                         fromWindowId = trans.fromWindowId == "*" ? "" : trans.fromWindowId,
@@ -368,18 +368,18 @@ namespace ProtoSystem.UI
                     }, allowOverride: true); // Переопределяем существующие переходы
                     count++;
                 }
-                Debug.Log($"[UISystem] Added {count} transitions from SceneInitializer");
+                LogInit($"Added {count} transitions from SceneInitializer");
 
                 // Устанавливаем стартовое окно из инициализатора
                 if (!string.IsNullOrEmpty(_sceneInitializer.StartWindowId))
                 {
                     graph.startWindowId = _sceneInitializer.StartWindowId;
-                    Debug.Log($"[UISystem] Start window from initializer: {graph.startWindowId}");
+                    LogInit($"Start window from initializer: {graph.startWindowId}");
                 }
             }
             else
             {
-                Debug.LogWarning("[UISystem] No SceneInitializer! Transitions from attributes only.");
+                LogWarning("No SceneInitializer! Transitions from attributes only.");
             }
 
             graph.FinalizeBuild();

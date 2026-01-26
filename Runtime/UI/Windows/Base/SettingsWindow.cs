@@ -121,7 +121,7 @@ namespace ProtoSystem.UI
 
             if (_settings == null)
             {
-                Debug.LogWarning("[SettingsWindow] SettingsSystem not found!");
+                ProtoLogger.LogWarning("SettingsWindow", "SettingsSystem not found!");
             }
             else
             {
@@ -176,7 +176,7 @@ namespace ProtoSystem.UI
                 }
                 
                 _settings.RegisterSection(_audioMixerSection);
-                Debug.Log($"[SettingsWindow] Registered {customParams.Count} custom audio parameters");
+                ProtoLogger.LogRuntime("SettingsWindow", $"Registered {customParams.Count} custom audio parameters");
             }
         }
         
@@ -511,11 +511,11 @@ namespace ProtoSystem.UI
             if (_settings != null)
             {
                 _settings.ApplyAndSave();
-                Debug.Log("[SettingsWindow] Settings applied via SettingsSystem");
+                ProtoLogger.LogRuntime("SettingsWindow", "Settings applied via SettingsSystem");
             }
             else
             {
-                Debug.LogWarning("[SettingsWindow] SettingsSystem not available!");
+                ProtoLogger.LogWarning("SettingsWindow", "SettingsSystem not available!");
             }
 
             _changesApplied = true;
