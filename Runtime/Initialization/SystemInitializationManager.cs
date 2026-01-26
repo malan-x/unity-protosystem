@@ -759,6 +759,18 @@ namespace ProtoSystem
             }
         }
 
+        /// <summary>
+        /// Синхронизирует настройки логирования при изменении в инспекторе
+        /// </summary>
+        private void OnValidate()
+        {
+            // Обновляем настройки ProtoLogger при изменении в инспекторе
+            if (Instance == this && Application.isPlaying)
+            {
+                ProtoLogger.Settings = logSettings;
+            }
+        }
+
         #endregion
 
         #region MCP интеграция

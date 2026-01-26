@@ -17,11 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Итого: 63 вызова мигрированы**
 
 ### Fixed
+- **ProtoLogger фильтрация не работала** — исправлена логика `ShouldLog()`:
+  - Ошибки и предупреждения теперь обходят фильтры категорий и систем
+  - Дефолтные категории изменены на `All` (ранее были только Init + Dep)
+  - Добавлен `OnValidate` для синхронизации настроек при изменении в инспекторе
 - Документация ProtoLogger — исправлены сигнатуры методов в AI_INSTRUCTIONS.md
 - ProtoLogger_Migration.md — полностью переписан с актуальным API
+- Удалены дубликаты документации SettingsSystem
 
 ### Technical Details
-- Shortcut методы: `LogInit`, `LogDep`, `LogEvent`, `LogRuntime` + Verbose варианты
+- Shortcut методы: `LogInit`, `LogDep`, `LogEvent`, `LogRuntime`
 - `LogError` и `LogWarning` принимают только (systemId, message)
 - Основной метод: `Log(systemId, category, level, message)`
 

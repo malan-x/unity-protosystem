@@ -63,7 +63,7 @@ namespace ProtoSystem
         public LogLevel globalLogLevel = LogLevel.Errors | LogLevel.Warnings | LogLevel.Info;
 
         [Tooltip("Активные категории логов")]
-        public LogCategory enabledCategories = LogCategory.Initialization | LogCategory.Dependencies;
+        public LogCategory enabledCategories = LogCategory.All;
 
         [Tooltip("Режим фильтрации систем")]
         public SystemFilterMode filterMode = SystemFilterMode.All;
@@ -150,7 +150,10 @@ namespace ProtoSystem
         /// </summary>
         public static bool ShouldLog(string systemId, LogCategory category, LogLevel level)
         {
-            if (Settings == null) return (level & (LogLevel.Errors | LogLevel.Warnings)) != 0;
+            // Ошибки и предупреждения проходят ВСЕГДА (если включены в globalLogLevel)
+            bool isCritical = (level & (LogLevel.Errors | LogLevel.Warnings)) != 0;
+            
+            if (Settings == null) return isCritical;
 
             // 1. Проверяем per-system override
             var systemOverride = Settings.GetOverride(systemId);
@@ -165,21 +168,24 @@ namespace ProtoSystem
                 effectiveLevel = Settings.globalLogLevel;
             }
 
-            // Если уровень None - ничего не логируем
+            // Если уровень None - ничего не логируем (даже ошибки)
             if (effectiveLevel == LogLevel.None) return false;
 
-            // 2. Проверяем фильтр систем
-            bool systemAllowed = Settings.filterMode switch
+            // 2. Проверяем фильтр систем (ошибки/предупреждения обходят фильтр)
+            if (!isCritical)
             {
-                SystemFilterMode.Whitelist => Settings.filteredSystems.Contains(systemId),
-                SystemFilterMode.Blacklist => !Settings.filteredSystems.Contains(systemId),
-                _ => true
-            };
+                bool systemAllowed = Settings.filterMode switch
+                {
+                    SystemFilterMode.Whitelist => Settings.filteredSystems.Contains(systemId),
+                    SystemFilterMode.Blacklist => !Settings.filteredSystems.Contains(systemId),
+                    _ => true
+                };
 
-            if (!systemAllowed) return false;
+                if (!systemAllowed) return false;
+            }
 
-            // 3. Проверяем категорию
-            if ((Settings.enabledCategories & category) == 0) return false;
+            // 3. Проверяем категорию (ошибки/предупреждения обходят фильтр категорий)
+            if (!isCritical && (Settings.enabledCategories & category) == 0) return false;
 
             // 4. Проверяем уровень (флаговая проверка)
             return (effectiveLevel & level) != 0;
