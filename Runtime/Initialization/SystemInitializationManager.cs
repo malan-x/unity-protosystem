@@ -69,6 +69,10 @@ namespace ProtoSystem
 
                 // Инициализируем логгер
                 ProtoLogger.Settings = logSettings;
+                
+                // Регистрируем per-system настройки логирования СРАЗУ
+                // (до того как системы начнут логировать в своих Awake)
+                RegisterAllSystemLogSettings();
 
                 systemProvider = new SystemProvider();
                 systemInstances = new Dictionary<string, IInitializableSystem>();
@@ -512,6 +516,76 @@ namespace ProtoSystem
         /// <summary>
         /// Регистрирует настройки логирования для системы из SystemEntry
         /// </summary>
+        /// <summary>
+        /// Регистрирует настройки логирования для ВСЕХ систем из списка (вызывается в Awake)
+        /// Определяет SystemId через рефлексию ДО создания экземпляров
+        /// </summary>
+        private void RegisterAllSystemLogSettings()
+        {
+            if (ProtoLogger.Settings == null) return;
+
+            foreach (var entry in systems)
+            {
+                if (!entry.enabled) continue;
+
+                // Определяем systemId
+                string systemId = GetSystemIdForEntry(entry);
+                
+                if (string.IsNullOrEmpty(systemId))
+                {
+                    systemId = entry.systemName; // Fallback
+                }
+
+                // Регистрируем override
+                if (!entry.logEnabled)
+                {
+                    ProtoLogger.Settings.SetOverride(systemId, LogLevel.None, LogCategory.None, false);
+                }
+                else
+                {
+                    ProtoLogger.Settings.SetOverride(systemId, entry.logLevel, entry.logCategories, false);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Определяет SystemId для SystemEntry через рефлексию или существующий объект
+        /// </summary>
+        private string GetSystemIdForEntry(SystemEntry entry)
+        {
+            // Если есть существующий объект — берём его SystemId
+            if (entry.useExistingObject && entry.ExistingSystemObject is IInitializableSystem existingSystem)
+            {
+                return existingSystem.SystemId;
+            }
+            
+            // Пробуем получить SystemId через временный объект
+            Type systemType = entry.SystemType;
+            if (systemType == null || !typeof(MonoBehaviour).IsAssignableFrom(systemType)) 
+                return null;
+            
+            try
+            {
+                // Создаём временный disabled GameObject (Awake не вызовется)
+                var tempGO = new GameObject("__TempSystemIdResolver__");
+                tempGO.SetActive(false);
+                
+                var tempComponent = tempGO.AddComponent(systemType) as IInitializableSystem;
+                string systemId = tempComponent?.SystemId;
+                
+                // Уничтожаем временный объект
+                DestroyImmediate(tempGO);
+                
+                return systemId;
+            }
+            catch
+            {
+                // Рефлексия не сработала — используем fallback
+            }
+            
+            return null;
+        }
+
         private void RegisterSystemLogSettings(SystemEntry entry, IInitializableSystem systemInstance)
         {
             if (ProtoLogger.Settings == null) return;
