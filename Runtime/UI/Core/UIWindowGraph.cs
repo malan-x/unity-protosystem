@@ -213,10 +213,10 @@ namespace ProtoSystem.UI
                 {
                     int removed = globalTransitions.RemoveAll(t => t.trigger == transition.trigger);
                     if (removed > 0)
-                        ProtoLogger.LogInit("UIWindowGraph", $"{context} Override: removed {removed} global transitions with trigger '{transition.trigger}'");;
+                        ProtoLogger.LogInit("UISystem", $"[Graph] {context} Override: removed {removed} global transitions with trigger '{transition.trigger}'");
                 }
                 globalTransitions.Add(transition);
-                ProtoLogger.LogInit("UIWindowGraph", $"{context} Added global transition: * --({transition.trigger})--> {transition.toWindowId}");
+                ProtoLogger.LogInit("UISystem", $"[Graph] {context} Added global transition: * --({transition.trigger})--> {transition.toWindowId}");
             }
             else
             {
@@ -227,10 +227,10 @@ namespace ProtoSystem.UI
                         t.fromWindowId == transition.fromWindowId && 
                         t.trigger == transition.trigger);
                     if (removed > 0)
-                        ProtoLogger.LogInit("UIWindowGraph", $"{context} Override: removed {removed} transitions from '{transition.fromWindowId}' with trigger '{transition.trigger}'");;
+                        ProtoLogger.LogInit("UISystem", $"[Graph] {context} Override: removed {removed} transitions from '{transition.fromWindowId}' with trigger '{transition.trigger}'");
                 }
                 transitions.Add(transition);
-                ProtoLogger.LogRuntime("UIWindowGraph", $"{context} Added transition: {transition.fromWindowId} --({transition.trigger})--> {transition.toWindowId}");
+                ProtoLogger.LogRuntime("UISystem", $"[Graph] {context} Added transition: {transition.fromWindowId} --({transition.trigger})--> {transition.toWindowId}");
             }
         }
 
