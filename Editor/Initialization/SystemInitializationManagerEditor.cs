@@ -202,6 +202,139 @@ namespace ProtoSystem
             EditorGUILayout.PropertyField(serializedObject.FindProperty("maxInitializationTimeoutSeconds"),
                 new GUIContent("⏱️ Таймаут (сек)", "Максимальное время инициализации одной системы"));
         }
+        
+        /// <summary>
+        /// Секция внутренних компонентов ProtoSystem (псевдосистемы)
+        /// </summary>
+        private void DrawInternalComponentsSection()
+        {
+            EditorGUILayout.LabelField("🔩 Внутренние компоненты", EditorStyles.boldLabel);
+            EditorGUILayout.Space(3);
+            
+            // EventPathResolver
+            DrawPseudoSystemRow(
+                "EventPathResolver",
+                "🔀",
+                "Резолвер путей событий",
+                serializedObject.FindProperty("logEventPathResolver"),
+                serializedObject.FindProperty("eventPathResolverLogLevel"),
+                serializedObject.FindProperty("eventPathResolverLogCategories"));
+            
+            EditorGUILayout.Space(2);
+            
+            // SystemInit
+            DrawPseudoSystemRow(
+                "SystemInit",
+                "🚀",
+                "Менеджер инициализации",
+                serializedObject.FindProperty("logSystemInit"),
+                serializedObject.FindProperty("systemInitLogLevel"),
+                serializedObject.FindProperty("systemInitLogCategories"));
+        }
+        
+        /// <summary>
+        /// Отрисовка строки псевдосистемы
+        /// </summary>
+        private void DrawPseudoSystemRow(string name, string icon, string description,
+            SerializedProperty logEnabled, SerializedProperty logLevel, SerializedProperty logCategories)
+        {
+            // Фон — фиолетовый оттенок для псевдосистем
+            Rect rowRect = EditorGUILayout.GetControlRect(false, 40);
+            Color bgColor = logEnabled.boolValue 
+                ? new Color(0.45f, 0.30f, 0.55f, 0.25f)   // Фиолетовый
+                : new Color(0.3f, 0.3f, 0.3f, 0.15f);
+            EditorGUI.DrawRect(new Rect(rowRect.x - 2, rowRect.y - 1, rowRect.width + 4, rowRect.height + 2), bgColor);
+            
+            float currentY = rowRect.y + 2;
+            
+            // Первая строка: чекбокс + иконка + название + описание
+            Rect enableRect = new Rect(rowRect.x, currentY, 18, 18);
+            logEnabled.boolValue = EditorGUI.Toggle(enableRect, logEnabled.boolValue);
+            
+            Rect iconRect = new Rect(rowRect.x + 22, currentY, 20, 18);
+            EditorGUI.LabelField(iconRect, icon);
+            
+            Rect nameRect = new Rect(rowRect.x + 44, currentY, 120, 18);
+            EditorGUI.LabelField(nameRect, name, EditorStyles.boldLabel);
+            
+            Rect descRect = new Rect(rowRect.x + 170, currentY, rowRect.width - 175, 18);
+            EditorGUI.LabelField(descRect, description, EditorStyles.miniLabel);
+            
+            currentY += 20;
+            
+            // Вторая строка: уровень + категории (только если включено)
+            if (logEnabled.boolValue)
+            {
+                float levelX = rowRect.x + 22;
+                
+                // Уровни
+                var levels = new (LogLevel level, string label, Color color, float width)[]
+                {
+                    (LogLevel.Errors, "Err", new Color(0.96f, 0.31f, 0.31f), 36),
+                    (LogLevel.Warnings, "Warn", new Color(1f, 0.76f, 0.03f), 44),
+                    (LogLevel.Info, "Info", new Color(0.5f, 0.8f, 0.5f), 36),
+                    (LogLevel.Verbose, "Vrb", new Color(0.5f, 0.5f, 0.5f), 32),
+                };
+                
+                var currentLevels = (LogLevel)logLevel.intValue;
+                foreach (var lvl in levels)
+                {
+                    Rect btnRect = new Rect(levelX, currentY, lvl.width, 16);
+                    bool isEnabled = (currentLevels & lvl.level) != 0;
+                    
+                    var oldBg = GUI.backgroundColor;
+                    if (isEnabled) GUI.backgroundColor = lvl.color;
+                    
+                    if (GUI.Button(btnRect, lvl.label, EditorStyles.miniButton))
+                    {
+                        if (isEnabled)
+                            logLevel.intValue = (int)(currentLevels & ~lvl.level);
+                        else
+                            logLevel.intValue = (int)(currentLevels | lvl.level);
+                    }
+                    
+                    GUI.backgroundColor = oldBg;
+                    levelX += lvl.width + 2;
+                }
+                
+                levelX += 12;
+                
+                // Категории
+                var categories = new (LogCategory cat, string label, Color color, float width)[]
+                {
+                    (LogCategory.Initialization, "Init", new Color(0.30f, 0.69f, 0.31f), 34),
+                    (LogCategory.Dependencies, "Dep", new Color(1f, 0.60f, 0f), 34),
+                    (LogCategory.Events, "Event", new Color(0.13f, 0.59f, 0.95f), 42),
+                    (LogCategory.Runtime, "Run", new Color(0.61f, 0.15f, 0.69f), 34)
+                };
+                
+                var currentCategories = (LogCategory)logCategories.intValue;
+                foreach (var cat in categories)
+                {
+                    Rect catRect = new Rect(levelX, currentY, cat.width, 16);
+                    bool isEnabled = (currentCategories & cat.cat) != 0;
+                    
+                    var oldBg = GUI.backgroundColor;
+                    if (isEnabled) GUI.backgroundColor = cat.color;
+                    
+                    if (GUI.Button(catRect, cat.label, EditorStyles.miniButton))
+                    {
+                        if (isEnabled)
+                            logCategories.intValue = (int)(currentCategories & ~cat.cat);
+                        else
+                            logCategories.intValue = (int)(currentCategories | cat.cat);
+                    }
+                    
+                    GUI.backgroundColor = oldBg;
+                    levelX += cat.width + 2;
+                }
+            }
+            else
+            {
+                Rect hintRect = new Rect(rowRect.x + 22, currentY, rowRect.width - 22, 16);
+                EditorGUI.LabelField(hintRect, "Логирование выключено", EditorStyles.centeredGreyMiniLabel);
+            }
+        }
 
         private void DrawSystemsSection(SystemInitializationManager manager)
         {
@@ -230,6 +363,13 @@ namespace ProtoSystem
             if (viewMode == SystemsViewMode.LogSettings)
             {
                 DrawLogSettingsToolbar(manager);
+                
+                EditorGUILayout.Space(5);
+                
+                // Внутренние компоненты (псевдосистемы)
+                DrawInternalComponentsSection();
+                
+                EditorGUILayout.Space(5);
             }
             else
             {

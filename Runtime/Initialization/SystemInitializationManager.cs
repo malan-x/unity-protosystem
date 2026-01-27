@@ -21,6 +21,17 @@ namespace ProtoSystem
 
         [Header("Логирование")]
         [SerializeField] private LogSettings logSettings = new LogSettings();
+        
+        [Header("Внутренние компоненты")]
+        [Tooltip("Логирование EventPathResolver (резолвер событий)")]
+        [SerializeField] private bool logEventPathResolver = true;
+        [SerializeField] private LogLevel eventPathResolverLogLevel = LogLevel.Errors | LogLevel.Warnings | LogLevel.Info;
+        [SerializeField] private LogCategory eventPathResolverLogCategories = LogCategory.All;
+        
+        [Tooltip("Логирование SystemInit (менеджер инициализации)")]
+        [SerializeField] private bool logSystemInit = true;
+        [SerializeField] private LogLevel systemInitLogLevel = LogLevel.Errors | LogLevel.Warnings | LogLevel.Info;
+        [SerializeField] private LogCategory systemInitLogCategories = LogCategory.All;
 
         [Header("Системы")]
         [SerializeField] private List<SystemEntry> systems = new List<SystemEntry>();
@@ -524,6 +535,9 @@ namespace ProtoSystem
         {
             if (ProtoLogger.Settings == null) return;
 
+            // Регистрируем псевдосистемы (внутренние компоненты ProtoSystem)
+            RegisterPseudoSystemLogSettings();
+
             foreach (var entry in systems)
             {
                 if (!entry.enabled) continue;
@@ -545,6 +559,32 @@ namespace ProtoSystem
                 {
                     ProtoLogger.Settings.SetOverride(systemId, entry.logLevel, entry.logCategories, false);
                 }
+            }
+        }
+        
+        /// <summary>
+        /// Регистрирует настройки логирования для внутренних компонентов ProtoSystem
+        /// </summary>
+        private void RegisterPseudoSystemLogSettings()
+        {
+            // EventPathResolver
+            if (!logEventPathResolver)
+            {
+                ProtoLogger.Settings.SetOverride("EventPathResolver", LogLevel.None, LogCategory.None, false);
+            }
+            else
+            {
+                ProtoLogger.Settings.SetOverride("EventPathResolver", eventPathResolverLogLevel, eventPathResolverLogCategories, false);
+            }
+            
+            // SystemInit (LOG_ID этого менеджера)
+            if (!logSystemInit)
+            {
+                ProtoLogger.Settings.SetOverride(LOG_ID, LogLevel.None, LogCategory.None, false);
+            }
+            else
+            {
+                ProtoLogger.Settings.SetOverride(LOG_ID, systemInitLogLevel, systemInitLogCategories, false);
             }
         }
         
