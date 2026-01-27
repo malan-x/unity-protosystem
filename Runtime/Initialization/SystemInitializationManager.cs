@@ -521,7 +521,7 @@ namespace ProtoSystem
             // Если логирование выключено для этой системы — ставим None
             if (!entry.logEnabled)
             {
-                ProtoLogger.Settings.SetOverride(systemId, LogLevel.None, false);
+                ProtoLogger.Settings.SetOverride(systemId, LogLevel.None, LogCategory.None, false);
                 return;
             }
 
@@ -530,6 +530,7 @@ namespace ProtoSystem
             if (existingOverride != null)
             {
                 existingOverride.logLevel = entry.logLevel;
+                existingOverride.logCategories = entry.logCategories;
                 existingOverride.useGlobal = false;
             }
             else
@@ -538,12 +539,10 @@ namespace ProtoSystem
                 {
                     systemId = systemId,
                     logLevel = entry.logLevel,
+                    logCategories = entry.logCategories,
                     useGlobal = false
                 });
             }
-
-            // Применяем фильтр категорий через глобальные настройки
-            // (категории работают глобально, но можно расширить)
         }
 
         /// <summary>

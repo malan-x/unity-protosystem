@@ -51,6 +51,7 @@ namespace ProtoSystem
         public string systemId;
         public bool useGlobal = true;
         public LogLevel logLevel = LogLevel.Errors | LogLevel.Warnings | LogLevel.Info;
+        public LogCategory logCategories = LogCategory.All;
     }
 
     /// <summary>
@@ -88,12 +89,13 @@ namespace ProtoSystem
         /// <summary>
         /// Установить или создать override для системы
         /// </summary>
-        public void SetOverride(string systemId, LogLevel level, bool useGlobal = false)
+        public void SetOverride(string systemId, LogLevel level, LogCategory categories = LogCategory.All, bool useGlobal = false)
         {
             var existing = GetOverride(systemId);
             if (existing != null)
             {
                 existing.logLevel = level;
+                existing.logCategories = categories;
                 existing.useGlobal = useGlobal;
             }
             else
@@ -102,6 +104,7 @@ namespace ProtoSystem
                 {
                     systemId = systemId,
                     logLevel = level,
+                    logCategories = categories,
                     useGlobal = useGlobal
                 });
             }
@@ -151,29 +154,32 @@ namespace ProtoSystem
         /// </summary>
         public static bool ShouldLog(string systemId, LogCategory category, LogLevel level)
         {
-            // Ошибки и предупреждения проходят ВСЕГДА (если включены в globalLogLevel)
-            bool isCritical = (level & (LogLevel.Errors | LogLevel.Warnings)) != 0;
+            // Ошибки проходят ВСЕГДА (независимо от категорий)
+            bool isError = (level & LogLevel.Errors) != 0;
             
-            if (Settings == null) return isCritical;
+            if (Settings == null) return isError;
 
             // 1. Проверяем per-system override
             var systemOverride = Settings.GetOverride(systemId);
             LogLevel effectiveLevel;
+            LogCategory effectiveCategories;
 
             if (systemOverride != null && !systemOverride.useGlobal)
             {
                 effectiveLevel = systemOverride.logLevel;
+                effectiveCategories = systemOverride.logCategories;
             }
             else
             {
                 effectiveLevel = Settings.globalLogLevel;
+                effectiveCategories = Settings.enabledCategories;
             }
 
             // Если уровень None - ничего не логируем (даже ошибки)
             if (effectiveLevel == LogLevel.None) return false;
 
-            // 2. Проверяем фильтр систем (ошибки/предупреждения обходят фильтр)
-            if (!isCritical)
+            // 2. Проверяем фильтр систем (ошибки обходят фильтр)
+            if (!isError)
             {
                 bool systemAllowed = Settings.filterMode switch
                 {
@@ -185,8 +191,8 @@ namespace ProtoSystem
                 if (!systemAllowed) return false;
             }
 
-            // 3. Проверяем категорию (ошибки/предупреждения обходят фильтр категорий)
-            if (!isCritical && (Settings.enabledCategories & category) == 0) return false;
+            // 3. Проверяем категорию (ошибки обходят фильтр категорий)
+            if (!isError && (effectiveCategories & category) == 0) return false;
 
             // 4. Проверяем уровень (флаговая проверка)
             return (effectiveLevel & level) != 0;

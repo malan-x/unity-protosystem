@@ -97,9 +97,10 @@ namespace ProtoSystem.Editor
 
             var levels = new (LogLevel level, string label, Color color)[]
             {
-                (LogLevel.Errors, "Errors", new Color(0.96f, 0.26f, 0.21f)),
+                (LogLevel.Errors, "Err", new Color(0.96f, 0.26f, 0.21f)),
                 (LogLevel.Warnings, "Warn", new Color(1f, 0.76f, 0.03f)),
                 (LogLevel.Info, "Info", new Color(0.6f, 0.8f, 1f)),
+                (LogLevel.Verbose, "Vrb", new Color(0.5f, 0.5f, 0.5f)),
             };
 
             float buttonWidth = (fieldRect.width - (levels.Length - 1) * 2) / levels.Length;

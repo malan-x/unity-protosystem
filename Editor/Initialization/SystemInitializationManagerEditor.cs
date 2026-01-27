@@ -275,6 +275,7 @@ namespace ProtoSystem
             DrawTriStateLevelButton(manager, "Err", LogLevel.Errors, new Color(0.96f, 0.31f, 0.31f), 42);
             DrawTriStateLevelButton(manager, "Warn", LogLevel.Warnings, new Color(1f, 0.76f, 0.03f), 50);
             DrawTriStateLevelButton(manager, "Info", LogLevel.Info, new Color(0.5f, 0.8f, 0.5f), 42);
+            DrawTriStateLevelButton(manager, "Vrb", LogLevel.Verbose, new Color(0.5f, 0.5f, 0.5f), 36);
             
             GUILayout.Space(8);
             EditorGUILayout.LabelField("Категории:", GUILayout.Width(65));
@@ -1122,6 +1123,7 @@ namespace ProtoSystem
                     (LogLevel.Errors, "Err", new Color(0.96f, 0.31f, 0.31f), 36),
                     (LogLevel.Warnings, "Warn", new Color(1f, 0.76f, 0.03f), 44),
                     (LogLevel.Info, "Info", new Color(0.5f, 0.8f, 0.5f), 36),
+                    (LogLevel.Verbose, "Vrb", new Color(0.5f, 0.5f, 0.5f), 32),
                 };
                 
                 var currentLevels = (LogLevel)logLevel.intValue;

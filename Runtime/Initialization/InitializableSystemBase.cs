@@ -72,7 +72,7 @@ namespace ProtoSystem
             // Регистрируем override для системы если не используем глобальный уровень
             if (!useGlobalLogLevel && ProtoLogger.Settings != null)
             {
-                ProtoLogger.Settings.SetOverride(SystemId, logLevel, false);
+                ProtoLogger.Settings.SetOverride(SystemId, logLevel, LogCategory.All, false);
             }
             
             initHelper = new InitializationHelper(this, this);
