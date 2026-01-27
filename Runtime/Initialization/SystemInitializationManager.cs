@@ -863,7 +863,8 @@ namespace ProtoSystem
                 }
             }
 
-            LogMessage($"Reset {resetCount} resettable systems", LogCategory.Runtime);
+            // Итоговый лог от имени GameSessionSystem (т.к. он вызывает reset)
+            ProtoLogger.Log("game_session", LogCategory.Runtime, LogLevel.Info, $"Reset {resetCount} resettable systems");
         }
 
         /// <summary>
