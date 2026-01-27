@@ -916,6 +916,17 @@ namespace ProtoSystem
         }
 
         /// <summary>
+        /// Обновляет настройки логирования в рантайме (вызывается из Editor)
+        /// </summary>
+        public void RefreshLogSettings()
+        {
+            if (!Application.isPlaying) return;
+            
+            ProtoLogger.Settings = logSettings;
+            RegisterAllSystemLogSettings();
+        }
+
+        /// <summary>
         /// Синхронизирует настройки логирования при изменении в инспекторе
         /// </summary>
         private void OnValidate()

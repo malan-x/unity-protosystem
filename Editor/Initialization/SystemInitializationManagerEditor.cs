@@ -134,6 +134,12 @@ namespace ProtoSystem
             DrawProjectEventBusSection();
 
             serializedObject.ApplyModifiedProperties();
+            
+            // Обновляем настройки логирования в рантайме
+            if (Application.isPlaying && manager != null)
+            {
+                manager.RefreshLogSettings();
+            }
         }
 
         private void DrawRuntimeStatus(SystemInitializationManager manager)
@@ -661,6 +667,12 @@ namespace ProtoSystem
                 serializedObject.ApplyModifiedProperties();
                 manager.AnalyzeDependencies();
                 EditorUtility.SetDirty(manager);
+                
+                // Обновляем настройки логирования в рантайме
+                if (Application.isPlaying)
+                {
+                    manager.RefreshLogSettings();
+                }
 
                 Debug.Log($"✅ Добавлено {missingSystems.Count} систем из сцены");
             }
