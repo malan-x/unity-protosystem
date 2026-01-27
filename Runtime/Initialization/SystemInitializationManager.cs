@@ -924,6 +924,7 @@ namespace ProtoSystem
             if (Instance == this && Application.isPlaying)
             {
                 ProtoLogger.Settings = logSettings;
+                RegisterAllSystemLogSettings();
             }
         }
 
