@@ -853,11 +853,12 @@ namespace ProtoSystem
                     {
                         resettable.ResetState();
                         resetCount++;
-                        LogMessage($"Reset: {system.SystemId}", LogCategory.Runtime);
+                        // Логируем от имени конкретной системы
+                        ProtoLogger.Log(system.SystemId, LogCategory.Runtime, LogLevel.Info, "Reset");
                     }
                     catch (System.Exception ex)
                     {
-                        LogError($"Error resetting {system.SystemId}: {ex.Message}");
+                        ProtoLogger.LogError(system.SystemId, $"Error resetting: {ex.Message}");
                     }
                 }
             }
