@@ -34,7 +34,7 @@ namespace ProtoSystem.Effects
 
         [Header("Конфигурация эффектов")]
         [Tooltip("Контейнер с эффектами для этого менеджера")]
-        [SerializeField] private EffectContainer effectContainer;
+        [SerializeField, InlineConfig] private EffectContainer effectContainer;
 
         [Header("UI эффекты")]
         [Tooltip("Canvas для UI эффектов. Если не назначен, создаётся автоматически.")]

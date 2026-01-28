@@ -19,7 +19,7 @@ namespace ProtoSystem.NetworkLobby
         public override string Description => "Управляет сетевым лобби: создание, подключение игроков, готовность и старт игры.";
 
         [Header("Configuration")]
-        [SerializeField] private NetworkLobbyConfig config;
+        [SerializeField, InlineConfig] private NetworkLobbyConfig config;
 
         [Header("Network Settings")]
         [SerializeField] private string defaultAddress = "127.0.0.1";

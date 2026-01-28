@@ -18,7 +18,7 @@ namespace ProtoSystem.Settings
         public override string Description => "Управляет настройками игры (аудио, видео, управление). Сохраняет в INI-файл.";
 
         [Header("Configuration")]
-        [SerializeField] private SettingsConfig config;
+        [SerializeField, InlineConfig] private SettingsConfig config;
 
         /// <summary>Аудио настройки</summary>
         public AudioSettings Audio { get; private set; }

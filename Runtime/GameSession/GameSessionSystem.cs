@@ -32,7 +32,7 @@ namespace ProtoSystem
         #region Serialized Fields
         
         [Header("Configuration")]
-        [SerializeField] private GameSessionConfig config;
+        [SerializeField, InlineConfig] private GameSessionConfig config;
         
         #endregion
         

@@ -20,7 +20,7 @@ namespace ProtoSystem.UI
         public override string Description => "Управляет UI окнами, навигацией между ними, диалогами, тостами и тултипами.";
 
         [Header("Configuration")]
-        [SerializeField] private UISystemConfig config;
+        [SerializeField, InlineConfig] private UISystemConfig config;
         
         [Header("Scene Initializer (optional)")]
         [Tooltip("Скрипт инициализации UI для этой сцены. Определяет какие окна открывать и как.")]

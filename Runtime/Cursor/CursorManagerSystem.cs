@@ -19,7 +19,7 @@ namespace ProtoSystem.Cursor
         public override string Description => "Управляет курсором: видимость, блокировка, кастомные текстуры и стек состояний.";
 
         [Header("Configuration")]
-        [SerializeField] private CursorConfig config;
+        [SerializeField, InlineConfig] private CursorConfig config;
 
         [Header("Default State")]
         [SerializeField] private CursorMode defaultMode = CursorMode.Free;

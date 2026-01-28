@@ -19,7 +19,7 @@ namespace ProtoSystem.SceneFlow
         public override string Description => "Управляет загрузкой сцен с переходами, экраном загрузки и прогрессом.";
 
         [Header("Configuration")]
-        [SerializeField] private SceneFlowConfig config;
+        [SerializeField, InlineConfig] private SceneFlowConfig config;
 
         [Header("Loading Screen")]
         [SerializeField] private GameObject loadingScreenPrefab;

@@ -16,7 +16,7 @@ namespace ProtoSystem.Sound
         public override string Description => "Центральная система управления звуком. Воспроизводит звуки, музыку, управляет громкостью и snapshots.";
         
         [Header("Configuration")]
-        [SerializeField] private SoundManagerConfig config;
+        [SerializeField, InlineConfig] private SoundManagerConfig config;
         
         // === Зависимости ===
         [Dependency(required: false, description: "Интеграция с UI")]

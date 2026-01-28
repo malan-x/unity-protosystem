@@ -6,17 +6,16 @@ namespace ProtoSystem
 {
     /// <summary>
     /// Редактор для NetworkInitializableSystem.
-    /// Автоматически добавляет кнопки создания конфигов для пустых полей.
+    /// Поддерживает inline-редактирование конфигов через атрибут [InlineConfig].
     /// </summary>
     [CustomEditor(typeof(NetworkInitializableSystem), true)]
     [CanEditMultipleObjects]
-    public class NetworkInitializableSystemEditor : UnityEditor.Editor
+    public class NetworkInitializableSystemEditor : InlineConfigSystemEditor
     {
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
             
-            // Используем интерфейс чтобы избежать зависимости от Netcode в Editor
             var system = target as IInitializableSystem;
             
             // Заголовок с описанием системы
@@ -26,21 +25,21 @@ namespace ProtoSystem
                 EditorGUILayout.Space(5);
             }
             
-            // Рисуем стандартный инспектор
-            DrawDefaultInspector();
+            // Рисуем свойства с обработкой [InlineConfig]
+            DrawPropertiesWithInlineConfigs();
             
             EditorGUILayout.Space(10);
             
-            // Кнопки создания конфигов
+            // Кнопки создания конфигов (для полей БЕЗ [InlineConfig])
             ConfigCreationUtility.DrawConfigCreationButtons(target, serializedObject);
             
             serializedObject.ApplyModifiedProperties();
         }
         
         /// <summary>
-        /// Рисует заголовок системы с описанием
+        /// Рисует заголовок системы с описанием (с иконкой сети)
         /// </summary>
-        protected virtual void DrawSystemHeader(IInitializableSystem system)
+        protected override void DrawSystemHeader(IInitializableSystem system)
         {
             var description = system.Description;
             if (string.IsNullOrEmpty(description))
@@ -48,7 +47,7 @@ namespace ProtoSystem
             
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             
-            // Название системы
+            // Название системы с иконкой сети
             EditorGUILayout.LabelField($"🌐 {system.DisplayName}", EditorStyles.boldLabel);
             
             // Описание
@@ -60,34 +59,6 @@ namespace ProtoSystem
             DrawSystemStatus(system);
             
             EditorGUILayout.EndVertical();
-        }
-        
-        /// <summary>
-        /// Рисует статус системы
-        /// </summary>
-        protected virtual void DrawSystemStatus(IInitializableSystem system)
-        {
-            // Проверяем наличие конфига
-            var configProp = serializedObject.FindProperty("config");
-            
-            if (configProp != null && configProp.objectReferenceValue == null)
-            {
-                GUI.color = new Color(1f, 0.6f, 0.4f);
-                EditorGUILayout.LabelField("⚠ Требуется конфиг", EditorStyles.boldLabel);
-                GUI.color = Color.white;
-            }
-            else if (Application.isPlaying && system.IsInitializedDependencies)
-            {
-                GUI.color = new Color(0.5f, 0.9f, 0.5f);
-                EditorGUILayout.LabelField("✓ Система активна", EditorStyles.boldLabel);
-                GUI.color = Color.white;
-            }
-            else if (configProp == null || configProp.objectReferenceValue != null)
-            {
-                GUI.color = new Color(0.5f, 0.9f, 0.5f);
-                EditorGUILayout.LabelField("✓ Готов к работе", EditorStyles.boldLabel);
-                GUI.color = Color.white;
-            }
         }
     }
 }
