@@ -329,7 +329,7 @@ namespace ProtoSystem.Sound
         
         // === IResettable ===
         
-        public void ResetState()
+        public void ResetState(object resetData = null)
         {
             _provider?.StopAll();
             _provider?.ClearAllSnapshots(0);

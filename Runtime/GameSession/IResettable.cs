@@ -12,6 +12,7 @@ namespace ProtoSystem
         /// Вызывается автоматически через SystemInitializationManager.ResetAllResettableSystems()
         /// или вручную при получении события Session.Reset.
         /// </summary>
-        void ResetState();
+        /// <param name="resetData">Опциональные данные для сброса (может быть null)</param>
+        void ResetState(object resetData = null);
     }
 }

@@ -303,7 +303,7 @@ namespace ProtoSystem.Sound
         /// <summary>
         /// Сбросить состояние (для повторного использования)
         /// </summary>
-        public void ResetState()
+        public void ResetState(object resetData = null)
         {
             _hasPlayed = false;
             _lastPlayTime = -999f;

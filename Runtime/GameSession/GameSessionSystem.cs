@@ -297,7 +297,7 @@ namespace ProtoSystem
         
         #region IResettable
         
-        public void ResetState()
+        public void ResetState(object resetData = null)
         {
             _stats.Reset();
             _endReason = SessionEndReason.None;

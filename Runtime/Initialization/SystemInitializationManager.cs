@@ -851,7 +851,7 @@ namespace ProtoSystem
                 {
                     try
                     {
-                        resettable.ResetState();
+                        resettable.ResetState(null);
                         resetCount++;
                         // Логируем от имени конкретной системы
                         ProtoLogger.Log(system.SystemId, LogCategory.Runtime, LogLevel.Info, "Reset");
