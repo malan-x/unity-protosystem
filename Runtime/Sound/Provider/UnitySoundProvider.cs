@@ -94,7 +94,7 @@ namespace ProtoSystem.Sound
             // Инициализировать библиотеку
             library?.Initialize();
             
-            ProtoLogger.Log("SoundSystem", LogCategory.Runtime, LogLevel.Info, $"Initialized with pool size {config.audioSourcePoolSize}");
+            ProtoLogger.Log("sound_manager", LogCategory.Runtime, LogLevel.Info, $"Initialized with pool size {config.audioSourcePoolSize}");
         }
         
         public void Update()
@@ -161,7 +161,7 @@ namespace ProtoSystem.Sound
             var entry = _library?.Get(id);
             if (entry == null)
             {
-                ProtoLogger.Log("SoundSystem", LogCategory.Runtime, LogLevel.Warnings, $"Sound not found: {id}");
+                ProtoLogger.Log("sound_manager", LogCategory.Runtime, LogLevel.Warnings, $"Sound not found: {id}");
                 return SoundHandle.Invalid;
             }
             
@@ -181,7 +181,7 @@ namespace ProtoSystem.Sound
             var source = GetAvailableSource();
             if (source == null)
             {
-                ProtoLogger.Log("SoundSystem", LogCategory.Runtime, LogLevel.Warnings, "No available audio sources");
+                ProtoLogger.Log("sound_manager", LogCategory.Runtime, LogLevel.Warnings, "No available audio sources");
                 return SoundHandle.Invalid;
             }
             
@@ -311,7 +311,7 @@ namespace ProtoSystem.Sound
             var entry = _library?.Get(id);
             if (entry == null)
             {
-                ProtoLogger.Log("SoundSystem", LogCategory.Runtime, LogLevel.Warnings, $"Music not found: {id}");
+                ProtoLogger.Log("sound_manager", LogCategory.Runtime, LogLevel.Warnings, $"Music not found: {id}");
                 return;
             }
             
@@ -544,7 +544,7 @@ namespace ProtoSystem.Sound
             }
             else
             {
-                ProtoLogger.Log("SoundSystem", LogCategory.Runtime, LogLevel.Warnings, $"Snapshot not found: {snapshot.Name}");
+                ProtoLogger.Log("sound_manager", LogCategory.Runtime, LogLevel.Warnings, $"Snapshot not found: {snapshot.Name}");
             }
         }
         

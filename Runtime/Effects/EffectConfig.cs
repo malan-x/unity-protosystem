@@ -227,15 +227,15 @@ namespace ProtoSystem.Effects
             {
                 case EffectType.VFX:
                     if (vfxPrefab == null)
-                        ProtoLogger.Log("EffectsSystem", LogCategory.Runtime, LogLevel.Warnings, $"VFX эффект без префаба: {name}");
+                        ProtoLogger.Log("effects_manager", LogCategory.Runtime, LogLevel.Warnings, $"VFX эффект без префаба: {name}");
                     break;
                 case EffectType.Audio:
                     if (audioClip == null)
-                        ProtoLogger.Log("EffectsSystem", LogCategory.Runtime, LogLevel.Warnings, $"Audio эффект без клипа: {name}");
+                        ProtoLogger.Log("effects_manager", LogCategory.Runtime, LogLevel.Warnings, $"Audio эффект без клипа: {name}");
                     break;
                 case EffectType.UI:
                     if (uiPrefab == null)
-                        ProtoLogger.Log("EffectsSystem", LogCategory.Runtime, LogLevel.Warnings, $"UI эффект без префаба: {name}");
+                        ProtoLogger.Log("effects_manager", LogCategory.Runtime, LogLevel.Warnings, $"UI эффект без префаба: {name}");
                     break;
             }
         }

@@ -69,7 +69,7 @@ namespace ProtoSystem.Sound
                 
                 if (!ids.Add(entry.id))
                 {
-                    ProtoLogger.Log("SoundSystem", LogCategory.Runtime, LogLevel.Warnings, $"Duplicate sound id: {entry.id} in bank {bankId}", this);
+                    ProtoLogger.Log("sound_manager", LogCategory.Runtime, LogLevel.Warnings, $"Duplicate sound id: {entry.id} in bank {bankId}", this);
                 }
                 
                 // Установить bankId в entry
