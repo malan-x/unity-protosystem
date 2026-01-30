@@ -839,7 +839,8 @@ namespace ProtoSystem
         /// Сбросить состояние всех систем, реализующих IResettable.
         /// Вызывается автоматически при событии Session.Reset.
         /// </summary>
-        public void ResetAllResettableSystems()
+        /// <param name="resetData">Опциональные данные для передачи в системы при сбросе</param>
+        public void ResetAllResettableSystems(object resetData = null)
         {
             if (systemProvider == null) return;
 
@@ -851,7 +852,7 @@ namespace ProtoSystem
                 {
                     try
                     {
-                        resettable.ResetState(null);
+                        resettable.ResetState(resetData);
                         resetCount++;
                         // Логируем от имени конкретной системы
                         ProtoLogger.Log(system.SystemId, LogCategory.Runtime, LogLevel.Info, "Reset");

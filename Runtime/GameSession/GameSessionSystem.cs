@@ -474,7 +474,7 @@ namespace ProtoSystem
             _isVictory = isVictory;
         }
         
-        private void ResetAllSystems()
+        private void ResetAllSystems(object resetData = null)
         {
             EventBus.Publish(EventBus.Session.Reset, null);
             
@@ -482,7 +482,7 @@ namespace ProtoSystem
             var manager = SystemInitializationManager.Instance;
             if (manager != null)
             {
-                manager.ResetAllResettableSystems();
+                manager.ResetAllResettableSystems(resetData);
             }
         }
         
