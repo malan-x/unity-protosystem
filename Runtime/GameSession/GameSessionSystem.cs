@@ -169,7 +169,8 @@ namespace ProtoSystem
         /// Запустить новую сессию.
         /// Публикует Session.Reset, затем Session.Started.
         /// </summary>
-        public void StartSession()
+        /// <param name="resetData">Опциональные данные для передачи в системы при сбросе</param>
+        public void StartSession(object resetData = null)
         {
             if (!CanControl)
             {
@@ -189,14 +190,15 @@ namespace ProtoSystem
             }
             else
             {
-                StartSessionInternal();
+                StartSessionInternal(resetData);
             }
         }
         
         /// <summary>
         /// Перезапустить сессию (soft reset).
         /// </summary>
-        public void RestartSession()
+        /// <param name="resetData">Опциональные данные для передачи в системы при сбросе</param>
+        public void RestartSession(object resetData = null)
         {
             if (!CanControl)
             {
@@ -210,7 +212,7 @@ namespace ProtoSystem
             }
             else
             {
-                RestartSessionInternal();
+                RestartSessionInternal(resetData);
             }
         }
         
@@ -320,12 +322,13 @@ namespace ProtoSystem
         /// Внутренний метод запуска сессии.
         /// Вызывается напрямую или через сетевой sync.
         /// </summary>
-        internal void StartSessionInternal()
+        /// <param name="resetData">Опциональные данные для передачи в системы при сбросе</param>
+        internal void StartSessionInternal(object resetData = null)
         {
             SetStateInternal(SessionState.Starting);
             
             // Сброс всех систем
-            ResetAllSystems();
+            ResetAllSystems(resetData);
             
             // Запуск после задержки
             if (config.restartDelay > 0)
@@ -357,7 +360,8 @@ namespace ProtoSystem
         /// <summary>
         /// Внутренний метод рестарта сессии.
         /// </summary>
-        internal void RestartSessionInternal()
+        /// <param name="resetData">Опциональные данные для передачи в системы при сбросе</param>
+        internal void RestartSessionInternal(object resetData = null)
         {
             EventBus.Publish(EventBus.Session.RestartRequested, null);
             
@@ -372,7 +376,7 @@ namespace ProtoSystem
                 _endReason = SessionEndReason.ManualRestart;
             }
             
-            StartSessionInternal();
+            StartSessionInternal(resetData);
             Log($"Session restarted (count: {_stats.RestartCount})");
         }
         
