@@ -1507,6 +1507,18 @@ namespace ProtoSystem
             Rect bgRect = new Rect(rect.x - 2, rect.y - 1, rect.width + 4, rect.height + 2);
             EditorGUI.DrawRect(bgRect, bgColor);
 
+            // Double-click → ping component
+            if (Event.current.type == EventType.MouseDown && Event.current.clickCount == 2 && bgRect.Contains(Event.current.mousePosition))
+            {
+                var obj = element.FindPropertyRelative("existingSystemObject").objectReferenceValue;
+                if (obj != null)
+                {
+                    EditorGUIUtility.PingObject(obj);
+                    Selection.activeObject = obj;
+                    Event.current.Use();
+                }
+            }
+
             float currentY = rect.y;
 
             // Основная строка

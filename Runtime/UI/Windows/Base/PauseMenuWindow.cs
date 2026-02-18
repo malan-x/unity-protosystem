@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
+// UIKeys is in ProtoSystem namespace, same root namespace
 namespace ProtoSystem.UI
 {
     /// <summary>
@@ -45,20 +46,20 @@ namespace ProtoSystem.UI
         protected virtual void OnMainMenuClicked()
         {
             UISystem.Instance?.Dialog.Confirm(
-                "Несохранённый прогресс будет потерян.",
+                UIKeys.L(UIKeys.Pause.MenuConfirmMessage, UIKeys.Pause.Fallback.MenuConfirmMessage),
                 onYes: () =>
                 {
                     UITimeManager.Instance.ResetAllPauses();
                     UISystem.Navigate("mainmenu");
                 },
-                title: "Выйти в главное меню?"
+                title: UIKeys.L(UIKeys.Pause.MenuConfirmTitle, UIKeys.Pause.Fallback.MenuConfirmTitle)
             );
         }
 
         protected virtual void OnQuitClicked()
         {
             UISystem.Instance?.Dialog.Confirm(
-                "Несохранённый прогресс будет потерян.",
+                UIKeys.L(UIKeys.Pause.QuitConfirmMessage, UIKeys.Pause.Fallback.QuitConfirmMessage),
                 onYes: () =>
                 {
                     #if UNITY_EDITOR
@@ -67,7 +68,7 @@ namespace ProtoSystem.UI
                     Application.Quit();
                     #endif
                 },
-                title: "Выйти из игры?"
+                title: UIKeys.L(UIKeys.Pause.QuitConfirmTitle, UIKeys.Pause.Fallback.QuitConfirmTitle)
             );
         }
 

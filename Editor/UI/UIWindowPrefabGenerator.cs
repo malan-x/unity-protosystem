@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEditor;
 using TMPro;
+using ProtoSystem;
 // UIHoverEffect подключается из ProtoSystem.Runtime
 
 namespace ProtoSystem.UI
@@ -146,7 +147,7 @@ namespace ProtoSystem.UI
             var root = CreateWindowBase("MainMenu", new Vector2(500, 400));
             
             // Title
-            var titleGO = CreateText("Title", root.transform, "GAME TITLE", 48);
+            var titleGO = CreateText("Title", root.transform, UIKeys.MainMenu.Fallback.Title, 48);
             var titleRect = titleGO.GetComponent<RectTransform>();
             titleRect.anchorMin = new Vector2(0, 0.75f);
             titleRect.anchorMax = new Vector2(1, 0.95f);
@@ -154,6 +155,7 @@ namespace ProtoSystem.UI
             titleRect.offsetMax = Vector2.zero;
             var titleText = titleGO.GetComponent<TMP_Text>();
             titleText.fontStyle = FontStyles.Bold;
+            AddLocalization(titleGO, UIKeys.MainMenu.Title, UIKeys.MainMenu.Fallback.Title, true);
 
             // Buttons container
             var buttonsGO = new GameObject("Buttons");
@@ -173,10 +175,14 @@ namespace ProtoSystem.UI
             vlg.childForceExpandHeight = false;
 
             // Buttons
-            var playBtn = CreateMenuButton("PlayButton", buttonsGO.transform, "Начать игру");
-            var settingsBtn = CreateMenuButton("SettingsButton", buttonsGO.transform, "Настройки");
-            var creditsBtn = CreateMenuButton("CreditsButton", buttonsGO.transform, "Авторы");
-            var quitBtn = CreateMenuButton("QuitButton", buttonsGO.transform, "Выход");
+            var playBtn = CreateMenuButton("PlayButton", buttonsGO.transform, UIKeys.MainMenu.Fallback.Play);
+            AddLocalization(playBtn.transform.Find("Text")?.gameObject, UIKeys.MainMenu.Play, UIKeys.MainMenu.Fallback.Play);
+            var settingsBtn = CreateMenuButton("SettingsButton", buttonsGO.transform, UIKeys.MainMenu.Fallback.Settings);
+            AddLocalization(settingsBtn.transform.Find("Text")?.gameObject, UIKeys.MainMenu.Settings, UIKeys.MainMenu.Fallback.Settings);
+            var creditsBtn = CreateMenuButton("CreditsButton", buttonsGO.transform, UIKeys.MainMenu.Fallback.Credits);
+            AddLocalization(creditsBtn.transform.Find("Text")?.gameObject, UIKeys.MainMenu.Credits, UIKeys.MainMenu.Fallback.Credits);
+            var quitBtn = CreateMenuButton("QuitButton", buttonsGO.transform, UIKeys.MainMenu.Fallback.Quit);
+            AddLocalization(quitBtn.transform.Find("Text")?.gameObject, UIKeys.MainMenu.Quit, UIKeys.MainMenu.Fallback.Quit);
 
             // Version text
             var versionGO = CreateText("Version", root.transform, "v1.0.0", 14);
@@ -317,7 +323,7 @@ namespace ProtoSystem.UI
             var root = CreateWindowBase("PauseMenu", new Vector2(400, 350));
 
             // Title
-            var titleGO = CreateText("Title", root.transform, "ПАУЗА", 36);
+            var titleGO = CreateText("Title", root.transform, UIKeys.Pause.Fallback.Title, 36);
             var titleRect = titleGO.GetComponent<RectTransform>();
             titleRect.anchorMin = new Vector2(0, 0.8f);
             titleRect.anchorMax = new Vector2(1, 0.95f);
@@ -325,6 +331,7 @@ namespace ProtoSystem.UI
             titleRect.offsetMax = Vector2.zero;
             var titleText = titleGO.GetComponent<TMP_Text>();
             titleText.fontStyle = FontStyles.Bold;
+            AddLocalization(titleGO, UIKeys.Pause.Title, UIKeys.Pause.Fallback.Title, true);
 
             // Buttons container
             var buttonsGO = new GameObject("Buttons");
@@ -343,10 +350,14 @@ namespace ProtoSystem.UI
             vlg.childForceExpandWidth = true;
             vlg.childForceExpandHeight = false;
 
-            var resumeBtn = CreateMenuButton("ResumeButton", buttonsGO.transform, "Продолжить");
-            var settingsBtn = CreateMenuButton("SettingsButton", buttonsGO.transform, "Настройки");
-            var mainMenuBtn = CreateMenuButton("MainMenuButton", buttonsGO.transform, "В главное меню");
-            var quitBtn = CreateMenuButton("QuitButton", buttonsGO.transform, "Выход");
+            var resumeBtn = CreateMenuButton("ResumeButton", buttonsGO.transform, UIKeys.Pause.Fallback.Resume);
+            AddLocalization(resumeBtn.transform.Find("Text")?.gameObject, UIKeys.Pause.Resume, UIKeys.Pause.Fallback.Resume);
+            var settingsBtn = CreateMenuButton("SettingsButton", buttonsGO.transform, UIKeys.Pause.Fallback.Settings);
+            AddLocalization(settingsBtn.transform.Find("Text")?.gameObject, UIKeys.Pause.Settings, UIKeys.Pause.Fallback.Settings);
+            var mainMenuBtn = CreateMenuButton("MainMenuButton", buttonsGO.transform, UIKeys.Pause.Fallback.MainMenu);
+            AddLocalization(mainMenuBtn.transform.Find("Text")?.gameObject, UIKeys.Pause.MainMenu, UIKeys.Pause.Fallback.MainMenu);
+            var quitBtn = CreateMenuButton("QuitButton", buttonsGO.transform, UIKeys.Pause.Fallback.Quit);
+            AddLocalization(quitBtn.transform.Find("Text")?.gameObject, UIKeys.Pause.Quit, UIKeys.Pause.Fallback.Quit);
 
             var component = root.AddComponent<PauseMenuWindow>();
             SetField(component, "resumeButton", resumeBtn.GetComponent<Button>());
@@ -367,7 +378,7 @@ namespace ProtoSystem.UI
 
             var titleText = header.Find("Title").GetComponent<TMP_Text>();
 
-            var messageGO = CreateText("Message", content, "Вы уверены?", 18);
+            var messageGO = CreateText("Message", content, UIKeys.Dialog.Fallback.ConfirmMessage, 18);
             var messageRect = messageGO.GetComponent<RectTransform>();
             messageRect.anchorMin = new Vector2(0, 0.4f);
             messageRect.anchorMax = new Vector2(1, 0.8f);
@@ -376,8 +387,8 @@ namespace ProtoSystem.UI
             var messageText = messageGO.GetComponent<TMP_Text>();
 
             var buttonsContainer = CreateButtonsContainer(content);
-            var yesButtonGO = CreateButton("YesButton", buttonsContainer.transform, "Да", new Vector2(120, 40));
-            var noButtonGO = CreateButton("NoButton", buttonsContainer.transform, "Нет", new Vector2(120, 40));
+            var yesButtonGO = CreateButton("YesButton", buttonsContainer.transform, UIKeys.Dialog.Fallback.Yes, new Vector2(120, 40));
+            var noButtonGO = CreateButton("NoButton", buttonsContainer.transform, UIKeys.Dialog.Fallback.No, new Vector2(120, 40));
 
             var yesButton = yesButtonGO.GetComponent<Button>();
             var noButton = noButtonGO.GetComponent<Button>();
@@ -404,7 +415,7 @@ namespace ProtoSystem.UI
 
             var titleText = header.Find("Title").GetComponent<TMP_Text>();
 
-            var messageGO = CreateText("Message", content, "Введите значение:", 18);
+            var messageGO = CreateText("Message", content, UIKeys.Dialog.Fallback.InputMessage, 18);
             var messageRect = messageGO.GetComponent<RectTransform>();
             messageRect.anchorMin = new Vector2(0, 0.65f);
             messageRect.anchorMax = new Vector2(1, 0.85f);
@@ -431,8 +442,8 @@ namespace ProtoSystem.UI
             errorText.fontSize = 14;
 
             var buttonsContainer = CreateButtonsContainer(content);
-            var submitButtonGO = CreateButton("SubmitButton", buttonsContainer.transform, "OK", new Vector2(120, 40));
-            var cancelButtonGO = CreateButton("CancelButton", buttonsContainer.transform, "Отмена", new Vector2(120, 40));
+            var submitButtonGO = CreateButton("SubmitButton", buttonsContainer.transform, UIKeys.Dialog.Fallback.OK, new Vector2(120, 40));
+            var cancelButtonGO = CreateButton("CancelButton", buttonsContainer.transform, UIKeys.Dialog.Fallback.Cancel, new Vector2(120, 40));
 
             var submitButton = submitButtonGO.GetComponent<Button>();
             var cancelButton = cancelButtonGO.GetComponent<Button>();
@@ -461,7 +472,7 @@ namespace ProtoSystem.UI
 
             var titleText = header.Find("Title").GetComponent<TMP_Text>();
 
-            var messageGO = CreateText("Message", content, "Выберите вариант:", 18);
+            var messageGO = CreateText("Message", content, UIKeys.Dialog.Fallback.ChoiceMessage, 18);
             var messageRect = messageGO.GetComponent<RectTransform>();
             messageRect.anchorMin = new Vector2(0, 0.8f);
             messageRect.anchorMax = new Vector2(1, 0.95f);
@@ -485,7 +496,7 @@ namespace ProtoSystem.UI
             vlg.childForceExpandWidth = true;
             vlg.childForceExpandHeight = false;
 
-            var choiceTemplate = CreateButton("ChoiceButtonTemplate", choicesGO.transform, "Вариант", new Vector2(0, 40));
+            var choiceTemplate = CreateButton("ChoiceButtonTemplate", choicesGO.transform, "Option", new Vector2(0, 40));
             var choiceLE = choiceTemplate.AddComponent<LayoutElement>();
             choiceLE.preferredHeight = 40;
             choiceTemplate.SetActive(false);
@@ -496,7 +507,7 @@ namespace ProtoSystem.UI
             cancelRect.anchorMin = new Vector2(0, 0);
             cancelRect.anchorMax = new Vector2(1, 0.18f);
 
-            var cancelButtonGO = CreateButton("CancelButton", cancelContainer.transform, "Отмена", new Vector2(120, 40));
+            var cancelButtonGO = CreateButton("CancelButton", cancelContainer.transform, UIKeys.Dialog.Fallback.Cancel, new Vector2(120, 40));
             var cancelButton = cancelButtonGO.GetComponent<Button>();
             var cancelButtonText = cancelButtonGO.transform.Find("Text").GetComponent<TMP_Text>();
 
@@ -524,7 +535,7 @@ namespace ProtoSystem.UI
             }
 
             // Title
-            var titleGO = CreateText("Title", root.transform, "НАСТРОЙКИ", 28);
+            var titleGO = CreateText("Title", root.transform, UIKeys.Settings.Fallback.Title, 28);
             var titleRect = titleGO.GetComponent<RectTransform>();
             titleRect.anchorMin = new Vector2(0, 0.91f);
             titleRect.anchorMax = new Vector2(1, 0.98f);
@@ -534,6 +545,7 @@ namespace ProtoSystem.UI
             titleTmp.fontStyle = FontStyles.Bold;
             titleTmp.color = Color.white;
             titleTmp.characterSpacing = 2f;
+            AddLocalization(titleGO, UIKeys.Settings.Title, UIKeys.Settings.Fallback.Title, true);
 
             // Border-bottom для заголовка
             var titleBorderGO = new GameObject("TitleBorder");
@@ -572,7 +584,8 @@ namespace ProtoSystem.UI
             vlg.padding = new RectOffset(0, 0, 10, 10);
 
             // Audio section - динамическая генерация
-            CreateSectionLabel("AudioLabel", contentGO.transform, "Звук");
+            var audioLabel = CreateSectionLabel("AudioLabel", contentGO.transform, UIKeys.Settings.Fallback.AudioSection);
+            AddLocalization(audioLabel.transform.Find("Text")?.gameObject, UIKeys.Settings.AudioSection, UIKeys.Settings.Fallback.AudioSection);
 
             var audioSliders = new System.Collections.Generic.List<(string paramName, string displayName, GameObject sliderGO)>();
 
@@ -581,34 +594,92 @@ namespace ProtoSystem.UI
                 // Динамические слайдеры из AudioMixer
                 foreach (var param in AudioParametersForSettings)
                 {
-                    string safeName = param.name.Replace(" ", "");
-                    var sliderGO = CreateSettingsSlider($"{safeName}Slider", contentGO.transform, param.displayName);
+                    // Маппинг стандартных параметров на UIKeys
+                    string locKey = null;
+                    string locFallback = param.displayName;
+                    string lower = param.name.ToLower().Replace(" ", "");
+                    
+                    if (lower.Contains("master") || lower == "volume")
+                    {
+                        locKey = UIKeys.Settings.MasterVolume;
+                        locFallback = UIKeys.Settings.Fallback.MasterVolume;
+                    }
+                    else if (lower.Contains("music"))
+                    {
+                        locKey = UIKeys.Settings.MusicVolume;
+                        locFallback = UIKeys.Settings.Fallback.MusicVolume;
+                    }
+                    else if (lower.Contains("sfx") || lower.Contains("effect"))
+                    {
+                        locKey = UIKeys.Settings.SfxVolume;
+                        locFallback = UIKeys.Settings.Fallback.SfxVolume;
+                    }
+                    else if (lower.Contains("voice") || lower.Contains("dialog"))
+                    {
+                        locKey = UIKeys.Settings.VoiceVolume;
+                        locFallback = UIKeys.Settings.Fallback.VoiceVolume;
+                    }
+                    else if (lower.Contains("ambient"))
+                    {
+                        locKey = UIKeys.Settings.AmbientVolume;
+                        locFallback = UIKeys.Settings.Fallback.AmbientVolume;
+                    }
+                    else if (lower.Contains("ui") || lower.Contains("interface"))
+                    {
+                        locKey = UIKeys.Settings.UIVolume;
+                        locFallback = UIKeys.Settings.Fallback.UIVolume;
+                    }
+                    else
+                    {
+                        // Кастомный параметр — автогенерация ключа
+                        string safeName = param.name.Replace(" ", "");
+                        locKey = $"ui.settings.audio_{safeName.ToLower()}";
+                    }
+                    
+                    string sliderName = param.name.Replace(" ", "") + "Slider";
+                    var sliderGO = CreateSettingsSlider(sliderName, contentGO.transform, locFallback);
+                    AddLocalization(sliderGO.transform.Find("Label")?.gameObject, locKey, locFallback);
                     audioSliders.Add((param.name, param.displayName, sliderGO));
                 }
             }
             else
             {
                 // Legacy слайдеры (fallback)
-                var masterSlider = CreateSettingsSlider("MasterVolume", contentGO.transform, "Громкость");
-                var musicSlider = CreateSettingsSlider("MusicVolume", contentGO.transform, "Музыка");
-                var sfxSlider = CreateSettingsSlider("SfxVolume", contentGO.transform, "Эффекты");
+                var masterSlider = CreateSettingsSlider("MasterVolume", contentGO.transform, UIKeys.Settings.Fallback.MasterVolume);
+                AddLocalization(masterSlider.transform.Find("Label")?.gameObject, UIKeys.Settings.MasterVolume, UIKeys.Settings.Fallback.MasterVolume);
+                var musicSlider = CreateSettingsSlider("MusicVolume", contentGO.transform, UIKeys.Settings.Fallback.MusicVolume);
+                AddLocalization(musicSlider.transform.Find("Label")?.gameObject, UIKeys.Settings.MusicVolume, UIKeys.Settings.Fallback.MusicVolume);
+                var sfxSlider = CreateSettingsSlider("SfxVolume", contentGO.transform, UIKeys.Settings.Fallback.SfxVolume);
+                AddLocalization(sfxSlider.transform.Find("Label")?.gameObject, UIKeys.Settings.SfxVolume, UIKeys.Settings.Fallback.SfxVolume);
 
-                audioSliders.Add(("MasterVolume", "Громкость", masterSlider));
-                audioSliders.Add(("MusicVolume", "Музыка", musicSlider));
-                audioSliders.Add(("SFXVolume", "Эффекты", sfxSlider));
+                audioSliders.Add(("MasterVolume", UIKeys.Settings.Fallback.MasterVolume, masterSlider));
+                audioSliders.Add(("MusicVolume", UIKeys.Settings.Fallback.MusicVolume, musicSlider));
+                audioSliders.Add(("SFXVolume", UIKeys.Settings.Fallback.SfxVolume, sfxSlider));
             }
 
             // Graphics section
-            CreateSectionLabel("GraphicsLabel", contentGO.transform, "Графика");
-            var qualityDropdown = CreateDropdown("QualityDropdown", contentGO.transform, "Качество");
-            var resolutionDropdown = CreateDropdown("ResolutionDropdown", contentGO.transform, "Разрешение");
-            var fullscreenToggle = CreateToggle("FullscreenToggle", contentGO.transform, "Полный экран");
-            var vsyncToggle = CreateToggle("VsyncToggle", contentGO.transform, "V-Sync");
+            var graphicsLabel = CreateSectionLabel("GraphicsLabel", contentGO.transform, UIKeys.Settings.Fallback.GraphicsSection);
+            AddLocalization(graphicsLabel.transform.Find("Text")?.gameObject, UIKeys.Settings.GraphicsSection, UIKeys.Settings.Fallback.GraphicsSection);
+            var qualityDropdown = CreateDropdown("QualityDropdown", contentGO.transform, UIKeys.Settings.Fallback.Quality);
+            AddLocalization(qualityDropdown.transform.Find("Label")?.gameObject, UIKeys.Settings.Quality, UIKeys.Settings.Fallback.Quality);
+            var resolutionDropdown = CreateDropdown("ResolutionDropdown", contentGO.transform, UIKeys.Settings.Fallback.Resolution);
+            AddLocalization(resolutionDropdown.transform.Find("Label")?.gameObject, UIKeys.Settings.Resolution, UIKeys.Settings.Fallback.Resolution);
+            var fullscreenToggle = CreateToggle("FullscreenToggle", contentGO.transform, UIKeys.Settings.Fallback.Fullscreen);
+            AddLocalization(fullscreenToggle.transform.Find("Label")?.gameObject, UIKeys.Settings.Fullscreen, UIKeys.Settings.Fallback.Fullscreen);
+            var vsyncToggle = CreateToggle("VsyncToggle", contentGO.transform, UIKeys.Settings.Fallback.VSync);
+            AddLocalization(vsyncToggle.transform.Find("Label")?.gameObject, UIKeys.Settings.VSync, UIKeys.Settings.Fallback.VSync);
 
             // Gameplay section
-            CreateSectionLabel("GameplayLabel", contentGO.transform, "Управление");
-            var sensitivitySlider = CreateSettingsSlider("SensitivitySlider", contentGO.transform, "Чувствительность");
-            var invertYToggle = CreateToggle("InvertYToggle", contentGO.transform, "Инверсия Y");
+            var gameplayLabel = CreateSectionLabel("GameplayLabel", contentGO.transform, UIKeys.Settings.Fallback.GameplaySection);
+            AddLocalization(gameplayLabel.transform.Find("Text")?.gameObject, UIKeys.Settings.GameplaySection, UIKeys.Settings.Fallback.GameplaySection);
+            var sensitivitySlider = CreateSettingsSlider("SensitivitySlider", contentGO.transform, UIKeys.Settings.Fallback.Sensitivity);
+            AddLocalization(sensitivitySlider.transform.Find("Label")?.gameObject, UIKeys.Settings.Sensitivity, UIKeys.Settings.Fallback.Sensitivity);
+            var invertYToggle = CreateToggle("InvertYToggle", contentGO.transform, UIKeys.Settings.Fallback.InvertY);
+            AddLocalization(invertYToggle.transform.Find("Label")?.gameObject, UIKeys.Settings.InvertY, UIKeys.Settings.Fallback.InvertY);
+
+            // Language dropdown
+            var languageDropdown = CreateDropdown("LanguageDropdown", contentGO.transform, UIKeys.Settings.Fallback.Language);
+            AddLocalization(languageDropdown.transform.Find("Label")?.gameObject, UIKeys.Settings.Language, UIKeys.Settings.Fallback.Language);
 
             // Footer border
             var footerBorderGO = new GameObject("FooterBorder");
@@ -635,9 +706,12 @@ namespace ProtoSystem.UI
             hlg.childControlWidth = false;
             hlg.childControlHeight = false;
 
-            var applyBtn = CreateStyledButton("ApplyButton", buttonsGO.transform, "Применить", new Vector2(120, 40), true);
-            var resetBtn = CreateStyledButton("ResetButton", buttonsGO.transform, "Сброс", new Vector2(100, 40), false);
-            var backBtn = CreateStyledButton("BackButton", buttonsGO.transform, "Назад", new Vector2(100, 40), false);
+            var applyBtn = CreateStyledButton("ApplyButton", buttonsGO.transform, UIKeys.Settings.Fallback.Apply, new Vector2(120, 40), true);
+            AddLocalization(applyBtn.transform.Find("Text")?.gameObject, UIKeys.Settings.Apply, UIKeys.Settings.Fallback.Apply);
+            var resetBtn = CreateStyledButton("ResetButton", buttonsGO.transform, UIKeys.Settings.Fallback.Reset, new Vector2(100, 40), false);
+            AddLocalization(resetBtn.transform.Find("Text")?.gameObject, UIKeys.Settings.Reset, UIKeys.Settings.Fallback.Reset);
+            var backBtn = CreateStyledButton("BackButton", buttonsGO.transform, UIKeys.Settings.Fallback.Back, new Vector2(100, 40), false);
+            AddLocalization(backBtn.transform.Find("Text")?.gameObject, UIKeys.Settings.Back, UIKeys.Settings.Fallback.Back);
 
             // Настройка компонента SettingsWindow
             var component = root.AddComponent<SettingsWindow>();
@@ -692,6 +766,8 @@ namespace ProtoSystem.UI
             SetField(component, "sensitivitySlider", sensitivitySlider.GetComponentInChildren<Slider>());
             SetField(component, "sensitivityText", sensitivitySlider.transform.Find("ValueText")?.GetComponent<TMP_Text>());
             SetField(component, "invertYToggle", invertYToggle.GetComponentInChildren<Toggle>());
+            // Language
+            SetField(component, "languageDropdown", languageDropdown.GetComponentInChildren<TMP_Dropdown>());
             // Buttons
             SetField(component, "applyButton", applyBtn.GetComponent<Button>());
             SetField(component, "resetButton", resetBtn.GetComponent<Button>());
@@ -706,13 +782,14 @@ namespace ProtoSystem.UI
             var root = CreateWindowBase("Credits", new Vector2(450, 500));
 
             // Title
-            var titleGO = CreateText("Title", root.transform, "АВТОРЫ", 32);
+            var titleGO = CreateText("Title", root.transform, UIKeys.Credits.Fallback.Title, 32);
             var titleRect = titleGO.GetComponent<RectTransform>();
             titleRect.anchorMin = new Vector2(0, 0.9f);
             titleRect.anchorMax = new Vector2(1, 0.98f);
             titleRect.offsetMin = Vector2.zero;
             titleRect.offsetMax = Vector2.zero;
             titleGO.GetComponent<TMP_Text>().fontStyle = FontStyles.Bold;
+            AddLocalization(titleGO, UIKeys.Credits.Title, UIKeys.Credits.Fallback.Title, true);
 
             // Scroll View
             var scrollGO = new GameObject("ScrollView");
@@ -787,8 +864,10 @@ namespace ProtoSystem.UI
             hlg.childAlignment = TextAnchor.MiddleCenter;
             hlg.childControlWidth = false;
 
-            var skipBtn = CreateButton("SkipButton", buttonsGO.transform, "Пропустить", new Vector2(110, 35));
-            var backBtn = CreateButton("BackButton", buttonsGO.transform, "Назад", new Vector2(90, 35));
+            var skipBtn = CreateButton("SkipButton", buttonsGO.transform, UIKeys.Credits.Fallback.Skip, new Vector2(110, 35));
+            AddLocalization(skipBtn.transform.Find("Text")?.gameObject, UIKeys.Credits.Skip, UIKeys.Credits.Fallback.Skip);
+            var backBtn = CreateButton("BackButton", buttonsGO.transform, UIKeys.Credits.Fallback.Back, new Vector2(90, 35));
+            AddLocalization(backBtn.transform.Find("Text")?.gameObject, UIKeys.Credits.Back, UIKeys.Credits.Fallback.Back);
 
             var component = root.AddComponent<CreditsWindow>();
             SetField(component, "creditsData", creditsData); // Привязываем CreditsData
@@ -826,7 +905,7 @@ namespace ProtoSystem.UI
             vlg.childControlHeight = false;
 
             // Status text
-            var statusGO = CreateText("Status", centerGO.transform, "Загрузка...", 24);
+            var statusGO = CreateText("Status", centerGO.transform, UIKeys.Loading.Fallback.Status, 24);
             var statusText = statusGO.GetComponent<TMP_Text>();
             statusGO.AddComponent<LayoutElement>().preferredHeight = 35;
 
@@ -837,7 +916,7 @@ namespace ProtoSystem.UI
             progressText.text = "0%";
 
             // Tips
-            var tipsGO = CreateText("Tips", root.transform, "Совет: Нажмите ESC для паузы", 16);
+            var tipsGO = CreateText("Tips", root.transform, UIKeys.Loading.Fallback.DefaultTip, 16);
             var tipsRect = tipsGO.GetComponent<RectTransform>();
             tipsRect.anchorMin = new Vector2(0.2f, 0.1f);
             tipsRect.anchorMax = new Vector2(0.8f, 0.2f);
@@ -872,7 +951,7 @@ namespace ProtoSystem.UI
             iconImage.color = new Color(0.2f, 0.8f, 0.3f);
 
             // Title
-            var titleGO = CreateText("Title", root.transform, "ПОБЕДА", 36);
+            var titleGO = CreateText("Title", root.transform, UIKeys.GameOver.Fallback.Victory, 36);
             var titleRect = titleGO.GetComponent<RectTransform>();
             titleRect.anchorMin = new Vector2(0, 0.45f);
             titleRect.anchorMax = new Vector2(1, 0.65f);
@@ -883,7 +962,7 @@ namespace ProtoSystem.UI
             titleText.color = new Color(0.2f, 0.8f, 0.3f);
 
             // Message
-            var messageGO = CreateText("Message", root.transform, "Поздравляем! Вы победили!", 18);
+            var messageGO = CreateText("Message", root.transform, UIKeys.GameOver.Fallback.VictoryMessage, 18);
             var messageRect = messageGO.GetComponent<RectTransform>();
             messageRect.anchorMin = new Vector2(0.1f, 0.3f);
             messageRect.anchorMax = new Vector2(0.9f, 0.45f);
@@ -907,9 +986,12 @@ namespace ProtoSystem.UI
             hlg.childControlWidth = false;
             hlg.childControlHeight = false;
 
-            var restartBtn = CreateButton("RestartButton", buttonsGO.transform, "Заново", new Vector2(110, 40));
-            var menuBtn = CreateButton("MainMenuButton", buttonsGO.transform, "Меню", new Vector2(100, 40));
-            var quitBtn = CreateButton("QuitButton", buttonsGO.transform, "Выход", new Vector2(100, 40));
+            var restartBtn = CreateButton("RestartButton", buttonsGO.transform, UIKeys.GameOver.Fallback.Restart, new Vector2(110, 40));
+            AddLocalization(restartBtn.transform.Find("Text")?.gameObject, UIKeys.GameOver.Restart, UIKeys.GameOver.Fallback.Restart);
+            var menuBtn = CreateButton("MainMenuButton", buttonsGO.transform, UIKeys.GameOver.Fallback.Menu, new Vector2(100, 40));
+            AddLocalization(menuBtn.transform.Find("Text")?.gameObject, UIKeys.GameOver.Menu, UIKeys.GameOver.Fallback.Menu);
+            var quitBtn = CreateButton("QuitButton", buttonsGO.transform, UIKeys.GameOver.Fallback.Quit, new Vector2(100, 40));
+            AddLocalization(quitBtn.transform.Find("Text")?.gameObject, UIKeys.GameOver.Quit, UIKeys.GameOver.Fallback.Quit);
 
             var component = root.AddComponent<GameOverWindow>();
             SetField(component, "titleText", titleText);
@@ -928,7 +1010,7 @@ namespace ProtoSystem.UI
             var root = CreateWindowBase("Statistics", new Vector2(420, 450), 0.92f);
 
             // Title
-            var titleGO = CreateText("Title", root.transform, "СТАТИСТИКА", 28);
+            var titleGO = CreateText("Title", root.transform, UIKeys.Statistics.Fallback.Title, 28);
             var titleRect = titleGO.GetComponent<RectTransform>();
             titleRect.anchorMin = new Vector2(0, 0.88f);
             titleRect.anchorMax = new Vector2(1, 0.97f);
@@ -936,6 +1018,7 @@ namespace ProtoSystem.UI
             titleRect.offsetMax = Vector2.zero;
             var titleText = titleGO.GetComponent<TMP_Text>();
             titleText.fontStyle = FontStyles.Bold;
+            AddLocalization(titleGO, UIKeys.Statistics.Title, UIKeys.Statistics.Fallback.Title, true);
 
             // Stats container with scroll
             var scrollGO = CreateScrollView("StatsScroll", root.transform);
@@ -957,11 +1040,11 @@ namespace ProtoSystem.UI
             csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             // Sample stat rows
-            CreateStatRow("Время игры", "12:34", contentGO.transform);
-            CreateStatRow("Убито врагов", "25", contentGO.transform);
-            CreateStatRow("Урон нанесён", "15,420", contentGO.transform);
-            CreateStatRow("Урон получен", "3,200", contentGO.transform);
-            CreateStatRow("Точность", "78%", contentGO.transform);
+            CreateStatRow(UIKeys.Statistics.Fallback.PlayTime, "12:34", contentGO.transform);
+            CreateStatRow(UIKeys.Statistics.Fallback.EnemiesKilled, "25", contentGO.transform);
+            CreateStatRow(UIKeys.Statistics.Fallback.DamageDealt, "15,420", contentGO.transform);
+            CreateStatRow(UIKeys.Statistics.Fallback.DamageReceived, "3,200", contentGO.transform);
+            CreateStatRow(UIKeys.Statistics.Fallback.Accuracy, "78%", contentGO.transform);
 
             // Buttons
             var buttonsGO = new GameObject("Buttons");
@@ -978,8 +1061,10 @@ namespace ProtoSystem.UI
             hlg2.childControlWidth = false;
             hlg2.childControlHeight = false;
 
-            var continueBtn = CreateButton("ContinueButton", buttonsGO.transform, "Продолжить", new Vector2(130, 38));
-            var backBtn = CreateButton("BackButton", buttonsGO.transform, "Назад", new Vector2(100, 38));
+            var continueBtn = CreateButton("ContinueButton", buttonsGO.transform, UIKeys.Statistics.Fallback.Continue, new Vector2(130, 38));
+            AddLocalization(continueBtn.transform.Find("Text")?.gameObject, UIKeys.Statistics.Continue, UIKeys.Statistics.Fallback.Continue);
+            var backBtn = CreateButton("BackButton", buttonsGO.transform, UIKeys.Statistics.Fallback.Back, new Vector2(100, 38));
+            AddLocalization(backBtn.transform.Find("Text")?.gameObject, UIKeys.Statistics.Back, UIKeys.Statistics.Fallback.Back);
 
             var component = root.AddComponent<StatisticsWindow>();
             SetField(component, "titleText", titleText);
@@ -2322,6 +2407,20 @@ namespace ProtoSystem.UI
             {
                 Debug.LogWarning($"Field '{fieldName}' not found in {component.GetType().Name}");
             }
+        }
+
+        /// <summary>
+        /// Добавляет LocalizeTMP компонент на GameObject с TMP_Text.
+        /// Fallback текст уже установлен в TMP_Text.text при создании через CreateText.
+        /// </summary>
+        private static void AddLocalization(GameObject textGO, string key, string fallback, bool toUpperCase = false)
+        {
+            if (textGO == null) return;
+            var loc = textGO.AddComponent<LocalizeTMP>();
+            SetField(loc, "table", UIKeys.Table);
+            SetField(loc, "key", key);
+            SetField(loc, "fallback", fallback);
+            SetField(loc, "toUpperCase", toUpperCase);
         }
 
         private static void EnsureFolder(string path)

@@ -34,12 +34,12 @@ namespace ProtoSystem.Editor.Sound
         {
             return paramName switch
             {
-                "MasterVolume" => "Громкость",
-                "MusicVolume" => "Музыка",
-                "SFXVolume" => "Эффекты",
-                "VoiceVolume" => "Голос",
-                "AmbientVolume" => "Окружение",
-                "UIVolume" => "Интерфейс",
+                "MasterVolume" => UIKeys.Settings.Fallback.MasterVolume,
+                "MusicVolume" => UIKeys.Settings.Fallback.MusicVolume,
+                "SFXVolume" => UIKeys.Settings.Fallback.SfxVolume,
+                "VoiceVolume" => UIKeys.Settings.Fallback.VoiceVolume,
+                "AmbientVolume" => UIKeys.Settings.Fallback.AmbientVolume,
+                "UIVolume" => UIKeys.Settings.Fallback.UIVolume,
                 _ => paramName.Replace("Volume", "").Trim()
             };
         }

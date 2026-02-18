@@ -2,6 +2,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 using TMPro;
 
 namespace ProtoSystem.UI
@@ -23,6 +24,25 @@ namespace ProtoSystem.UI
 
         private Action _onYes;
         private Action _onNo;
+
+        protected override void OnShow()
+        {
+            base.OnShow();
+
+            // Выбираем кнопку Yes для клавиатурной навигации
+            if (yesButton != null)
+                yesButton.Select();
+        }
+
+        private void Update()
+        {
+            var kb = Keyboard.current;
+            if (kb == null) return;
+
+            // Enter / Return → подтвердить
+            if (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame)
+                OnYesClicked();
+        }
 
         protected override void Awake()
         {
@@ -46,17 +66,10 @@ namespace ProtoSystem.UI
 
         public void Setup(ConfirmDialogConfig config)
         {
-            if (titleText != null)
-                titleText.text = config.Title ?? "Confirm";
-            
-            if (messageText != null)
-                messageText.text = config.Message ?? "";
-            
-            if (yesButtonText != null)
-                yesButtonText.text = config.YesText ?? "Yes";
-            
-            if (noButtonText != null)
-                noButtonText.text = config.NoText ?? "No";
+            SetupTextWithLoc(titleText, config.Title ?? "Confirm", config.TitleKey);
+            SetupTextWithLoc(messageText, config.Message ?? "", config.MessageKey);
+            SetupTextWithLoc(yesButtonText, config.YesText ?? "Yes", config.YesTextKey);
+            SetupTextWithLoc(noButtonText, config.NoText ?? "No", config.NoTextKey);
 
             // Скрываем кнопку No если текст пустой (Alert mode)
             if (noButton != null)
@@ -64,6 +77,25 @@ namespace ProtoSystem.UI
 
             _onYes = config.OnYes;
             _onNo = config.OnNo;
+        }
+
+        /// <summary>
+        /// Устанавливает текст и обновляет LocalizeTMP (если есть).
+        /// Если locKey задан — SetKey() для реактивной смены языка.
+        /// Если не задан — очищает ключ, чтобы LocalizeTMP не перезатирал текст.
+        /// </summary>
+        private void SetupTextWithLoc(TMP_Text text, string value, string locKey)
+        {
+            if (text == null) return;
+            text.text = value;
+
+            var loc = text.GetComponent<LocalizeTMP>();
+            if (loc == null) return;
+
+            if (!string.IsNullOrEmpty(locKey))
+                loc.SetKey(locKey, value);
+            else
+                loc.SetKey("", null);
         }
 
         private void OnYesClicked()

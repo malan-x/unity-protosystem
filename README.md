@@ -28,6 +28,7 @@
 
 ### Дополнительные системы
 - **GameSessionSystem** — Управление жизненным циклом игровой сессии (старт, пауза, рестарт, завершение)
+- **LocalizationSystem** — Локализация с AI-оптимизированным экспортом/импортом (wrapper над Unity Localization)
 - **SettingsSystem** — Управление настройками (INI формат)
 - **EffectsManager** — Система визуальных эффектов
 - **SceneFlowSystem** — Управление переходами между сценами
@@ -43,6 +44,7 @@
 - [Sound System](Documentation~/Sound.md) — Звуковая система
 - [UISystem Test Scenarios](Documentation~/UISystem_TestScenarios.md) — Тестовые сценарии
 - [GameSession Guide](Documentation~/GameSession.md) — Система игровых сессий
+- [Localization Guide](Documentation~/Localization.md) — Система локализации
 - [SettingsSystem Guide](Documentation~/SettingsSystem.md) — Система настроек
 - [AI Instructions](Documentation~/AI_INSTRUCTIONS.md) — Инструкции для ИИ-ассистентов
 - [Changelog](CHANGELOG.md) — История изменений
@@ -75,6 +77,12 @@ com.protosystem.core/
 │   │   ├── Library/       # SoundLibrary, SoundBank
 │   │   ├── Provider/      # ISoundProvider, UnitySoundProvider
 │   │   └── Components/    # PlaySoundOn, MusicZone, etc.
+│   ├── Localization/      # Система локализации
+│   │   ├── LocalizationSystem.cs
+│   │   ├── Loc.cs             # Статический helper
+│   │   ├── PluralRules.cs     # Plural forms по языкам
+│   │   └── Components/
+│   │       └── LocalizeTMP.cs # Автолокализация TMP_Text
 │   ├── Settings/          # Система настроек
 │   ├── Effects/           # Эффекты
 │   ├── Cursor/            # Управление курсором
@@ -246,6 +254,38 @@ SoundManagerSystem.SetSnapshot(SoundSnapshotPreset.Underwater);
 await SoundManagerSystem.LoadBankAsync("Level1");
 SoundManagerSystem.UnloadBank("Level1");
 ```
+
+### Localization System
+
+#### Быстрая настройка
+
+**ProtoSystem → Localization → Setup Wizard**
+
+#### Использование
+
+```csharp
+// Простой ключ
+string text = Loc.Get("menu.play");  // → "ИГРАТЬ"
+
+// С fallback
+string text = Loc.Get("menu.play", "PLAY");
+
+// Из конкретной таблицы
+string name = Loc.Get("Items", "sword.name");
+
+// Множественное число
+string msg = Loc.GetPlural("enemies.killed", 5);  // → "убито 5 врагов"
+
+// Вложенная ссылка
+string msg = Loc.Get("found.item", ("item", Loc.Ref("Items", itemId)));
+
+// Смена языка
+Loc.SetLanguage("en");
+```
+
+#### Компонент LocalizeTMP
+
+Добавьте на GameObject с TMP_Text — текст обновится автоматически при смене языка.
 
 ### Window Graph Viewer
 

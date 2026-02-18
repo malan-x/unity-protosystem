@@ -279,6 +279,20 @@ namespace ProtoSystem.Editor
 
             EditorGUILayout.BeginHorizontal();
 
+            if (GUILayout.Button("Sound Wizard", GUILayout.Height(25)))
+            {
+                EditorApplication.ExecuteMenuItem("ProtoSystem/Sound/Sound Setup Wizard");
+            }
+
+            if (GUILayout.Button("Localization Wizard", GUILayout.Height(25)))
+            {
+                EditorApplication.ExecuteMenuItem("ProtoSystem/Localization/Setup Wizard");
+            }
+
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+
             if (GUILayout.Button("Export Package", GUILayout.Height(25)))
             {
                 EditorApplication.ExecuteMenuItem("ProtoSystem/Export Package");

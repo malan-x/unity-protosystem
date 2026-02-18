@@ -22,14 +22,14 @@ namespace ProtoSystem.UI
         /// <summary>
         /// Показать диалог подтверждения
         /// </summary>
-        public void Confirm(string message, Action onYes, Action onNo = null, string title = null, string yesText = "Yes", string noText = "No")
+        public void Confirm(string message, Action onYes, Action onNo = null, string title = null, string yesText = null, string noText = null)
         {
             var config = new ConfirmDialogConfig
             {
-                Title = title ?? "Confirm",
+                Title = title ?? UIKeys.L(UIKeys.Dialog.ConfirmTitle, UIKeys.Dialog.Fallback.ConfirmTitle),
                 Message = message,
-                YesText = yesText,
-                NoText = noText,
+                YesText = yesText ?? UIKeys.L(UIKeys.Dialog.Yes, UIKeys.Dialog.Fallback.Yes),
+                NoText = noText ?? UIKeys.L(UIKeys.Dialog.No, UIKeys.Dialog.Fallback.No),
                 OnYes = onYes,
                 OnNo = onNo
             };
@@ -94,9 +94,11 @@ namespace ProtoSystem.UI
         /// <summary>
         /// Показать информационный диалог
         /// </summary>
-        public void Alert(string message, Action onOk = null, string title = null, string okText = "OK")
+        public void Alert(string message, Action onOk = null, string title = null, string okText = null)
         {
-            Confirm(message, onOk, null, title ?? "Alert", okText, null);
+            Confirm(message, onOk, null, 
+                title ?? UIKeys.L(UIKeys.Dialog.AlertTitle, UIKeys.Dialog.Fallback.AlertTitle), 
+                okText ?? UIKeys.L(UIKeys.Dialog.OK, UIKeys.Dialog.Fallback.OK), null);
         }
 
         #endregion
@@ -108,16 +110,16 @@ namespace ProtoSystem.UI
         /// </summary>
         public void Input(string message, Action<string> onSubmit, Action onCancel = null, 
             string title = null, string defaultValue = "", string placeholder = "", 
-            string submitText = "OK", string cancelText = "Cancel")
+            string submitText = null, string cancelText = null)
         {
             var config = new InputDialogConfig
             {
-                Title = title ?? "Input",
+                Title = title ?? UIKeys.L(UIKeys.Dialog.InputTitle, UIKeys.Dialog.Fallback.InputTitle),
                 Message = message,
                 DefaultValue = defaultValue,
                 Placeholder = placeholder,
-                SubmitText = submitText,
-                CancelText = cancelText,
+                SubmitText = submitText ?? UIKeys.L(UIKeys.Dialog.OK, UIKeys.Dialog.Fallback.OK),
+                CancelText = cancelText ?? UIKeys.L(UIKeys.Dialog.Cancel, UIKeys.Dialog.Fallback.Cancel),
                 OnSubmit = onSubmit,
                 OnCancel = onCancel
             };
@@ -171,7 +173,7 @@ namespace ProtoSystem.UI
         {
             var config = new ChoiceDialogConfig
             {
-                Title = title ?? "Choose",
+                Title = title ?? UIKeys.L(UIKeys.Dialog.ChoiceTitle, UIKeys.Dialog.Fallback.ChoiceTitle),
                 Message = message,
                 Options = new List<string>(options),
                 OnSelect = onSelect,
@@ -229,6 +231,16 @@ namespace ProtoSystem.UI
         public string NoText { get; set; } = "No";
         public Action OnYes { get; set; }
         public Action OnNo { get; set; }
+
+        /// <summary>
+        /// Ключи локализации (опционально).
+        /// Если указаны, ConfirmDialogWindow.Setup() обновит LocalizeTMP.SetKey(),
+        /// чтобы при смене языка текст корректно перелокализовался.
+        /// </summary>
+        public string TitleKey { get; set; }
+        public string MessageKey { get; set; }
+        public string YesTextKey { get; set; }
+        public string NoTextKey { get; set; }
     }
 
     public class InputDialogConfig

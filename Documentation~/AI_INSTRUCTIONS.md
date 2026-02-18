@@ -848,7 +848,106 @@ Debug.Log($"Stack: {UISystem.Instance.Navigator.GetStackInfo()}");
 
 ---
 
-## 12. Анти-паттерны
+## 12. Localization System (ProtoLocalization)
+
+### Обзор
+
+Wrapper над Unity Localization Package. Работает с `#if PROTO_HAS_LOCALIZATION` — без пакета возвращает fallback/ключи.
+
+### API
+
+```csharp
+// Простой ключ (таблица по умолчанию)
+Loc.Get("menu.play")                    // → "ИГРАТЬ"
+Loc.Get("menu.play", "PLAY")            // с fallback
+Loc.Get("Items", "sword.name")          // из таблицы Items
+
+// Переменные
+Loc.Get("kill.msg", ("enemy", name), ("count", 5))
+
+// Множественное число (авто-.one/.few/.other)
+Loc.GetPlural("enemies.killed", count)
+
+// Вложенная локализованная ссылка
+Loc.Get("found.item", ("item", Loc.Ref("Items", dynamicKey)))
+
+// Язык
+Loc.SetLanguage("en");
+Loc.CurrentLanguage;  // "ru"
+Loc.IsReady;
+```
+
+### События
+
+```csharp
+EventBus.Localization.LanguageChanged  // payload: LocaleChangedData
+EventBus.Localization.Ready            // payload: null
+EventBus.Localization.TableLoaded      // payload: string tableName
+```
+
+### Компонент LocalizeTMP
+
+Добавить на GameObject с TMP_Text. Обновляется автоматически при смене языка.
+
+```csharp
+[RequireComponent(typeof(TMP_Text))]
+public class LocalizeTMP : MonoBehaviour, IEventBus
+{
+    [SerializeField] private string table = "UI";
+    [SerializeField] private string key;
+    [SerializeField] private string fallback;
+}
+```
+
+### Локализация ScriptableObject
+
+Уникальные SO (Вариант B):
+```csharp
+public string titleKey;      // "credits.section.dev"
+public string titleFallback; // "РАЗРАБОТКА"
+// Использование: Loc.Get(titleKey, titleFallback)
+```
+
+Массовые SO (Вариант C):
+```csharp
+public string id = "railgun";  // Ключ = "weapon.{id}.name"
+public string GetName() => Loc.Get($"weapon.{id}.name", nameFallback);
+```
+
+### Правила
+
+✅ **DO:**
+- Использовать `Loc.Get()` для всех отображаемых строк
+- Именование ключей: `section.element.modifier`
+- Для plural: отдельные ключи `.one`, `.few`, `.other`
+- `LocalizeTMP` для статичных UI текстов
+- Подписка на `Evt.Localization.LanguageChanged` для динамического текста
+
+❌ **DON'T:**
+- Хардкодить строки в UI
+- Использовать Smart Strings ICU для plural forms
+- Обращаться к Unity Localization API напрямую — использовать `Loc.*`
+
+### AI Translation Workflow
+
+**ProtoSystem → Localization → AI Translation**
+
+1. **Export:** Выбрать таблицу, source/target язык → JSON
+2. **Передать AI:** JSON содержит instructions, context, maxLength
+3. **Validate:** Проверка переменных `{var}`, длины, пропущенных
+4. **Import:** Запись переводов в StringTable
+
+**StringMetadataDatabase** — опциональный SO с контекстом/тегами для каждого ключа:
+```csharp
+var meta = metadataDB.Find("menu.play");
+meta.context;   // "Кнопка главного меню"
+meta.maxLength; // 20
+meta.tags;      // ["ui", "button"]
+```
+
+---
+
+## 13. Анти-паттерны
 
 ❌ **Избегать:**
 

@@ -54,6 +54,9 @@ namespace ProtoSystem.UI
         [SerializeField] protected TMP_Text sensitivityText;
         [SerializeField] protected Toggle invertYToggle;
 
+        [Header("Language")]
+        [SerializeField] protected TMP_Dropdown languageDropdown;
+
         [Header("Buttons")]
         [SerializeField] protected Button applyButton;
         [SerializeField] protected Button resetButton;
@@ -76,6 +79,7 @@ namespace ProtoSystem.UI
             SetupAudioListeners();
             SetupGraphicsListeners();
             SetupGameplayListeners();
+            SetupLanguageListener();
             SetupButtons();
         }
 
@@ -103,6 +107,11 @@ namespace ProtoSystem.UI
         {
             sensitivitySlider?.onValueChanged.AddListener(OnSensitivityChanged);
             invertYToggle?.onValueChanged.AddListener(OnInvertYChanged);
+        }
+
+        private void SetupLanguageListener()
+        {
+            languageDropdown?.onValueChanged.AddListener(OnLanguageChanged);
         }
 
         private void SetupButtons()
@@ -201,6 +210,7 @@ namespace ProtoSystem.UI
             LoadAudioSettings();
             LoadVideoSettings();
             LoadControlsSettings();
+            LoadLanguageSettings();
             UpdateAllTexts();
         }
         
@@ -438,6 +448,20 @@ namespace ProtoSystem.UI
 
         #endregion
 
+        #region Event Handlers - Language
+
+        private void OnLanguageChanged(int index)
+        {
+            if (languageDropdown == null || !Loc.IsReady) return;
+            var langs = Loc.AvailableLanguages;
+            if (index >= 0 && index < langs.Count)
+            {
+                Loc.SetLanguage(langs[index]);
+            }
+        }
+
+        #endregion
+
         #region Event Handlers - Controls
 
         private void OnSensitivityChanged(float value)
@@ -493,6 +517,54 @@ namespace ProtoSystem.UI
                 data.currentValue = savedValue;
                 ApplyVolumeToMixer(data.parameterName, savedValue);
             }
+        }
+
+        #endregion
+
+        #region Load Language
+
+        private void LoadLanguageSettings()
+        {
+            if (languageDropdown == null || !Loc.IsReady) return;
+
+            var langs = Loc.AvailableLanguages;
+            languageDropdown.ClearOptions();
+
+            var options = new List<string>();
+            int currentIndex = 0;
+            string currentLang = Loc.CurrentLanguage;
+
+            for (int i = 0; i < langs.Count; i++)
+            {
+                options.Add(GetLanguageDisplayName(langs[i]));
+                if (langs[i] == currentLang) currentIndex = i;
+            }
+
+            languageDropdown.AddOptions(options);
+            languageDropdown.SetValueWithoutNotify(currentIndex);
+        }
+
+        /// <summary>
+        /// Получить человекочитаемое название языка
+        /// </summary>
+        protected virtual string GetLanguageDisplayName(string langCode)
+        {
+            return langCode switch
+            {
+                "ru" => "Русский",
+                "en" => "English",
+                "de" => "Deutsch",
+                "fr" => "Français",
+                "es" => "Español",
+                "it" => "Italiano",
+                "pt" => "Português",
+                "ja" => "日本語",
+                "ko" => "한국어",
+                "zh" => "中文",
+                "pl" => "Polski",
+                "tr" => "Türkçe",
+                _ => langCode.ToUpperInvariant()
+            };
         }
 
         #endregion

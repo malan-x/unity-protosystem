@@ -42,7 +42,10 @@ namespace ProtoSystem.UI
         public void ShowVictory(string message = null)
         {
             _isVictory = true;
-            SetupContent("ПОБЕДА", message ?? "Поздравляем! Вы победили!", victoryColor);
+            SetupContent(
+                UIKeys.L(UIKeys.GameOver.Victory, UIKeys.GameOver.Fallback.Victory),
+                message ?? UIKeys.L(UIKeys.GameOver.VictoryMessage, UIKeys.GameOver.Fallback.VictoryMessage),
+                victoryColor);
             Show();
         }
 
@@ -52,7 +55,10 @@ namespace ProtoSystem.UI
         public void ShowDefeat(string message = null)
         {
             _isVictory = false;
-            SetupContent("ПОРАЖЕНИЕ", message ?? "К сожалению, вы проиграли.", defeatColor);
+            SetupContent(
+                UIKeys.L(UIKeys.GameOver.Defeat, UIKeys.GameOver.Fallback.Defeat),
+                message ?? UIKeys.L(UIKeys.GameOver.DefeatMessage, UIKeys.GameOver.Fallback.DefeatMessage),
+                defeatColor);
             Show();
         }
 

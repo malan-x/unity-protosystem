@@ -4,7 +4,9 @@
     "references": [
         "Unity.Netcode.Runtime",
         "Unity.TextMeshPro",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.Localization",
+        "Unity.ResourceManager"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -18,6 +20,11 @@
             "name": "com.unity.inputsystem",
             "expression": "",
             "define": "PROTO_HAS_INPUT_SYSTEM"
+        },
+        {
+            "name": "com.unity.localization",
+            "expression": "",
+            "define": "PROTO_HAS_LOCALIZATION"
         }
     ],
     "noEngineReferences": false

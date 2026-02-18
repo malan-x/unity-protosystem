@@ -6,7 +6,11 @@
         "ProtoSystem.Effects",
         "Unity.Netcode.Editor",
         "Unity.TextMeshPro",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.Localization",
+        "Unity.Localization.Editor",
+        "Unity.Addressables",
+        "Unity.Addressables.Editor"
     ],
     "includePlatforms": [
         "Editor"
@@ -22,6 +26,11 @@
             "name": "com.unity.inputsystem",
             "expression": "",
             "define": "PROTO_HAS_INPUT_SYSTEM"
+        },
+        {
+            "name": "com.unity.localization",
+            "expression": "",
+            "define": "PROTO_HAS_LOCALIZATION"
         }
     ],
     "noEngineReferences": false
