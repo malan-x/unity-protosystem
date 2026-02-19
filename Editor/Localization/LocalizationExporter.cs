@@ -9,7 +9,7 @@ using UnityEditor;
 #if PROTO_HAS_LOCALIZATION
 using UnityEditor.Localization;
 using UnityEngine.Localization;
-using UnityEngine.Localization.Settings;
+// LocalizationSettings не используется — поиск локалей через EditorLocaleHelper
 using UnityEngine.Localization.Tables;
 #endif
 
@@ -38,9 +38,9 @@ namespace ProtoSystem.Editor
             Debug.LogError("[LocalizationExporter] Unity Localization not installed");
             return null;
             #else
-            
-            var sourceLocale = FindLocale(sourceLanguage);
-            var targetLocale = FindLocale(targetLanguage);
+
+            var sourceLocale = EditorLocaleHelper.FindLocale(sourceLanguage);
+            var targetLocale = EditorLocaleHelper.FindLocale(targetLanguage);
             
             if (sourceLocale == null)
             {
@@ -142,15 +142,6 @@ namespace ProtoSystem.Editor
         }
         
         #if PROTO_HAS_LOCALIZATION
-        private static Locale FindLocale(string code)
-        {
-            if (string.IsNullOrEmpty(code)) return null;
-            foreach (var locale in LocalizationSettings.AvailableLocales.Locales)
-                if (locale.Identifier.Code == code)
-                    return locale;
-            return null;
-        }
-        
         private static StringTable GetStringTable(string tableName, Locale locale)
         {
             var collections = LocalizationEditorSettings.GetStringTableCollections();
@@ -222,10 +213,14 @@ namespace ProtoSystem.Editor
                 return result;
             }
             
-            var targetLocale = FindLocale(exportData.targetLanguage);
+            var targetLocale = EditorLocaleHelper.FindLocale(exportData.targetLanguage);
             if (targetLocale == null)
             {
-                result.errorMessages.Add($"Target locale not found: {exportData.targetLanguage}. Create it first.");
+                var available = EditorLocaleHelper.GetAvailableCodes();
+                result.errorMessages.Add(
+                    $"Target locale not found: '{exportData.targetLanguage}'. " +
+                    $"Available: [{string.Join(", ", available)}]. " +
+                    "Create locale first via Setup Wizard or rebuild Addressables.");
                 result.errors = 1;
                 return result;
             }
@@ -238,49 +233,52 @@ namespace ProtoSystem.Editor
                 return result;
             }
             
+            int skippedEmpty = 0;
+            int skippedExisting = 0;
+
             foreach (var entry in exportData.entries)
             {
                 if (string.IsNullOrEmpty(entry.key) || string.IsNullOrEmpty(entry.translation))
                 {
                     result.skipped++;
+                    skippedEmpty++;
                     continue;
                 }
-                
+
                 var existing = table.GetEntry(entry.key);
                 if (existing != null && !string.IsNullOrEmpty(existing.LocalizedValue) && !overwriteExisting)
                 {
                     result.skipped++;
+                    skippedExisting++;
                     continue;
                 }
-                
+
                 table.AddEntry(entry.key, entry.translation);
                 result.imported++;
             }
-            
+
+            if (skippedEmpty > 0)
+                result.errorMessages.Add($"Empty translation: {skippedEmpty} entries");
+            if (skippedExisting > 0)
+                result.errorMessages.Add($"Already translated (use Overwrite): {skippedExisting} entries");
+
             EditorUtility.SetDirty(table);
-            
+
             // Сохранить SharedTableData тоже
             if (table.SharedData != null)
                 EditorUtility.SetDirty(table.SharedData);
-            
+
             AssetDatabase.SaveAssets();
-            
-            Debug.Log($"[LocalizationImporter] Imported {result.imported}, " +
-                      $"skipped {result.skipped}, errors {result.errors}");
+
+            Debug.Log($"[LocalizationImporter] Target: {exportData.targetLanguage}, " +
+                      $"imported: {result.imported}, skipped: {result.skipped} " +
+                      $"(empty: {skippedEmpty}, existing: {skippedExisting})");
             
             return result;
             #endif
         }
         
         #if PROTO_HAS_LOCALIZATION
-        private static Locale FindLocale(string code)
-        {
-            foreach (var locale in LocalizationSettings.AvailableLocales.Locales)
-                if (locale.Identifier.Code == code)
-                    return locale;
-            return null;
-        }
-        
         private static StringTable GetOrCreateStringTable(string tableName, Locale locale)
         {
             var collections = LocalizationEditorSettings.GetStringTableCollections();
@@ -344,6 +342,20 @@ namespace ProtoSystem.Editor
                 return results;
             }
             
+            // Проверка: все переводы пусты → вероятно файл экспорта, не импорта
+            int totalEmpty = data.entries.Count(e => string.IsNullOrEmpty(e.translation));
+            if (totalEmpty == data.entries.Count)
+            {
+                results.Add(new ValidationResult
+                {
+                    key = "*",
+                    type = ValidationResult.ValidationType.Error,
+                    message = $"All {totalEmpty} translations are empty — this looks like an EXPORT file, not a translated file. " +
+                              "Select the file with translations (from Import folder)."
+                });
+                return results;
+            }
+
             foreach (var entry in data.entries)
             {
                 if (string.IsNullOrEmpty(entry.translation))
@@ -421,11 +433,64 @@ namespace ProtoSystem.Editor
         {
             var vars = new HashSet<string>();
             if (string.IsNullOrEmpty(text)) return vars;
-            
+
             foreach (Match match in VariablePattern.Matches(text))
                 vars.Add(match.Groups[1].Value);
-            
+
             return vars;
         }
+    }
+
+    /// <summary>
+    /// Поиск Locale через Editor API (не зависит от Addressables-билда).
+    /// </summary>
+    public static class EditorLocaleHelper
+    {
+        #if PROTO_HAS_LOCALIZATION
+        /// <summary>
+        /// Найти Locale по коду через LocalizationEditorSettings.
+        /// Поддерживает точное совпадение и fallback по базовому коду (pt-BR → pt).
+        /// </summary>
+        public static Locale FindLocale(string code)
+        {
+            if (string.IsNullOrEmpty(code)) return null;
+
+            var locales = LocalizationEditorSettings.GetLocales();
+            if (locales == null) return null;
+
+            // Точное совпадение
+            foreach (var locale in locales)
+                if (string.Equals(locale.Identifier.Code, code, System.StringComparison.OrdinalIgnoreCase))
+                    return locale;
+
+            // Fallback: код содержит подтег (pt-BR → ищем pt)
+            int dashIdx = code.IndexOf('-');
+            if (dashIdx > 0)
+            {
+                string baseCode = code.Substring(0, dashIdx);
+                foreach (var locale in locales)
+                    if (string.Equals(locale.Identifier.Code, baseCode, System.StringComparison.OrdinalIgnoreCase))
+                        return locale;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Список доступных кодов локалей (для диагностики).
+        /// </summary>
+        public static List<string> GetAvailableCodes()
+        {
+            var codes = new List<string>();
+            var locales = LocalizationEditorSettings.GetLocales();
+            if (locales != null)
+                foreach (var locale in locales)
+                    codes.Add(locale.Identifier.Code);
+            return codes;
+        }
+        #else
+        public static object FindLocale(string code) => null;
+        public static List<string> GetAvailableCodes() => new List<string>();
+        #endif
     }
 }

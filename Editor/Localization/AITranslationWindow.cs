@@ -100,8 +100,10 @@ namespace ProtoSystem.Editor
             // Путь по умолчанию
             string basePath = GetDefaultExportPath();
             _exportPath = basePath;
-            _importPath = basePath;
-            _validatePath = basePath;
+            // Import/Validate по умолчанию смотрят в Import-папку
+            string importPath = basePath.Replace("/Export", "/Import");
+            _importPath = Directory.Exists(importPath) ? importPath : basePath;
+            _validatePath = _importPath;
             
             _initialized = true;
         }
