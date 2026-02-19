@@ -1738,14 +1738,20 @@ namespace ProtoSystem.Publishing.Editor
 
                 if (report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)
                 {
+                    // Cleanup IL2CPP/Burst artifacts
+                    var cleaned = CleanupBuildArtifacts(buildPath);
+                    var cleanedMB = cleaned / (1024 * 1024f);
+
                     var size = report.summary.totalSize / (1024 * 1024);
                     SetStatus($"✓ Build complete: {size:F1} MB", Color.green);
                     Debug.Log($"[BuildPublisher] Build succeeded: {report.summary.totalTime}");
 
+                    var message = $"Build finished successfully!\n\nSize: {size:F1} MB\nPath: {buildPath}";
+                    if (cleaned > 0)
+                        message += $"\n\nCleaned up {cleanedMB:F1} MB of build artifacts";
+
                     // Open folder
-                    if (EditorUtility.DisplayDialog("Build Complete", 
-                        $"Build finished successfully!\n\nSize: {size:F1} MB\nPath: {buildPath}", 
-                        "Open Folder", "OK"))
+                    if (EditorUtility.DisplayDialog("Build Complete", message, "Open Folder", "OK"))
                     {
                         EditorUtility.RevealInFinder(buildPath);
                     }
@@ -1914,6 +1920,59 @@ namespace ProtoSystem.Publishing.Editor
         {
             var projectPath = Path.GetDirectoryName(Application.dataPath);
             return Path.Combine(projectPath, depot.buildPath);
+        }
+
+        /// <summary>
+        /// Удалить артефакты сборки, которые не должны попадать в билд:
+        /// IL2CPP backup (*_BackUpThisFolder_ButDontShipItWithYourGame),
+        /// Burst debug (*_BurstDebugInformation_DoNotShip) и т.п.
+        /// </summary>
+        private static long CleanupBuildArtifacts(string buildPath)
+        {
+            if (string.IsNullOrEmpty(buildPath) || !Directory.Exists(buildPath))
+                return 0;
+
+            string[] patterns =
+            {
+                "*_BackUpThisFolder_ButDontShipItWithYourGame",
+                "*_BurstDebugInformation_DoNotShip",
+            };
+
+            long totalSize = 0;
+
+            foreach (var pattern in patterns)
+            {
+                foreach (var dir in Directory.GetDirectories(buildPath, pattern, SearchOption.AllDirectories))
+                {
+                    try
+                    {
+                        var size = GetDirectorySize(dir);
+                        Directory.Delete(dir, true);
+                        totalSize += size;
+                        Debug.Log($"[BuildPublisher] Cleanup: deleted '{Path.GetFileName(dir)}' ({size / (1024 * 1024f):F1} MB)");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning($"[BuildPublisher] Cleanup: failed to delete '{dir}': {ex.Message}");
+                    }
+                }
+            }
+
+            if (totalSize > 0)
+                Debug.Log($"[BuildPublisher] Cleanup complete: freed {totalSize / (1024 * 1024f):F1} MB");
+
+            return totalSize;
+        }
+
+        private static long GetDirectorySize(string path)
+        {
+            long size = 0;
+            foreach (var file in Directory.GetFiles(path, "*", SearchOption.AllDirectories))
+            {
+                try { size += new FileInfo(file).Length; }
+                catch { /* skip inaccessible */ }
+            }
+            return size;
         }
 
         private string GetExecutableName(BuildTarget target)
@@ -2094,6 +2153,9 @@ namespace ProtoSystem.Publishing.Editor
                 }
 
                 Debug.Log($"[BuildPublisher] Build succeeded: {report.summary.totalTime}");
+
+                // Cleanup IL2CPP/Burst artifacts before upload
+                CleanupBuildArtifacts(buildPath);
 
                 // Step 2: Upload
                 SetStatus($"[2/2] Uploading to Steam ({branch})...", Color.yellow);
