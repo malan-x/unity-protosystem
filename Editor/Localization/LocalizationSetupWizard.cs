@@ -29,6 +29,46 @@ namespace ProtoSystem.Editor
         private bool _autoDetect = true;
         private bool _pathInitialized;
         private Vector2 _scrollPos;
+        private LocalizationConfig _config;
+        private bool _languagesFoldout;
+
+        /// <summary>
+        /// Каталог всех доступных языков (код, нативное имя, русское название).
+        /// Отсортирован по русскому названию.
+        /// </summary>
+        private static readonly (string code, string nativeName, string label)[] LanguageCatalog =
+        {
+            ("en",     "English",              "Английский"),
+            ("ar",     "العربية",               "Арабский"),
+            ("bg",     "Български",             "Болгарский"),
+            ("hu",     "Magyar",               "Венгерский"),
+            ("vi",     "Tiếng Việt",           "Вьетнамский"),
+            ("el",     "Ελληνικά",             "Греческий"),
+            ("da",     "Dansk",                "Датский"),
+            ("id",     "Bahasa Indonesia",     "Индонезийский"),
+            ("es",     "Español (España)",     "Испанский — Испания"),
+            ("es-419", "Español (LATAM)",      "Испанский — Лат. Америка"),
+            ("it",     "Italiano",             "Итальянский"),
+            ("zh",     "简体中文",               "Китайский (упр.)"),
+            ("zh-TW",  "繁體中文",               "Китайский (трад.)"),
+            ("ko",     "한국어",                 "Корейский"),
+            ("de",     "Deutsch",              "Немецкий"),
+            ("nl",     "Nederlands",           "Нидерландский"),
+            ("no",     "Norsk",                "Норвежский"),
+            ("pl",     "Polski",               "Польский"),
+            ("pt-BR",  "Português (Brasil)",   "Португальский — Бразилия"),
+            ("pt-PT",  "Português (Portugal)", "Португальский — Португалия"),
+            ("ro",     "Română",               "Румынский"),
+            ("ru",     "Русский",              "Русский"),
+            ("th",     "ไทย",                   "Тайский"),
+            ("tr",     "Türkçe",               "Турецкий"),
+            ("uk",     "Українська",            "Украинский"),
+            ("fi",     "Suomi",                "Финский"),
+            ("fr",     "Français",             "Французский"),
+            ("cs",     "Čeština",              "Чешский"),
+            ("sv",     "Svenska",              "Шведский"),
+            ("ja",     "日本語",                 "Японский"),
+        };
         
         [MenuItem("ProtoSystem/Localization/Setup Wizard", false, 500)]
         public static void ShowWindow()
@@ -48,6 +88,7 @@ namespace ProtoSystem.Editor
         private void OnEnable()
         {
             InitializeDefaultPath();
+            TryFindConfig();
         }
         
         private void InitializeDefaultPath()
@@ -55,6 +96,23 @@ namespace ProtoSystem.Editor
             if (_pathInitialized) return;
             _configPath = GetDefaultConfigPath();
             _pathInitialized = true;
+        }
+
+        private void TryFindConfig()
+        {
+            if (_config != null) return;
+
+            string fullPath = $"{_configPath}/LocalizationConfig.asset";
+            _config = AssetDatabase.LoadAssetAtPath<LocalizationConfig>(fullPath);
+            if (_config != null) return;
+
+            _config = Resources.Load<LocalizationConfig>("LocalizationConfig");
+            if (_config != null) return;
+
+            var guids = AssetDatabase.FindAssets("t:LocalizationConfig");
+            if (guids.Length > 0)
+                _config = AssetDatabase.LoadAssetAtPath<LocalizationConfig>(
+                    AssetDatabase.GUIDToAssetPath(guids[0]));
         }
         
         private static string GetDefaultConfigPath()
@@ -78,7 +136,10 @@ namespace ProtoSystem.Editor
             
             DrawConfigSection();
             EditorGUILayout.Space(10);
-            
+
+            DrawLanguagesSection();
+            EditorGUILayout.Space(10);
+
             #if PROTO_HAS_LOCALIZATION
             DrawLocalizationSetup();
             EditorGUILayout.Space(10);
@@ -177,7 +238,22 @@ namespace ProtoSystem.Editor
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             EditorGUILayout.LabelField("LocalizationConfig", EditorStyles.boldLabel);
             EditorGUILayout.Space(3);
-            
+
+            EditorGUI.BeginChangeCheck();
+            _config = (LocalizationConfig)EditorGUILayout.ObjectField(
+                "Config", _config, typeof(LocalizationConfig), false);
+            if (EditorGUI.EndChangeCheck() && _config != null)
+            {
+                _defaultLang = _config.defaultLanguage;
+                _fallbackLang = _config.fallbackLanguage;
+                _autoDetect = _config.autoDetectSystemLanguage;
+                var configAssetPath = AssetDatabase.GetAssetPath(_config);
+                if (!string.IsNullOrEmpty(configAssetPath))
+                    _configPath = Path.GetDirectoryName(configAssetPath).Replace('\\', '/');
+            }
+
+            EditorGUILayout.Space(3);
+
             EditorGUILayout.BeginHorizontal();
             _configPath = EditorGUILayout.TextField("Path", _configPath);
             if (GUILayout.Button("...", GUILayout.Width(30)))
@@ -202,12 +278,130 @@ namespace ProtoSystem.Editor
             
             if (GUILayout.Button(exists ? "Пересоздать Config" : "Создать Config", GUILayout.Height(25)))
             {
-                CreateConfig(_configPath, _defaultLang, _fallbackLang, _autoDetect);
+                _config = CreateConfig(_configPath, _defaultLang, _fallbackLang, _autoDetect);
             }
             
             EditorGUILayout.EndVertical();
         }
         
+        // ═══════════════════════════════════════════════════════════
+        // Languages
+        // ═══════════════════════════════════════════════════════════
+
+        private void DrawLanguagesSection()
+        {
+            if (_config == null) return;
+
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+            // Сводка: количество и список текущих языков
+            int count = _config.supportedLanguages.Count;
+            string summary = "";
+            for (int i = 0; i < _config.supportedLanguages.Count; i++)
+            {
+                if (i > 0) summary += ", ";
+                var lang = _config.supportedLanguages[i];
+                summary += $"{lang.displayName} ({lang.code})";
+            }
+
+            EditorGUILayout.LabelField($"Языки в конфиге: {count}", EditorStyles.boldLabel);
+            if (count > 0)
+            {
+                EditorGUI.indentLevel++;
+                EditorGUILayout.LabelField(summary, EditorStyles.wordWrappedMiniLabel);
+                EditorGUI.indentLevel--;
+            }
+
+            EditorGUILayout.Space(3);
+
+            _languagesFoldout = EditorGUILayout.Foldout(_languagesFoldout,
+                "Выбор языков", true, EditorStyles.foldoutHeader);
+
+            if (_languagesFoldout)
+            {
+                EditorGUILayout.Space(3);
+
+                var currentCodes = new HashSet<string>();
+                foreach (var lang in _config.supportedLanguages)
+                    currentCodes.Add(lang.code);
+
+                bool changed = false;
+                int half = (LanguageCatalog.Length + 1) / 2;
+
+                for (int i = 0; i < half; i++)
+                {
+                    EditorGUILayout.BeginHorizontal();
+
+                    // Левый столбец
+                    changed |= DrawLanguageToggle(LanguageCatalog[i], currentCodes);
+
+                    // Правый столбец
+                    int ri = i + half;
+                    if (ri < LanguageCatalog.Length)
+                        changed |= DrawLanguageToggle(LanguageCatalog[ri], currentCodes);
+
+                    EditorGUILayout.EndHorizontal();
+                }
+
+                if (changed)
+                    EditorUtility.SetDirty(_config);
+
+                EditorGUILayout.Space(3);
+
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("Выбрать все", GUILayout.Height(20)))
+                {
+                    foreach (var (code, nativeName, _) in LanguageCatalog)
+                    {
+                        if (!currentCodes.Contains(code))
+                        {
+                            _config.supportedLanguages.Add(new LanguageEntry
+                            {
+                                code = code,
+                                displayName = nativeName,
+                                isSource = false
+                            });
+                        }
+                    }
+                    EditorUtility.SetDirty(_config);
+                }
+                if (GUILayout.Button("Снять все", GUILayout.Height(20)))
+                {
+                    _config.supportedLanguages.Clear();
+                    EditorUtility.SetDirty(_config);
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+
+            EditorGUILayout.EndVertical();
+        }
+
+        private bool DrawLanguageToggle(
+            (string code, string nativeName, string label) entry,
+            HashSet<string> currentCodes)
+        {
+            bool wasEnabled = currentCodes.Contains(entry.code);
+            bool isEnabled = EditorGUILayout.ToggleLeft(
+                $"{entry.label} ({entry.nativeName})", wasEnabled);
+
+            if (isEnabled == wasEnabled) return false;
+
+            if (isEnabled)
+            {
+                _config.supportedLanguages.Add(new LanguageEntry
+                {
+                    code = entry.code,
+                    displayName = entry.nativeName,
+                    isSource = false
+                });
+            }
+            else
+            {
+                _config.supportedLanguages.RemoveAll(l => l.code == entry.code);
+            }
+            return true;
+        }
+
         // ═══════════════════════════════════════════════════════════
         // Localization Setup (Locales + Tables + Addressables)
         // ═══════════════════════════════════════════════════════════
@@ -697,7 +891,7 @@ namespace ProtoSystem.Editor
         }
         #endif
         
-        private static void CreateConfig(string path, string defaultLang, 
+        private static LocalizationConfig CreateConfig(string path, string defaultLang,
             string fallbackLang, bool autoDetect)
         {
             if (!Directory.Exists(path))
@@ -722,6 +916,7 @@ namespace ProtoSystem.Editor
             EditorGUIUtility.PingObject(config);
             
             Debug.Log($"[ProtoLocalization] Config created: {assetPath}");
+            return config;
         }
     }
 }

@@ -307,6 +307,9 @@ namespace ProtoSystem
         [DllImport("user32.dll")]
         private static extern bool CloseClipboard();
 
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern uint RegisterClipboardFormat(string lpszFormat);
+
         [DllImport("kernel32.dll")]
         private static extern IntPtr GlobalAlloc(uint uFlags, UIntPtr dwBytes);
 
@@ -316,69 +319,96 @@ namespace ProtoSystem
         [DllImport("kernel32.dll")]
         private static extern bool GlobalUnlock(IntPtr hMem);
 
-        private const uint CF_DIB = 8;
         private const uint GMEM_MOVEABLE = 0x0002;
 
         private static void CopyToClipboardWindows(Texture2D tex)
         {
             try
             {
-                int w = tex.width;
-                int h = tex.height;
-                var pixels = tex.GetPixels32();
+                // EncodeToPNG гарантированно правильной ориентации (файл сохраняется корректно)
+                byte[] pngData = tex.EncodeToPNG();
+                if (pngData == null || pngData.Length == 0) return;
 
-                // BMP stride: BGR, каждая строка выровнена до 4 байт
-                int stride = ((w * 3 + 3) / 4) * 4;
-                int dataSize = stride * h;
-                int headerSize = 40; // BITMAPINFOHEADER
-                int totalSize = headerSize + dataSize;
+                uint cfPng = RegisterClipboardFormat("PNG");
 
-                IntPtr hGlobal = GlobalAlloc(GMEM_MOVEABLE, (UIntPtr)totalSize);
-                if (hGlobal == IntPtr.Zero) return;
+                if (!OpenClipboard(IntPtr.Zero)) return;
+                EmptyClipboard();
 
-                IntPtr ptr = GlobalLock(hGlobal);
-                if (ptr == IntPtr.Zero) return;
-
-                // BITMAPINFOHEADER
-                byte[] header = new byte[40];
-                WriteInt32(header, 0, 40);       // biSize
-                WriteInt32(header, 4, w);         // biWidth
-                WriteInt32(header, 8, h);         // biHeight (положительный = bottom-up)
-                WriteInt16(header, 12, 1);        // biPlanes
-                WriteInt16(header, 14, 24);       // biBitCount (BGR)
-                WriteInt32(header, 20, dataSize); // biSizeImage
-                Marshal.Copy(header, 0, ptr, 40);
-
-                // Пиксели: bottom-up, BGR
-                byte[] pixelData = new byte[dataSize];
-                for (int y = 0; y < h; y++)
+                // PNG format — поддерживается большинством современных приложений
+                if (cfPng != 0)
                 {
-                    // Texture2D GetPixels32 — top-to-bottom, BMP нужен bottom-to-top
-                    int srcRow = h - 1 - y;
-                    for (int x = 0; x < w; x++)
-                    {
-                        var c = pixels[srcRow * w + x];
-                        int dst = y * stride + x * 3;
-                        pixelData[dst + 0] = c.b;
-                        pixelData[dst + 1] = c.g;
-                        pixelData[dst + 2] = c.r;
-                    }
+                    SetClipboardBlob(cfPng, pngData);
                 }
-                Marshal.Copy(pixelData, 0, IntPtr.Add(ptr, 40), dataSize);
 
-                GlobalUnlock(hGlobal);
+                // CF_DIB как fallback для legacy-приложений
+                SetClipboardDIB(tex);
 
-                if (OpenClipboard(IntPtr.Zero))
-                {
-                    EmptyClipboard();
-                    SetClipboardData(CF_DIB, hGlobal);
-                    CloseClipboard();
-                }
+                CloseClipboard();
             }
             catch (Exception e)
             {
                 Debug.LogWarning($"[Screenshot] Clipboard error: {e.Message}");
             }
+        }
+
+        private static void SetClipboardBlob(uint format, byte[] data)
+        {
+            IntPtr hGlobal = GlobalAlloc(GMEM_MOVEABLE, (UIntPtr)data.Length);
+            if (hGlobal == IntPtr.Zero) return;
+            IntPtr ptr = GlobalLock(hGlobal);
+            if (ptr == IntPtr.Zero) return;
+            Marshal.Copy(data, 0, ptr, data.Length);
+            GlobalUnlock(hGlobal);
+            SetClipboardData(format, hGlobal);
+        }
+
+        private static void SetClipboardDIB(Texture2D tex)
+        {
+            const uint CF_DIB = 8;
+
+            // PNG roundtrip гарантирует правильную ориентацию независимо от графического API
+            var corrected = new Texture2D(2, 2);
+            corrected.LoadImage(tex.EncodeToPNG());
+
+            int w = corrected.width;
+            int h = corrected.height;
+            var pixels = corrected.GetPixels32();
+            UnityEngine.Object.DestroyImmediate(corrected);
+
+            // BGRA 32-bit, bottom-up
+            int stride = w * 4;
+            int dataSize = stride * h;
+            int totalSize = 40 + dataSize;
+
+            IntPtr hGlobal = GlobalAlloc(GMEM_MOVEABLE, (UIntPtr)totalSize);
+            if (hGlobal == IntPtr.Zero) return;
+            IntPtr ptr = GlobalLock(hGlobal);
+            if (ptr == IntPtr.Zero) return;
+
+            byte[] header = new byte[40];
+            WriteInt32(header, 0, 40);
+            WriteInt32(header, 4, w);
+            WriteInt32(header, 8, h); // положительный = bottom-up
+            WriteInt16(header, 12, 1);
+            WriteInt16(header, 14, 32);
+            WriteInt32(header, 20, dataSize);
+            Marshal.Copy(header, 0, ptr, 40);
+
+            // LoadImage гарантирует GetPixels32 row 0 = bottom.
+            // Bottom-up BMP byte 0 = bottom row. Прямое копирование.
+            byte[] pixelData = new byte[dataSize];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                var c = pixels[i];
+                int dst = i * 4;
+                pixelData[dst + 0] = c.b;
+                pixelData[dst + 1] = c.g;
+                pixelData[dst + 2] = c.r;
+                pixelData[dst + 3] = c.a;
+            }
+            Marshal.Copy(pixelData, 0, IntPtr.Add(ptr, 40), dataSize);
+            GlobalUnlock(hGlobal);
+            SetClipboardData(CF_DIB, hGlobal);
         }
 
         private static void WriteInt32(byte[] buf, int offset, int value)
