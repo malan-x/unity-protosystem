@@ -12,6 +12,7 @@ namespace ProtoSystem.Editor
     /// <summary>
     /// Обёртка Unity Recorder API для ручной видеозаписи.
     /// Изолирует зависимость от com.unity.recorder.
+    /// Без Recorder — все методы логируют предупреждение.
     /// </summary>
     public class RecorderBridge : CaptureSystem.IRecorderBridge
     {
@@ -19,30 +20,11 @@ namespace ProtoSystem.Editor
         private RecorderController _controller;
         private RecorderControllerSettings _settings;
         private MovieRecorderSettings _movieSettings;
-#endif
 
-        public bool IsRecording
-        {
-            get
-            {
-#if PROTO_HAS_RECORDER
-                return _controller?.IsRecording() ?? false;
-#else
-                return false;
-#endif
-            }
-        }
+        public bool IsRecording => _controller?.IsRecording() ?? false;
 
-        /// <summary>
-        /// Начать запись видео.
-        /// </summary>
-        /// <param name="outputDir">Директория для сохранения</param>
-        /// <param name="filename">Имя файла без расширения</param>
-        /// <param name="fps">Частота кадров</param>
-        /// <param name="resScale">Масштаб разрешения (0.25 - 1.0)</param>
         public void StartRecording(string outputDir, string filename, int fps, float resScale)
         {
-#if PROTO_HAS_RECORDER
             if (_controller != null && _controller.IsRecording())
             {
                 Debug.LogWarning("[Capture] Запись уже идёт");
@@ -77,17 +59,10 @@ namespace ProtoSystem.Editor
             _controller.StartRecording();
 
             Debug.Log($"[Capture] Запись начата: {filename}.mp4");
-#else
-            Debug.LogWarning("[Capture] Unity Recorder не установлен. Добавьте com.unity.recorder в manifest.json");
-#endif
         }
 
-        /// <summary>
-        /// Остановить запись.
-        /// </summary>
         public void StopRecording()
         {
-#if PROTO_HAS_RECORDER
             if (_controller == null || !_controller.IsRecording())
             {
                 Debug.LogWarning("[Capture] Нет активной записи");
@@ -98,14 +73,10 @@ namespace ProtoSystem.Editor
             Debug.Log("[Capture] Запись остановлена");
 
             Cleanup();
-#else
-            Debug.LogWarning("[Capture] Unity Recorder не установлен");
-#endif
         }
 
         private void Cleanup()
         {
-#if PROTO_HAS_RECORDER
             if (_movieSettings != null)
             {
                 UnityEngine.Object.DestroyImmediate(_movieSettings);
@@ -117,16 +88,28 @@ namespace ProtoSystem.Editor
                 _settings = null;
             }
             _controller = null;
-#endif
         }
 
         public void Dispose()
         {
-#if PROTO_HAS_RECORDER
             if (_controller != null && _controller.IsRecording())
                 _controller.StopRecording();
             Cleanup();
-#endif
         }
+#else
+        public bool IsRecording => false;
+
+        public void StartRecording(string outputDir, string filename, int fps, float resScale)
+        {
+            Debug.LogWarning("[Capture] Unity Recorder не установлен. Добавьте com.unity.recorder в manifest.json");
+        }
+
+        public void StopRecording()
+        {
+            Debug.LogWarning("[Capture] Unity Recorder не установлен");
+        }
+
+        public void Dispose() { }
+#endif
     }
 }
