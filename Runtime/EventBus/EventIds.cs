@@ -159,5 +159,16 @@ namespace ProtoSystem
             public const int Resumed = 10903;
             public const int Ended = 10904;
         }
+
+        /// <summary>
+        /// События захвата (11000-11099)
+        /// </summary>
+        public static class Capture
+        {
+            public const int ScreenshotTaken  = 11001;
+            public const int RecordingStarted = 11002;
+            public const int RecordingStopped = 11003;
+            public const int ReplaySaved      = 11004;
+        }
     }
 }
