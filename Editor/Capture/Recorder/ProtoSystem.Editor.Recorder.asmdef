@@ -1,0 +1,29 @@
+{
+    "name": "ProtoSystem.Editor.Recorder",
+    "rootNamespace": "",
+    "references": [
+        "ProtoSystem.Runtime",
+        "ProtoSystem.Editor",
+        "Unity.Recorder",
+        "Unity.Recorder.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "PROTO_HAS_RECORDER"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.recorder",
+            "expression": "",
+            "define": "PROTO_HAS_RECORDER"
+        }
+    ],
+    "noEngineReferences": false
+}

@@ -10,9 +10,7 @@
         "Unity.Localization",
         "Unity.Localization.Editor",
         "Unity.Addressables",
-        "Unity.Addressables.Editor",
-        "Unity.Recorder",
-        "Unity.Recorder.Editor"
+        "Unity.Addressables.Editor"
     ],
     "includePlatforms": [
         "Editor"
@@ -33,11 +31,6 @@
             "name": "com.unity.localization",
             "expression": "",
             "define": "PROTO_HAS_LOCALIZATION"
-        },
-        {
-            "name": "com.unity.recorder",
-            "expression": "",
-            "define": "PROTO_HAS_RECORDER"
         }
     ],
     "noEngineReferences": false

@@ -1,12 +1,11 @@
 // Packages/com.protosystem.core/Editor/Capture/CaptureEditorBootstrap.cs
 using UnityEditor;
-using UnityEngine;
 
 namespace ProtoSystem.Editor
 {
     /// <summary>
-    /// Автоматическая регистрация editor-only зависимостей для CaptureSystem
-    /// при входе в Play Mode.
+    /// Автоматическая регистрация ReplayEncoder для CaptureSystem при входе в Play Mode.
+    /// RecorderBridge регистрируется отдельно из ProtoSystem.Editor.Recorder (если com.unity.recorder установлен).
     /// </summary>
     [InitializeOnLoad]
     internal static class CaptureEditorBootstrap
@@ -20,17 +19,15 @@ namespace ProtoSystem.Editor
         {
             if (state == PlayModeStateChange.EnteredPlayMode)
             {
-                // Даём кадр на инициализацию систем, потом регистрируем bridge
-                EditorApplication.delayCall += RegisterBridges;
+                EditorApplication.delayCall += RegisterEncoder;
             }
         }
 
-        private static void RegisterBridges()
+        private static void RegisterEncoder()
         {
             var system = CaptureSystem.Instance;
             if (system == null) return;
 
-            system.SetRecorderBridge(new RecorderBridge());
             system.SetReplayEncoder(ReplayEncoder.Encode);
         }
     }
