@@ -123,6 +123,24 @@ namespace ProtoSystem
 #endif
         [Tooltip("Модификатор для видео-хоткеев")]
         public KeyModifier videoModifier = KeyModifier.Ctrl;
+
+        /// <summary>
+        /// Исправляет дефолтные значения для полей, добавленных после создания ассета.
+        /// </summary>
+        private void OnValidate()
+        {
+#if PROTO_HAS_INPUT_SYSTEM
+            if (videoRecordToggle == Key.None) videoRecordToggle = Key.F9;
+            if (replaySaveKey == Key.None) replaySaveKey = Key.F8;
+#else
+            if (videoRecordToggle == KeyCode.None) videoRecordToggle = KeyCode.F9;
+            if (replaySaveKey == KeyCode.None) replaySaveKey = KeyCode.F8;
+#endif
+            if (videoFps == 0) videoFps = 30;
+            if (replayBufferSeconds == 0) replayBufferSeconds = 30;
+            if (replayFrameQuality == 0) replayFrameQuality = 75;
+            if (string.IsNullOrEmpty(videoSubfolder)) videoSubfolder = "Videos";
+        }
 #endif
     }
 }
