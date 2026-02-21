@@ -26,7 +26,13 @@ namespace ProtoSystem
 
         public override string SystemId => "capture";
         public override string DisplayName => "Capture System";
-        public override string Description => "Захват скриншотов и видео. Скриншоты с/без UI, суперсэмплинг, запись видео и replay buffer.";
+        public override string Description =>
+            "Захват скриншотов и видео.\n" +
+            "● Скриншот с UI: F12\n" +
+            "● Скриншот без UI: Shift+F12\n" +
+            "● Запись видео (старт/стоп): Ctrl+F9 (требует Unity Recorder)\n" +
+            "● Сохранить replay buffer: Ctrl+F8\n" +
+            "Видеозапись доступна только в Editor Play Mode.";
 
         #endregion
 
@@ -355,9 +361,17 @@ namespace ProtoSystem
         /// </summary>
         public void SaveReplayBuffer()
         {
-            if (_replayBuffer == null || _replayBuffer.Count == 0)
+            if (_replayBuffer == null || _replayCoroutine == null)
             {
-                LogWarning("Replay buffer пуст");
+                // Автостарт replay buffer при первом нажатии
+                StartReplayBuffer();
+                LogRuntime("Replay buffer запущен. Подождите несколько секунд и нажмите Ctrl+F8 снова для сохранения.");
+                return;
+            }
+
+            if (_replayBuffer.Count == 0)
+            {
+                LogWarning("Replay buffer пуст — подождите несколько секунд");
                 return;
             }
 

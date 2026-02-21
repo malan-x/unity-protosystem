@@ -40,11 +40,11 @@ namespace ProtoSystem.Editor
             _movieSettings.OutputFormat = MovieRecorderSettings.VideoRecorderOutputFormat.MP4;
 
             var inputSettings = new GameViewInputSettings();
-            if (resScale < 1f)
-            {
-                inputSettings.OutputWidth = (int)(Screen.width * resScale);
-                inputSettings.OutputHeight = (int)(Screen.height * resScale);
-            }
+            // MP4 (H.264) требует чётные размеры
+            int w = (int)(Screen.width * resScale) & ~1;
+            int h = (int)(Screen.height * resScale) & ~1;
+            inputSettings.OutputWidth = w;
+            inputSettings.OutputHeight = h;
             _movieSettings.ImageInputSettings = inputSettings;
 
             _movieSettings.OutputFile = Path.Combine(outputDir, filename);
