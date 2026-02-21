@@ -1,15 +1,14 @@
 // Packages/com.protosystem.core/Editor/Capture/CaptureEditorBootstrap.cs
+using UnityEngine;
 using UnityEditor;
 
 namespace ProtoSystem.Editor
 {
-    /// <summary>
-    /// Автоматическая регистрация ReplayEncoder для CaptureSystem при входе в Play Mode.
-    /// RecorderBridge регистрируется отдельно из ProtoSystem.Editor.Recorder (если com.unity.recorder установлен).
-    /// </summary>
     [InitializeOnLoad]
     internal static class CaptureEditorBootstrap
     {
+        private static int _retryCount;
+
         static CaptureEditorBootstrap()
         {
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
@@ -19,16 +18,33 @@ namespace ProtoSystem.Editor
         {
             if (state == PlayModeStateChange.EnteredPlayMode)
             {
-                EditorApplication.delayCall += RegisterEncoder;
+                Debug.Log("[CaptureBootstrap] EnteredPlayMode — ожидаю CaptureSystem.Instance...");
+                _retryCount = 0;
+                EditorApplication.update += PollAndRegister;
+            }
+            else if (state == PlayModeStateChange.ExitingPlayMode)
+            {
+                EditorApplication.update -= PollAndRegister;
             }
         }
 
-        private static void RegisterEncoder()
+        private static void PollAndRegister()
         {
             var system = CaptureSystem.Instance;
-            if (system == null) return;
+            if (system != null)
+            {
+                system.SetReplayEncoder(ReplayEncoder.Encode);
+                EditorApplication.update -= PollAndRegister;
+                Debug.Log($"[CaptureBootstrap] ReplayEncoder зарегистрирован (попытка {_retryCount})");
+                return;
+            }
 
-            system.SetReplayEncoder(ReplayEncoder.Encode);
+            _retryCount++;
+            if (_retryCount > 300)
+            {
+                EditorApplication.update -= PollAndRegister;
+                Debug.LogWarning("[CaptureBootstrap] CaptureSystem.Instance не найден за 5 сек — ReplayEncoder НЕ зарегистрирован");
+            }
         }
     }
 }

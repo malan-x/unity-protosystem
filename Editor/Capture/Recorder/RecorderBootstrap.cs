@@ -1,15 +1,15 @@
 // Packages/com.protosystem.core/Editor/Capture/Recorder/RecorderBootstrap.cs
 // Компилируется ТОЛЬКО при наличии com.unity.recorder
+using UnityEngine;
 using UnityEditor;
 
 namespace ProtoSystem.Editor
 {
-    /// <summary>
-    /// Автоматическая регистрация RecorderBridge при входе в Play Mode.
-    /// </summary>
     [InitializeOnLoad]
     internal static class RecorderBootstrap
     {
+        private static int _retryCount;
+
         static RecorderBootstrap()
         {
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
@@ -19,16 +19,33 @@ namespace ProtoSystem.Editor
         {
             if (state == PlayModeStateChange.EnteredPlayMode)
             {
-                EditorApplication.delayCall += RegisterBridge;
+                Debug.Log("[RecorderBootstrap] EnteredPlayMode — ожидаю CaptureSystem.Instance...");
+                _retryCount = 0;
+                EditorApplication.update += PollAndRegister;
+            }
+            else if (state == PlayModeStateChange.ExitingPlayMode)
+            {
+                EditorApplication.update -= PollAndRegister;
             }
         }
 
-        private static void RegisterBridge()
+        private static void PollAndRegister()
         {
             var system = CaptureSystem.Instance;
-            if (system == null) return;
+            if (system != null)
+            {
+                system.SetRecorderBridge(new RecorderBridge());
+                EditorApplication.update -= PollAndRegister;
+                Debug.Log($"[RecorderBootstrap] RecorderBridge зарегистрирован (попытка {_retryCount})");
+                return;
+            }
 
-            system.SetRecorderBridge(new RecorderBridge());
+            _retryCount++;
+            if (_retryCount > 300)
+            {
+                EditorApplication.update -= PollAndRegister;
+                Debug.LogWarning("[RecorderBootstrap] CaptureSystem.Instance не найден за 5 сек — RecorderBridge НЕ зарегистрирован");
+            }
         }
     }
 }

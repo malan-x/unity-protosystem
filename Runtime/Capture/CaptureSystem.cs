@@ -94,6 +94,7 @@ namespace ProtoSystem
         public void SetRecorderBridge(IRecorderBridge bridge)
         {
             _recorderBridge = bridge;
+            Debug.Log($"[CaptureSystem] RecorderBridge зарегистрирован: {bridge?.GetType().Name}");
         }
 
         /// <summary>
@@ -102,6 +103,7 @@ namespace ProtoSystem
         public void SetReplayEncoder(Func<ReplayBuffer, string, string> encoder)
         {
             _replayEncoder = encoder;
+            Debug.Log($"[CaptureSystem] ReplayEncoder зарегистрирован: {encoder?.Method.DeclaringType?.Name}.{encoder?.Method.Name}");
         }
 
         #endregion
@@ -112,6 +114,7 @@ namespace ProtoSystem
         public override async Task<bool> InitializeAsync()
         {
             _instance = this;
+            Debug.Log($"[CaptureSystem] InitializeAsync. Instance set. Config={config != null}");
 
             if (config == null)
             {
@@ -123,6 +126,7 @@ namespace ProtoSystem
 
 #if UNITY_EDITOR
             EnsureVideoDirectory();
+            Debug.Log($"[CaptureSystem] VideoMode={config.videoMode}, RecorderBridge={_recorderBridge != null}, ReplayEncoder={_replayEncoder != null}");
 
             if (Application.isPlaying && config.videoMode == VideoRecordingMode.ReplayBuffer)
             {
@@ -330,6 +334,7 @@ namespace ProtoSystem
             }
 
             _replayBuffer = new ReplayBuffer(config.videoFps, config.replayBufferSeconds);
+            Debug.Log($"[CaptureSystem] ReplayBuffer создан: capacity={_replayBuffer.Capacity}, fps={config.videoFps}, seconds={config.replayBufferSeconds}");
             _replayCoroutine = StartCoroutine(ReplayBufferCoroutine());
             _recordingState = RecordingState.ReplayBuffering;
 
@@ -361,6 +366,8 @@ namespace ProtoSystem
         /// </summary>
         public void SaveReplayBuffer()
         {
+            Debug.Log($"[CaptureSystem] SaveReplayBuffer вызван. Buffer={_replayBuffer != null}, Coroutine={_replayCoroutine != null}, Encoder={_replayEncoder != null}, State={_recordingState}");
+
             if (_replayBuffer == null || _replayCoroutine == null)
             {
                 // Автостарт replay buffer при первом нажатии
@@ -368,6 +375,8 @@ namespace ProtoSystem
                 LogRuntime("Replay buffer запущен. Подождите несколько секунд и нажмите Ctrl+F8 снова для сохранения.");
                 return;
             }
+
+            Debug.Log($"[CaptureSystem] Buffer: Count={_replayBuffer.Count}, Capacity={_replayBuffer.Capacity}, Dims={_replayBuffer.GetFrameDimensions()}, Memory={_replayBuffer.EstimatedMemoryBytes / 1024}KB");
 
             if (_replayBuffer.Count == 0)
             {
@@ -383,7 +392,7 @@ namespace ProtoSystem
 
             if (_replayEncoder == null)
             {
-                LogWarning("ReplayEncoder не зарегистрирован");
+                LogWarning("ReplayEncoder не зарегистрирован. CaptureEditorBootstrap не сработал?");
                 return;
             }
 
@@ -395,6 +404,7 @@ namespace ProtoSystem
 
             EnsureVideoDirectory();
 
+            Debug.Log($"[CaptureSystem] Вызываю encoder: {_replayBuffer.Count} кадров → {outputPath}");
             string result = _replayEncoder(_replayBuffer, outputPath);
 
             _recordingState = _replayCoroutine != null ? RecordingState.ReplayBuffering : RecordingState.Idle;
@@ -404,12 +414,19 @@ namespace ProtoSystem
                 EventBus.Publish(Evt.Capture.ReplaySaved, null);
                 LogRuntime($"Replay сохранён: {result}");
             }
+            else
+            {
+                Debug.LogWarning("[CaptureSystem] Encoder вернул null — файл не создан");
+            }
         }
 
         private IEnumerator ReplayBufferCoroutine()
         {
             float frameInterval = 1f / config.videoFps;
             float lastCaptureTime = 0f;
+            int totalCaptured = 0;
+
+            Debug.Log($"[CaptureSystem] ReplayBufferCoroutine запущена. FPS={config.videoFps}, interval={frameInterval:F4}s, resScale={config.videoResolutionScale}");
 
             while (true)
             {
@@ -422,7 +439,12 @@ namespace ProtoSystem
                 lastCaptureTime = now;
 
                 Texture2D tex = ScreenCapture.CaptureScreenshotAsTexture(1);
-                if (tex == null) continue;
+                if (tex == null)
+                {
+                    if (totalCaptured == 0)
+                        Debug.LogWarning("[CaptureSystem] CaptureScreenshotAsTexture вернул null!");
+                    continue;
+                }
 
                 // Масштабирование если нужно
                 if (config.videoResolutionScale < 1f)
@@ -444,6 +466,13 @@ namespace ProtoSystem
                 }
 
                 _replayBuffer.PushFrame(tex, config.replayFrameQuality);
+                totalCaptured++;
+
+                if (totalCaptured == 1)
+                    Debug.Log($"[CaptureSystem] Первый кадр захвачен: {tex.width}x{tex.height}, format={tex.format}");
+                else if (totalCaptured % 300 == 0)
+                    Debug.Log($"[CaptureSystem] Replay buffer: {totalCaptured} кадров захвачено, buffer count={_replayBuffer.Count}/{_replayBuffer.Capacity}, memory={_replayBuffer.EstimatedMemoryBytes / 1024}KB");
+
                 Destroy(tex);
             }
         }
