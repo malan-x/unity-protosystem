@@ -3,6 +3,7 @@ using System;
 using System.IO;
 using UnityEngine;
 using UnityEditor;
+using UnityEditor.PackageManager;
 using UnityEngine.UIElements;
 using UnityEditor.Overlays;
 using UnityEditor.Toolbars;
@@ -310,6 +311,25 @@ namespace ProtoSystem.Editor
     [CustomEditor(typeof(CaptureConfig))]
     public class CaptureConfigEditor : UnityEditor.Editor
     {
+        private static bool? _hasRecorder;
+        private static bool _installingRecorder;
+
+        private static bool HasRecorder
+        {
+            get
+            {
+                if (_hasRecorder == null)
+                {
+#if PROTO_HAS_RECORDER
+                    _hasRecorder = true;
+#else
+                    _hasRecorder = false;
+#endif
+                }
+                return _hasRecorder.Value;
+            }
+        }
+
         public override void OnInspectorGUI()
         {
             DrawDefaultInspector();
@@ -360,6 +380,26 @@ namespace ProtoSystem.Editor
 
             EditorGUILayout.EndHorizontal();
 
+            // ─── Unity Recorder Status ───
+            if (!HasRecorder)
+            {
+                EditorGUILayout.Space(5);
+
+                EditorGUILayout.HelpBox(
+                    "Unity Recorder не установлен. Ручная запись видео (Ctrl+F9) недоступна.\n" +
+                    "Replay buffer работает без Recorder.",
+                    MessageType.Warning);
+
+                EditorGUI.BeginDisabledGroup(_installingRecorder);
+                if (GUILayout.Button(_installingRecorder ? "Установка..." : "Установить Unity Recorder", GUILayout.Height(28)))
+                {
+                    _installingRecorder = true;
+                    var request = Client.Add("com.unity.recorder@5.1.1");
+                    EditorApplication.update += () => CheckInstallProgress(request);
+                }
+                EditorGUI.EndDisabledGroup();
+            }
+
             // ─── Replay Buffer Memory Estimate ───
             if (config.videoMode == VideoRecordingMode.ReplayBuffer)
             {
@@ -382,6 +422,24 @@ namespace ProtoSystem.Editor
                         $"Replay buffer: ~{estimatedMb:F0} МБ ({totalFrames:F0} кадров)",
                         MessageType.Info);
                 }
+            }
+        }
+
+        private static void CheckInstallProgress(UnityEditor.PackageManager.Requests.AddRequest request)
+        {
+            if (!request.IsCompleted) return;
+
+            EditorApplication.update -= () => CheckInstallProgress(request);
+            _installingRecorder = false;
+            _hasRecorder = null; // сбросить кеш
+
+            if (request.Status == UnityEditor.PackageManager.StatusCode.Success)
+            {
+                Debug.Log("[Capture] Unity Recorder установлен. Перекомпиляция...");
+            }
+            else
+            {
+                Debug.LogError($"[Capture] Ошибка установки Unity Recorder: {request.Error?.message}");
             }
         }
     }
