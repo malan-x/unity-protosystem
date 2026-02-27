@@ -63,5 +63,14 @@ namespace ProtoSystem.Editor
         public int priority;
         public bool done;
         public string created;
+        public List<TodoTask> subtasks = new List<TodoTask>();
+
+        public int SubtasksDone()
+        {
+            int c = 0;
+            foreach (var s in subtasks)
+                if (s.done) c++;
+            return c;
+        }
     }
 }

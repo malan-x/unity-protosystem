@@ -23,6 +23,8 @@ namespace ProtoSystem.Editor
         private int _filterPriority = -1;
         private string _searchText = "";
         private readonly HashSet<TodoTask> _expandedTasks = new HashSet<TodoTask>();
+        private readonly Dictionary<TodoTask, string> _subtaskInputs = new Dictionary<TodoTask, string>();
+        private readonly Dictionary<TodoTask, int> _subtaskCategoryInputs = new Dictionary<TodoTask, int>();
 
         private static readonly string[] Categories = 
         {
@@ -151,7 +153,7 @@ namespace ProtoSystem.Editor
                     
                     if (!PassesFilter(task)) continue;
                     
-                    DrawTask(task, i);
+                    DrawTask(task, i, _data.tasks, 0);
                     visibleCount++;
                 }
                 
@@ -182,97 +184,164 @@ namespace ProtoSystem.Editor
             EditorGUILayout.EndHorizontal();
         }
         
-        private void DrawTask(TodoTask task, int index)
+        private void DrawTask(TodoTask task, int index, List<TodoTask> ownerList, int indent)
         {
             bool isExpanded = _expandedTasks.Contains(task);
             var bgColor = task.done ? new Color(0.3f, 0.3f, 0.3f, 0.3f) : new Color(0.2f, 0.2f, 0.2f, 0.5f);
 
-            EditorGUILayout.BeginVertical(GetBoxStyle(bgColor));
+            EditorGUILayout.BeginHorizontal();
             {
-                EditorGUILayout.BeginHorizontal();
+                if (indent > 0)
+                    GUILayout.Space(indent * 20);
+
+                EditorGUILayout.BeginVertical(GetBoxStyle(bgColor));
                 {
-                    // Checkbox
-                    var newDone = EditorGUILayout.Toggle(task.done, GUILayout.Width(20));
-                    if (newDone != task.done)
+                    EditorGUILayout.BeginHorizontal();
                     {
-                        task.done = newDone;
-                        _data.Save();
-                    }
+                        // Checkbox
+                        var newDone = EditorGUILayout.Toggle(task.done, GUILayout.Width(20));
+                        if (newDone != task.done)
+                        {
+                            task.done = newDone;
+                            _data.Save();
+                        }
 
-                    // Category color dot
-                    var catColor = CategoryColors[Mathf.Clamp(task.category, 0, CategoryColors.Length - 1)];
-                    GUI.color = catColor;
-                    GUILayout.Label("●", GUILayout.Width(15));
-                    GUI.color = Color.white;
+                        // Category color dot
+                        var catColor = CategoryColors[Mathf.Clamp(task.category, 0, CategoryColors.Length - 1)];
+                        GUI.color = catColor;
+                        GUILayout.Label("●", GUILayout.Width(15));
+                        GUI.color = Color.white;
 
-                    // Text — clipped single line, click to expand
-                    var textStyle = new GUIStyle(EditorStyles.label) { clipping = TextClipping.Clip };
-                    if (task.done) { textStyle.fontStyle = FontStyle.Italic; GUI.color = Color.gray; }
-                    var textRect = GUILayoutUtility.GetRect(GUIContent.none, textStyle,
-                        GUILayout.ExpandWidth(true), GUILayout.Height(EditorGUIUtility.singleLineHeight));
-                    GUI.Label(textRect, task.text, textStyle);
-                    GUI.color = Color.white;
+                        // Text — clipped single line, click to expand
+                        var textStyle = new GUIStyle(EditorStyles.label) { clipping = TextClipping.Clip };
+                        if (task.done) { textStyle.fontStyle = FontStyle.Italic; GUI.color = Color.gray; }
+                        var textRect = GUILayoutUtility.GetRect(GUIContent.none, textStyle,
+                            GUILayout.ExpandWidth(true), GUILayout.Height(EditorGUIUtility.singleLineHeight));
+                        GUI.Label(textRect, task.text, textStyle);
+                        GUI.color = Color.white;
 
-                    // Click / double-click on text
-                    if (Event.current.type == EventType.MouseDown && textRect.Contains(Event.current.mousePosition))
-                    {
-                        if (Event.current.clickCount >= 2)
+                        // Click / double-click on text
+                        if (Event.current.type == EventType.MouseDown && textRect.Contains(Event.current.mousePosition))
+                        {
+                            if (Event.current.clickCount >= 2)
+                            {
+                                EditorGUIUtility.systemCopyBuffer = task.text;
+                                ShowNotification(new GUIContent("Copied!"), 0.5);
+                            }
+                            else
+                            {
+                                if (isExpanded) _expandedTasks.Remove(task);
+                                else _expandedTasks.Add(task);
+                            }
+                            Event.current.Use();
+                        }
+
+                        // Subtask counter
+                        if (task.subtasks.Count > 0)
+                        {
+                            var doneCount = task.SubtasksDone();
+                            var total = task.subtasks.Count;
+                            var counterColor = doneCount == total ? new Color(0.4f, 0.8f, 0.4f) : Color.gray;
+                            GUI.color = counterColor;
+                            GUILayout.Label($"{doneCount}/{total}", EditorStyles.miniLabel, GUILayout.Width(28));
+                            GUI.color = Color.white;
+                        }
+
+                        // Priority
+                        if (!task.done)
+                        {
+                            var newPriority = EditorGUILayout.IntPopup(task.priority,
+                                new[] { "Low", "Normal", "High" },
+                                new[] { 0, 1, 2 },
+                                GUILayout.Width(60));
+                            if (newPriority != task.priority)
+                            {
+                                task.priority = newPriority;
+                                _data.Save();
+                            }
+                        }
+
+                        // Copy button
+                        if (GUILayout.Button("C", EditorStyles.miniButton, GUILayout.Width(20)))
                         {
                             EditorGUIUtility.systemCopyBuffer = task.text;
                             ShowNotification(new GUIContent("Copied!"), 0.5);
                         }
-                        else
-                        {
-                            if (isExpanded) _expandedTasks.Remove(task);
-                            else _expandedTasks.Add(task);
-                        }
-                        Event.current.Use();
-                    }
 
-                    // Priority
-                    if (!task.done)
-                    {
-                        var newPriority = EditorGUILayout.IntPopup(task.priority,
-                            new[] { "Low", "Normal", "High" },
-                            new[] { 0, 1, 2 },
-                            GUILayout.Width(60));
-                        if (newPriority != task.priority)
+                        // Delete
+                        GUI.color = new Color(1f, 0.5f, 0.5f);
+                        if (GUILayout.Button("×", GUILayout.Width(20)))
                         {
-                            task.priority = newPriority;
+                            _expandedTasks.Remove(task);
+                            _subtaskInputs.Remove(task);
+                            _subtaskCategoryInputs.Remove(task);
+                            ownerList.RemoveAt(index);
                             _data.Save();
+                            GUIUtility.ExitGUI();
                         }
+                        GUI.color = Color.white;
                     }
+                    EditorGUILayout.EndHorizontal();
 
-                    // Copy button
-                    if (GUILayout.Button("C", EditorStyles.miniButton, GUILayout.Width(20)))
+                    // Expanded section
+                    if (isExpanded)
                     {
-                        EditorGUIUtility.systemCopyBuffer = task.text;
-                        ShowNotification(new GUIContent("Copied!"), 0.5);
-                    }
+                        // Full text with word wrap
+                        var wrapStyle = GetWordWrapStyle(task.done);
+                        if (task.done) GUI.color = Color.gray;
+                        EditorGUILayout.LabelField(task.text, wrapStyle);
+                        GUI.color = Color.white;
 
-                    // Delete
-                    GUI.color = new Color(1f, 0.5f, 0.5f);
-                    if (GUILayout.Button("×", GUILayout.Width(20)))
-                    {
-                        _expandedTasks.Remove(task);
-                        _data.tasks.RemoveAt(index);
-                        _data.Save();
-                        GUIUtility.ExitGUI();
-                    }
-                    GUI.color = Color.white;
-                }
-                EditorGUILayout.EndHorizontal();
+                        // Subtasks — recursive
+                        for (int i = 0; i < task.subtasks.Count; i++)
+                        {
+                            var sub = task.subtasks[i];
+                            if (!_showCompleted && sub.done) continue;
+                            DrawTask(sub, i, task.subtasks, indent + 1);
+                        }
 
-                // Expanded text below the row
-                if (isExpanded)
-                {
-                    var wrapStyle = GetWordWrapStyle(task.done);
-                    if (task.done) GUI.color = Color.gray;
-                    EditorGUILayout.LabelField(task.text, wrapStyle);
-                    GUI.color = Color.white;
+                        // Add subtask
+                        DrawAddSubtask(task, indent);
+                    }
                 }
+                EditorGUILayout.EndVertical();
             }
-            EditorGUILayout.EndVertical();
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawAddSubtask(TodoTask parent, int indent)
+        {
+            EditorGUILayout.BeginHorizontal();
+            {
+                GUILayout.Space((indent + 1) * 20);
+
+                if (!_subtaskCategoryInputs.ContainsKey(parent))
+                    _subtaskCategoryInputs[parent] = parent.category;
+                _subtaskCategoryInputs[parent] = EditorGUILayout.Popup(
+                    _subtaskCategoryInputs[parent], Categories, GUILayout.Width(100));
+
+                if (!_subtaskInputs.ContainsKey(parent))
+                    _subtaskInputs[parent] = "";
+                _subtaskInputs[parent] = EditorGUILayout.TextField(_subtaskInputs[parent]);
+
+                GUI.enabled = !string.IsNullOrWhiteSpace(_subtaskInputs[parent]);
+                if (GUILayout.Button("+", EditorStyles.miniButton, GUILayout.Width(20)))
+                {
+                    parent.subtasks.Add(new TodoTask
+                    {
+                        text = _subtaskInputs[parent].Trim(),
+                        category = _subtaskCategoryInputs[parent],
+                        priority = 1,
+                        done = false,
+                        created = DateTime.Now.ToString("yyyy-MM-dd HH:mm")
+                    });
+                    _subtaskInputs[parent] = "";
+                    _data.Save();
+                    GUI.FocusControl(null);
+                }
+                GUI.enabled = true;
+            }
+            EditorGUILayout.EndHorizontal();
         }
         
         private void AddTask(string text, int category)
