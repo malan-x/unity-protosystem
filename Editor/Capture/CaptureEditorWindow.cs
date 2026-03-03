@@ -256,6 +256,18 @@ namespace ProtoSystem.Editor
             EditorUtility.RevealInFinder(dir);
         }
 
+        [MenuItem("ProtoSystem/Capture/Event Triggers")]
+        public static void OpenEventTriggers()
+        {
+            var config = FindConfig();
+            if (config == null)
+            {
+                Debug.LogWarning("[Capture] CaptureConfig не найден. Создайте через ProtoSystem/Capture/Create Config");
+                return;
+            }
+            CaptureEventTriggersWindow.Open(config);
+        }
+
         [MenuItem("ProtoSystem/Capture/Create Config")]
         public static void CreateConfig()
         {
@@ -380,6 +392,13 @@ namespace ProtoSystem.Editor
 
             EditorGUILayout.EndHorizontal();
 
+            // ─── Event Triggers ───
+            EditorGUILayout.Space(5);
+            if (GUILayout.Button("Event Triggers", GUILayout.Height(28)))
+            {
+                CaptureEventTriggersWindow.Open(config);
+            }
+
             // ─── Unity Recorder Status ───
             if (!HasRecorder)
             {
@@ -441,6 +460,141 @@ namespace ProtoSystem.Editor
             {
                 Debug.LogError($"[Capture] Ошибка установки Unity Recorder: {request.Error?.message}");
             }
+        }
+    }
+
+    // ==========================================
+    // Event Triggers Window
+    // ==========================================
+
+    public class CaptureEventTriggersWindow : EditorWindow
+    {
+        private CaptureConfig _config;
+        private Vector2 _scrollPos;
+
+        public static void Open(CaptureConfig config)
+        {
+            var window = GetWindow<CaptureEventTriggersWindow>("Event Triggers");
+            window._config = config;
+            window.minSize = new Vector2(500, 300);
+            window.Show();
+        }
+
+        private void OnGUI()
+        {
+            if (_config == null)
+            {
+                _config = CaptureMenuItems.FindConfig();
+                if (_config == null)
+                {
+                    EditorGUILayout.HelpBox("CaptureConfig не найден.", MessageType.Warning);
+                    return;
+                }
+            }
+
+            // Header
+            EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+            GUILayout.Label($"Triggers: {_config.eventTriggers.Count}", GUILayout.Width(80));
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("+ Add", EditorStyles.toolbarButton, GUILayout.Width(50)))
+            {
+                Undo.RecordObject(_config, "Add Event Trigger");
+                _config.eventTriggers.Add(new CaptureEventTrigger());
+                MarkDirty();
+            }
+            EditorGUILayout.EndHorizontal();
+
+            // Column headers
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Space(20);
+            GUILayout.Label("Label", EditorStyles.miniLabel, GUILayout.Width(120));
+            GUILayout.Label("Event ID", EditorStyles.miniLabel, GUILayout.Width(60));
+            GUILayout.Label("Delay", EditorStyles.miniLabel, GUILayout.Width(80));
+            GUILayout.Label("UI", EditorStyles.miniLabel, GUILayout.Width(25));
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+
+            // Trigger list
+            _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
+
+            for (int i = 0; i < _config.eventTriggers.Count; i++)
+            {
+                if (DrawTrigger(_config.eventTriggers[i], i))
+                {
+                    Undo.RecordObject(_config, "Remove Event Trigger");
+                    _config.eventTriggers.RemoveAt(i);
+                    MarkDirty();
+                    GUIUtility.ExitGUI();
+                }
+            }
+
+            if (_config.eventTriggers.Count == 0)
+            {
+                EditorGUILayout.HelpBox(
+                    "No event triggers configured.\nAdd a trigger to automatically take screenshots on game events.",
+                    MessageType.Info);
+            }
+
+            EditorGUILayout.EndScrollView();
+
+            // Footer
+            EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+            if (GUILayout.Button("Select Config", EditorStyles.toolbarButton, GUILayout.Width(85)))
+            {
+                Selection.activeObject = _config;
+                EditorGUIUtility.PingObject(_config);
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.Label("ProtoSystem Capture", EditorStyles.miniLabel);
+            EditorGUILayout.EndHorizontal();
+        }
+
+        /// <returns>true if the trigger should be removed</returns>
+        private bool DrawTrigger(CaptureEventTrigger trigger, int index)
+        {
+            bool remove = false;
+
+            EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
+            {
+                // Enabled toggle
+                EditorGUI.BeginChangeCheck();
+                trigger.enabled = EditorGUILayout.Toggle(trigger.enabled, GUILayout.Width(16));
+
+                EditorGUI.BeginDisabledGroup(!trigger.enabled);
+
+                // Label
+                trigger.label = EditorGUILayout.TextField(trigger.label, GUILayout.Width(120));
+
+                // Event ID
+                trigger.eventId = EditorGUILayout.IntField(trigger.eventId, GUILayout.Width(60));
+
+                // Delay slider
+                trigger.delay = EditorGUILayout.Slider(trigger.delay, 0f, 5f, GUILayout.Width(120));
+
+                // Include UI
+                trigger.includeUI = EditorGUILayout.Toggle(trigger.includeUI, GUILayout.Width(16));
+
+                EditorGUI.EndDisabledGroup();
+
+                if (EditorGUI.EndChangeCheck())
+                    MarkDirty();
+
+                GUILayout.FlexibleSpace();
+
+                // Remove button
+                GUI.color = new Color(1f, 0.5f, 0.5f);
+                if (GUILayout.Button("×", GUILayout.Width(20)))
+                    remove = true;
+                GUI.color = Color.white;
+            }
+            EditorGUILayout.EndHorizontal();
+
+            return remove;
+        }
+
+        private void MarkDirty()
+        {
+            EditorUtility.SetDirty(_config);
         }
     }
 

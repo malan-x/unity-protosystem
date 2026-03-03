@@ -307,7 +307,10 @@ namespace ProtoSystem.Editor.Sound
                 // Preview
                 if (GUILayout.Button("▶", GUILayout.Width(22), GUILayout.Height(18)))
                 {
-                    PlayPreview(clip);
+                    float vol = entry.FindPropertyRelative("volume").floatValue;
+                    float pit = entry.FindPropertyRelative("pitch").floatValue;
+                    float pitVar = entry.FindPropertyRelative("pitchVariation").floatValue;
+                    PlayPreview(clip, vol, pit, pitVar);
                 }
             }
             else
@@ -517,18 +520,22 @@ namespace ProtoSystem.Editor.Sound
             };
         }
         
-        private void PlayPreview(AudioClip clip)
+        private void PlayPreview(AudioClip clip, float volume = 1f, float pitch = 1f, float pitchVariation = 0f)
         {
             StopPreview();
-            
+
             if (_previewSource == null)
             {
                 var go = new GameObject("SoundPreview");
                 go.hideFlags = HideFlags.HideAndDontSave;
                 _previewSource = go.AddComponent<AudioSource>();
             }
-            
+
             _previewSource.clip = clip;
+            _previewSource.volume = volume;
+            _previewSource.pitch = pitchVariation > 0f
+                ? pitch + Random.Range(-pitchVariation, pitchVariation)
+                : pitch;
             _previewSource.Play();
         }
         

@@ -1,4 +1,6 @@
 // Packages/com.protosystem.core/Runtime/Capture/CaptureConfig.cs
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
 #if PROTO_HAS_INPUT_SYSTEM
@@ -35,6 +37,26 @@ namespace ProtoSystem
         Encoding
     }
 #endif
+
+    [Serializable]
+    public class CaptureEventTrigger
+    {
+        [Tooltip("Название триггера (используется в имени скриншота)")]
+        public string label = "NewTrigger";
+
+        [Tooltip("ID события из EventBus")]
+        public int eventId;
+
+        [Tooltip("Задержка перед скриншотом (сек)")]
+        [Range(0f, 5f)]
+        public float delay = 0.5f;
+
+        [Tooltip("Включать UI в скриншот")]
+        public bool includeUI;
+
+        [Tooltip("Триггер активен")]
+        public bool enabled = true;
+    }
 
     /// <summary>
     /// Конфигурация системы захвата (скриншоты и видео)
@@ -74,6 +96,10 @@ namespace ProtoSystem
 
         [Tooltip("Копировать в буфер обмена")]
         public bool copyToClipboard = true;
+
+        [Header("Screenshot — Event Triggers")]
+        [Tooltip("Автоматические скриншоты по событиям EventBus")]
+        public List<CaptureEventTrigger> eventTriggers = new List<CaptureEventTrigger>();
 
         [Header("Screenshot — Feedback")]
         [Tooltip("Воспроизводить звук при снятии")]

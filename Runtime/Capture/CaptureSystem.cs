@@ -36,7 +36,15 @@ namespace ProtoSystem
 
         #endregion
 
-        protected override void InitEvents() { }
+        protected override void InitEvents()
+        {
+            if (config == null || config.eventTriggers == null) return;
+            foreach (var trigger in config.eventTriggers)
+            {
+                if (!trigger.enabled) continue;
+                AddEvent(trigger.eventId, _ => OnEventTrigger(trigger));
+            }
+        }
 
         #region Serialized Fields
 
@@ -231,6 +239,15 @@ namespace ProtoSystem
                 return;
             }
             StartCoroutine(CaptureCoroutine(includeUI, null, saveToFile: true));
+        }
+
+        /// <summary>
+        /// Сделать скриншот по событию, сохранить с меткой события в имени файла.
+        /// </summary>
+        public void TakeAndSave(bool includeUI, string eventLabel)
+        {
+            if (_capturing) return;
+            StartCoroutine(CaptureCoroutine(includeUI, null, saveToFile: true, eventLabel: eventLabel));
         }
 
         /// <summary>
@@ -534,9 +551,28 @@ namespace ProtoSystem
         }
 #endif
 
+        #region Event Triggers
+
+        private void OnEventTrigger(CaptureEventTrigger trigger)
+        {
+            if (_capturing) return;
+            if (trigger.delay > 0f)
+                StartCoroutine(DelayedEventCapture(trigger));
+            else
+                TakeAndSave(trigger.includeUI, trigger.label);
+        }
+
+        private IEnumerator DelayedEventCapture(CaptureEventTrigger trigger)
+        {
+            yield return new WaitForSeconds(trigger.delay);
+            TakeAndSave(trigger.includeUI, trigger.label);
+        }
+
+        #endregion
+
         #region Capture Coroutine
 
-        private IEnumerator CaptureCoroutine(bool includeUI, Action<Texture2D> onComplete, bool saveToFile)
+        private IEnumerator CaptureCoroutine(bool includeUI, Action<Texture2D> onComplete, bool saveToFile, string eventLabel = null)
         {
             _capturing = true;
 
@@ -577,7 +613,7 @@ namespace ProtoSystem
             // Сохранение
             if (saveToFile)
             {
-                string path = SaveTexture(tex);
+                string path = SaveTexture(tex, eventLabel);
                 LogRuntime($"Скриншот сохранён: {path}");
                 EventBus.Publish(Evt.Capture.ScreenshotTaken, null);
             }
@@ -619,12 +655,13 @@ namespace ProtoSystem
                 Directory.CreateDirectory(dir);
         }
 
-        private string SaveTexture(Texture2D tex)
+        private string SaveTexture(Texture2D tex, string eventLabel = null)
         {
             EnsureDirectory();
             string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
             string ext = config.format == ScreenshotFormat.PNG ? "png" : "jpg";
-            string filename = $"screenshot_{timestamp}.{ext}";
+            string prefix = string.IsNullOrEmpty(eventLabel) ? "screenshot" : $"event_{eventLabel}";
+            string filename = $"{prefix}_{timestamp}.{ext}";
             string path = Path.Combine(GetScreenshotDirectory(), filename);
 
             byte[] data;
