@@ -38,6 +38,13 @@ namespace ProtoSystem
     }
 #endif
 
+    public enum TriggerRuntime
+    {
+        Both,
+        EditorOnly,
+        BuildOnly
+    }
+
     [Serializable]
     public class CaptureEventTrigger
     {
@@ -53,6 +60,9 @@ namespace ProtoSystem
 
         [Tooltip("Включать UI в скриншот")]
         public bool includeUI;
+
+        [Tooltip("Где работает триггер: везде, только в редакторе или только в билде")]
+        public TriggerRuntime runtime = TriggerRuntime.Both;
 
         [Tooltip("Триггер активен")]
         public bool enabled = true;

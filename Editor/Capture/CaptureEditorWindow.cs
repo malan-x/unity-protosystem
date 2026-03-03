@@ -1,6 +1,8 @@
 // Packages/com.protosystem.core/Editor/Capture/CaptureEditorWindow.cs
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.PackageManager;
@@ -472,12 +474,22 @@ namespace ProtoSystem.Editor
         private CaptureConfig _config;
         private Vector2 _scrollPos;
 
+        // ── Event ID registry (cached) ──
+        private static List<(string path, string fieldName, int id)> _allEvents;
+        private static Dictionary<int, string> _eventIdToPath;
+
         public static void Open(CaptureConfig config)
         {
             var window = GetWindow<CaptureEventTriggersWindow>("Event Triggers");
             window._config = config;
-            window.minSize = new Vector2(500, 300);
+            window.minSize = new Vector2(550, 300);
             window.Show();
+        }
+
+        private void OnEnable()
+        {
+            _allEvents = null;
+            _eventIdToPath = null;
         }
 
         private void OnGUI()
@@ -491,6 +503,8 @@ namespace ProtoSystem.Editor
                     return;
                 }
             }
+
+            EnsureEventCache();
 
             // Header
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
@@ -508,7 +522,8 @@ namespace ProtoSystem.Editor
             EditorGUILayout.BeginHorizontal();
             GUILayout.Space(20);
             GUILayout.Label("Label", EditorStyles.miniLabel, GUILayout.Width(120));
-            GUILayout.Label("Event ID", EditorStyles.miniLabel, GUILayout.Width(60));
+            GUILayout.Label("Event", EditorStyles.miniLabel, GUILayout.MinWidth(160));
+            GUILayout.Label("Runtime", EditorStyles.miniLabel, GUILayout.Width(75));
             GUILayout.Label("Delay", EditorStyles.miniLabel, GUILayout.Width(80));
             GUILayout.Label("UI", EditorStyles.miniLabel, GUILayout.Width(25));
             GUILayout.FlexibleSpace();
@@ -565,8 +580,18 @@ namespace ProtoSystem.Editor
                 // Label
                 trigger.label = EditorGUILayout.TextField(trigger.label, GUILayout.Width(120));
 
-                // Event ID
-                trigger.eventId = EditorGUILayout.IntField(trigger.eventId, GUILayout.Width(60));
+                // Event dropdown
+                string displayName = _eventIdToPath.TryGetValue(trigger.eventId, out var path)
+                    ? $"{path}  [{trigger.eventId}]"
+                    : $"ID: {trigger.eventId}";
+
+                if (GUILayout.Button(displayName, EditorStyles.popup, GUILayout.MinWidth(160)))
+                {
+                    ShowEventPicker(trigger);
+                }
+
+                // Runtime
+                trigger.runtime = (TriggerRuntime)EditorGUILayout.EnumPopup(trigger.runtime, GUILayout.Width(75));
 
                 // Delay slider
                 trigger.delay = EditorGUILayout.Slider(trigger.delay, 0f, 5f, GUILayout.Width(120));
@@ -592,9 +617,107 @@ namespace ProtoSystem.Editor
             return remove;
         }
 
+        private void ShowEventPicker(CaptureEventTrigger trigger)
+        {
+            var menu = new GenericMenu();
+
+            foreach (var (path, fieldName, id) in _allEvents)
+            {
+                int capturedId = id;
+                string capturedLabel = fieldName;
+                bool isSelected = trigger.eventId == capturedId;
+
+                menu.AddItem(new GUIContent($"{path}  [{id}]"), isSelected, () =>
+                {
+                    Undo.RecordObject(_config, "Change Event Trigger");
+                    trigger.eventId = capturedId;
+                    trigger.label = capturedLabel;
+                    MarkDirty();
+                    Repaint();
+                });
+            }
+
+            if (_allEvents.Count == 0)
+                menu.AddDisabledItem(new GUIContent("No event IDs found"));
+
+            menu.ShowAsContext();
+        }
+
         private void MarkDirty()
         {
             EditorUtility.SetDirty(_config);
+        }
+
+        // ── Reflection-based event ID scanner ──
+
+        private static void EnsureEventCache()
+        {
+            if (_allEvents != null) return;
+
+            _allEvents = new List<(string, string, int)>();
+            _eventIdToPath = new Dictionary<int, string>();
+
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                var asmName = assembly.GetName().Name;
+                if (asmName.StartsWith("Unity.") || asmName.StartsWith("UnityEngine") ||
+                    asmName.StartsWith("UnityEditor") || asmName.StartsWith("System") ||
+                    asmName.StartsWith("Mono.") || asmName == "mscorlib" || asmName == "netstandard")
+                    continue;
+
+                Type[] types;
+                try { types = assembly.GetTypes(); }
+                catch { continue; }
+
+                foreach (var type in types)
+                {
+                    if (!type.IsAbstract || !type.IsSealed || type.IsNested) continue;
+                    if (type.GetNestedTypes().Length == 0) continue;
+
+                    if (HasConstIntFields(type))
+                        CollectEvents(type, type.Name);
+                }
+            }
+
+            _allEvents.Sort((a, b) => string.Compare(a.path, b.path, StringComparison.Ordinal));
+        }
+
+        private static bool HasConstIntFields(Type type)
+        {
+            foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly))
+            {
+                if (field.IsLiteral && field.FieldType == typeof(int))
+                    return true;
+            }
+
+            foreach (var nested in type.GetNestedTypes())
+            {
+                if (nested.IsAbstract && nested.IsSealed && HasConstIntFields(nested))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static void CollectEvents(Type type, string prefix)
+        {
+            foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly))
+            {
+                if (!field.IsLiteral || field.FieldType != typeof(int)) continue;
+
+                int value = (int)field.GetRawConstantValue();
+                string path = $"{prefix}/{field.Name}";
+                _allEvents.Add((path, field.Name, value));
+
+                if (!_eventIdToPath.ContainsKey(value))
+                    _eventIdToPath[value] = path;
+            }
+
+            foreach (var nested in type.GetNestedTypes())
+            {
+                if (nested.IsAbstract && nested.IsSealed)
+                    CollectEvents(nested, $"{prefix}/{nested.Name}");
+            }
         }
     }
 

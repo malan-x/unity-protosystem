@@ -556,6 +556,11 @@ namespace ProtoSystem
         private void OnEventTrigger(CaptureEventTrigger trigger)
         {
             if (_capturing) return;
+
+            bool isEditor = Application.isEditor;
+            if (trigger.runtime == TriggerRuntime.EditorOnly && !isEditor) return;
+            if (trigger.runtime == TriggerRuntime.BuildOnly && isEditor) return;
+
             if (trigger.delay > 0f)
                 StartCoroutine(DelayedEventCapture(trigger));
             else
