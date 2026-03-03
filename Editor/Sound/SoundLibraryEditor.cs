@@ -327,6 +327,7 @@ namespace ProtoSystem.Editor.Sound
                 if (EditorUtility.DisplayDialog("Delete Sound", $"Delete '{id}'?", "Delete", "Cancel"))
                 {
                     _coreEntries.DeleteArrayElementAtIndex(index);
+                    serializedObject.ApplyModifiedProperties();
                     SoundIdDrawer.InvalidateCache();
                     GUIUtility.ExitGUI();
                 }
