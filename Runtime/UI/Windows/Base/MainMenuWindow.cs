@@ -27,11 +27,14 @@ namespace ProtoSystem.UI
         protected override void Awake()
         {
             base.Awake();
-            
+
             playButton?.onClick.AddListener(OnPlayClicked);
             settingsButton?.onClick.AddListener(OnSettingsClicked);
             creditsButton?.onClick.AddListener(OnCreditsClicked);
             quitButton?.onClick.AddListener(OnQuitClicked);
+
+            if (versionText != null)
+                versionText.text = $"v{Application.version}";
         }
 
         protected virtual void OnPlayClicked()

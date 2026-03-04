@@ -1014,6 +1014,7 @@ namespace ProtoSystem.Publishing.Editor
                 if (EditorGUI.EndChangeCheck() && newVersion != _patchNotesData.currentVersion)
                 {
                     _patchNotesData.currentVersion = newVersion;
+                    SyncPlayerSettingsVersion();
                     EditorUtility.SetDirty(_patchNotesData);
                 }
 
@@ -1508,15 +1509,22 @@ namespace ProtoSystem.Publishing.Editor
         private void IncrementVersion(VersionIncrement increment)
         {
             if (_patchNotesData == null) return;
-            
+
             _patchNotesData.IncrementVersion(increment);
             _currentEntry = _patchNotesData.GetOrCreateCurrent();
-            
+            SyncPlayerSettingsVersion();
+
             EditorUtility.SetDirty(_patchNotesData);
             AssetDatabase.SaveAssets();
-            
+
             SetStatus($"Version: {_patchNotesData.currentVersion}", Color.green);
             Repaint();
+        }
+
+        private void SyncPlayerSettingsVersion()
+        {
+            if (_patchNotesData == null || !_patchNotesData.syncWithPlayerSettings) return;
+            PlayerSettings.bundleVersion = _patchNotesData.currentVersion;
         }
 
         private void CreateNewSteamConfig()
@@ -1730,6 +1738,10 @@ namespace ProtoSystem.Publishing.Editor
                     targetGroup = buildTargetGroup,
                     options = BuildOptions.None
                 };
+
+                // Sync version before build
+                if (_patchNotesData != null && _patchNotesData.syncWithPlayerSettings)
+                    PlayerSettings.bundleVersion = _patchNotesData.currentVersion;
 
                 // Run build on main thread
                 await Task.Yield();
