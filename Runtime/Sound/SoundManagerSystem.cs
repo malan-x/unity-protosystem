@@ -77,6 +77,9 @@ namespace ProtoSystem.Sound
             AddEvent(EventBus.Settings.Audio.MasterChanged, OnMasterVolumeChanged);
             AddEvent(EventBus.Settings.Audio.MusicChanged, OnMusicVolumeChanged);
             AddEvent(EventBus.Settings.Audio.SFXChanged, OnSFXVolumeChanged);
+            AddEvent(EventBus.Settings.Audio.VoiceChanged, OnVoiceVolumeChanged);
+            AddEvent(EventBus.Settings.Audio.AmbientChanged, OnAmbientVolumeChanged);
+            AddEvent(EventBus.Settings.Audio.UIChanged, OnUIVolumeChanged);
 
             // Scene события
             AddEvent(Evt.Scene.LoadStarted, OnSceneLoadStarted);
@@ -109,6 +112,27 @@ namespace ProtoSystem.Sound
             if (!IsInitialized) return;
             if (payload is SettingChangedData<float> data)
                 SetVolume(SoundCategory.SFX, data.Value);
+        }
+
+        private void OnVoiceVolumeChanged(object payload)
+        {
+            if (!IsInitialized) return;
+            if (payload is SettingChangedData<float> data)
+                SetVolume(SoundCategory.Voice, data.Value);
+        }
+
+        private void OnAmbientVolumeChanged(object payload)
+        {
+            if (!IsInitialized) return;
+            if (payload is SettingChangedData<float> data)
+                SetVolume(SoundCategory.Ambient, data.Value);
+        }
+
+        private void OnUIVolumeChanged(object payload)
+        {
+            if (!IsInitialized) return;
+            if (payload is SettingChangedData<float> data)
+                SetVolume(SoundCategory.UI, data.Value);
         }
         
         public override async Task<bool> InitializeAsync()
@@ -361,8 +385,16 @@ namespace ProtoSystem.Sound
             SetVolume(SoundCategory.Master, audio.MasterVolume);
             SetVolume(SoundCategory.Music, audio.MusicVolume);
             SetVolume(SoundCategory.SFX, audio.SFXVolume);
+            SetVolume(SoundCategory.Voice, audio.VoiceVolume);
 
-            LogMessage($"Applied audio settings from SettingsSystem: Master={audio.MasterVolume:F2}, Music={audio.MusicVolume:F2}, SFX={audio.SFXVolume:F2}");
+            // Ambient и UI — из defaultVolumes конфига, т.к. они не в AudioSettings
+            if (config != null)
+            {
+                SetVolume(SoundCategory.Ambient, config.defaultVolumes.ambient);
+                SetVolume(SoundCategory.UI, config.defaultVolumes.ui);
+            }
+
+            LogMessage($"Applied audio settings from SettingsSystem: Master={audio.MasterVolume:F2}, Music={audio.MusicVolume:F2}, SFX={audio.SFXVolume:F2}, Voice={audio.VoiceVolume:F2}");
         }
         
         // === Обработчики событий UI ===

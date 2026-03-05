@@ -31,6 +31,8 @@ namespace ProtoSystem
                 public const int SFXChanged = 10112;
                 public const int VoiceChanged = 10113;
                 public const int MuteChanged = 10114;
+                public const int AmbientChanged = 10115;
+                public const int UIChanged = 10116;
             }
 
             public static class Video

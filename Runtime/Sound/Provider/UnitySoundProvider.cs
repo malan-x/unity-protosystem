@@ -131,7 +131,7 @@ namespace ProtoSystem.Sound
                     
                     _processor.ProcessActiveSound(ref info, listenerPos);
                     
-                    sound.Source.volume = sound.BaseVolume * info.VolumeMultiplier * GetCategoryVolume(sound.Category);
+                    sound.Source.volume = sound.BaseVolume * info.VolumeMultiplier;
                     sound.Source.pitch = sound.BasePitch * info.PitchMultiplier;
                     
                     // Low-pass filter
@@ -194,7 +194,7 @@ namespace ProtoSystem.Sound
             }
             
             source.clip = clip;
-            source.volume = entry.volume * volumeMultiplier * GetCategoryVolume(entry.category);
+            source.volume = entry.volume * volumeMultiplier;
             source.pitch = entry.GetRandomPitch();
             source.loop = entry.loop;
             source.spatialBlend = entry.spatial ? 1f : 0f;
@@ -328,11 +328,11 @@ namespace ProtoSystem.Sound
             
             if (fadeInTime > 0)
             {
-                StartCoroutine(FadeIn(targetSource, entry.volume * GetCategoryVolume(SoundCategory.Music), fadeInTime));
+                StartCoroutine(FadeIn(targetSource, entry.volume, fadeInTime));
             }
             else
             {
-                targetSource.volume = entry.volume * GetCategoryVolume(SoundCategory.Music);
+                targetSource.volume = entry.volume;
             }
         }
         
@@ -374,7 +374,7 @@ namespace ProtoSystem.Sound
             
             _currentMusicId = id;
             
-            float targetVolume = entry.volume * GetCategoryVolume(SoundCategory.Music);
+            float targetVolume = entry.volume;
             StartCoroutine(Crossfade(oldSource, newSource, targetVolume, crossfadeTime));
         }
         
@@ -419,27 +419,9 @@ namespace ProtoSystem.Sound
         {
             volume = Mathf.Clamp01(volume);
             _volumes.SetVolume(category, volume);
-            
-            // Применить к активным звукам
-            foreach (var sound in _activeSounds)
-            {
-                if (sound.Category == category || category == SoundCategory.Master)
-                {
-                    sound.Source.volume = sound.BaseVolume * GetCategoryVolume(sound.Category);
-                }
-            }
-            
-            // Применить к музыке
-            if (category == SoundCategory.Music || category == SoundCategory.Master)
-            {
-                float musicVol = GetCategoryVolume(SoundCategory.Music);
-                if (_musicSourceA != null && _musicSourceA.isPlaying)
-                    _musicSourceA.volume = musicVol;
-                if (_musicSourceB != null && _musicSourceB.isPlaying)
-                    _musicSourceB.volume = musicVol;
-            }
-            
-            // Применить к AudioMixer
+
+            // Громкость управляется только через AudioMixer (mixer groups).
+            // AudioSource.volume хранит только базовую громкость (entry.volume).
             ApplyVolumeToMixer(category, volume);
         }
         
