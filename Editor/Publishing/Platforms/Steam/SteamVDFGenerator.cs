@@ -13,58 +13,62 @@ namespace ProtoSystem.Publishing.Editor
         /// <summary>
         /// Сгенерировать app_build.vdf
         /// </summary>
-        public static string GenerateAppBuild(SteamConfig config, string branch, string description, 
+        public static string GenerateAppBuild(SteamConfig config, string branch, string description,
             string outputDir = null)
         {
+            var target = config.ActiveTarget;
+            if (target == null)
+                throw new System.InvalidOperationException("No active build target in SteamConfig");
+
             var projectRoot = Path.GetDirectoryName(Application.dataPath);
-            
+
             if (outputDir == null)
             {
                 outputDir = Path.Combine(projectRoot, "SteamUpload");
             }
-            
+
             Directory.CreateDirectory(outputDir);
             Directory.CreateDirectory(Path.Combine(outputDir, "output"));
-            
+
             var sb = new StringBuilder();
-            
+
             sb.AppendLine("\"AppBuild\"");
             sb.AppendLine("{");
-            sb.AppendLine($"\t\"AppID\" \"{config.appId}\"");
+            sb.AppendLine($"\t\"AppID\" \"{target.appId}\"");
             sb.AppendLine($"\t\"Desc\" \"{EscapeVDF(description)}\"");
             sb.AppendLine($"\t\"BuildOutput\" \"{EscapePath(Path.Combine(outputDir, "output"))}\"");
-            
+
             if (config.previewMode)
             {
                 sb.AppendLine("\t\"Preview\" \"1\"");
             }
-            
+
             if (config.autoSetLive && !string.IsNullOrEmpty(branch))
             {
                 sb.AppendLine($"\t\"SetLive\" \"{branch}\"");
             }
-            
+
             sb.AppendLine("\t\"Depots\"");
             sb.AppendLine("\t{");
-            
+
             // Генерируем депо
-            if (config.depotConfig != null)
+            if (target.depotConfig != null)
             {
-                foreach (var depot in config.depotConfig.GetEnabledDepots())
+                foreach (var depot in target.depotConfig.GetEnabledDepots())
                 {
                     var depotVdfPath = GenerateDepotBuild(depot, outputDir, projectRoot);
                     sb.AppendLine($"\t\t\"{depot.depotId}\" \"{EscapePath(depotVdfPath)}\"");
                 }
             }
-            
+
             sb.AppendLine("\t}");
             sb.AppendLine("}");
-            
-            var appBuildPath = Path.Combine(outputDir, $"app_build_{config.appId}.vdf");
+
+            var appBuildPath = Path.Combine(outputDir, $"app_build_{target.appId}.vdf");
             File.WriteAllText(appBuildPath, sb.ToString(), Encoding.UTF8);
-            
-            Debug.Log($"[Steam VDF] Generated app_build:\n{sb}");
-            
+
+            Debug.Log($"[Steam VDF] Generated app_build ({config.activeBuildTarget}):\n{sb}");
+
             return appBuildPath;
         }
 

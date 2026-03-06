@@ -53,6 +53,7 @@ namespace ProtoSystem.Publishing.Editor
         private int _selectedDepotIndex;
         private int _selectedBranchIndex;
         private string _buildDescription = "";
+        private bool _autoVersionInDescription = true;
 
         // Patch notes
         private int _selectedTemplateIndex;
@@ -253,14 +254,16 @@ namespace ProtoSystem.Publishing.Editor
                 _cache.depotNames = new string[0];
                 return;
             }
-            
+
+            _steamConfig.MigrateIfNeeded();
             _cache.steamConfigValid = _steamConfig.Validate(out _cache.steamConfigError);
-            
-            _cache.branchNames = _steamConfig.branches?.Select(b => b.name).ToArray() ?? new string[0];
-            
-            var depots = _steamConfig.depotConfig?.GetEnabledDepots();
+
+            var target = _steamConfig.ActiveTarget;
+            _cache.branchNames = target?.branches?.Select(b => b.name).ToArray() ?? new string[0];
+
+            var depots = target?.depotConfig?.GetEnabledDepots();
             _cache.depotNames = depots?.Select(d => $"{d.displayName} ({d.depotId})").ToArray() ?? new string[0];
-            
+
             _cache.hasSteamPassword = SecureCredentials.HasPassword("steam", _steamConfig.username ?? "");
         }
 
@@ -374,47 +377,50 @@ namespace ProtoSystem.Publishing.Editor
 
         private void DrawSteamTab()
         {
+            var activeTarget = _steamConfig?.ActiveTarget;
+            var activeAppId = activeTarget?.appId ?? "";
+
             // Quick actions bar
             EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
-            
-            GUI.enabled = !string.IsNullOrEmpty(_steamConfig?.appId);
+
+            GUI.enabled = !string.IsNullOrEmpty(activeAppId);
             if (GUILayout.Button("📂 Open Steamworks Builds", GUILayout.Height(24)))
             {
-                Application.OpenURL(STEAMWORKS_BUILDS_URL + _steamConfig.appId);
+                Application.OpenURL(STEAMWORKS_BUILDS_URL + activeAppId);
             }
             if (GUILayout.Button("📋 Open Depots", GUILayout.Height(24)))
             {
-                Application.OpenURL(STEAMWORKS_DEPOTS_URL + _steamConfig.appId);
+                Application.OpenURL(STEAMWORKS_DEPOTS_URL + activeAppId);
             }
             GUI.enabled = true;
-            
+
             if (GUILayout.Button("❓ Help", GUILayout.Width(50), GUILayout.Height(24)))
             {
                 Application.OpenURL(STEAM_HELP_URL);
             }
-            
+
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.Space(5);
 
             // Config selection
             _foldoutPlatform = EditorGUILayout.BeginFoldoutHeaderGroup(_foldoutPlatform, "Steam Config");
-            
+
             if (_foldoutPlatform)
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                
+
                 // Config asset
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField("Config:", GUILayout.Width(50));
-                
+
                 var newConfig = (SteamConfig)EditorGUILayout.ObjectField(_steamConfig, typeof(SteamConfig), false);
                 if (newConfig != _steamConfig)
                 {
                     _steamConfig = newConfig;
                     RefreshSteamCache();
                 }
-                
+
                 if (GUILayout.Button("New", GUILayout.Width(45)))
                 {
                     CreateNewSteamConfig();
@@ -424,7 +430,7 @@ namespace ProtoSystem.Publishing.Editor
                 if (_steamConfig != null)
                 {
                     EditorGUILayout.Space(5);
-                    
+
                     // Status
                     var statusColor = _cache.steamConfigValid ? Color.green : Color.red;
                     var statusIcon = _cache.steamConfigValid ? "✓" : "✗";
@@ -434,13 +440,16 @@ namespace ProtoSystem.Publishing.Editor
 
                     EditorGUILayout.Space(5);
 
+                    // Build Target toolbar
+                    DrawBuildTargetToolbar();
+
                     // Quick settings (always visible)
                     if (_cache.branchNames.Length > 0)
                     {
                         _selectedBranchIndex = Mathf.Clamp(_selectedBranchIndex, 0, _cache.branchNames.Length - 1);
                         _selectedBranchIndex = EditorGUILayout.Popup("Branch:", _selectedBranchIndex, _cache.branchNames);
                     }
-                    
+
                     if (_cache.depotNames.Length > 0)
                     {
                         _selectedDepotIndex = Mathf.Clamp(_selectedDepotIndex, 0, _cache.depotNames.Length - 1);
@@ -457,6 +466,174 @@ namespace ProtoSystem.Publishing.Editor
 
             // Build Settings
             DrawBuildSettingsPanel();
+        }
+
+        private void DrawBuildTargetToolbar()
+        {
+            var enabledTargets = _steamConfig.GetEnabledTargets();
+            if (enabledTargets.Count <= 1) return;
+
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Target:", GUILayout.Width(50));
+
+            foreach (var target in enabledTargets)
+            {
+                var isActive = _steamConfig.activeBuildTarget == target.targetType;
+                var style = isActive ? new GUIStyle(GUI.skin.button) { fontStyle = FontStyle.Bold } : GUI.skin.button;
+
+                if (isActive)
+                {
+                    var oldColor = GUI.backgroundColor;
+                    GUI.backgroundColor = new Color(0.5f, 0.8f, 1f);
+                    if (GUILayout.Button(target.ShortName, style, GUILayout.Height(22)))
+                    {
+                        // Already active
+                    }
+                    GUI.backgroundColor = oldColor;
+                }
+                else
+                {
+                    if (GUILayout.Button(target.ShortName, style, GUILayout.Height(22)))
+                    {
+                        _steamConfig.activeBuildTarget = target.targetType;
+                        _selectedBranchIndex = 0;
+                        _selectedDepotIndex = 0;
+                        EditorUtility.SetDirty(_steamConfig);
+                        RefreshSteamCache();
+                    }
+                }
+            }
+
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.Space(3);
+        }
+
+        private void DrawBuildTargetsSetup()
+        {
+            EditorGUILayout.LabelField("Build Targets", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "Main — основная игра. Playtest и Demo — отдельные приложения в Steam " +
+                "со своими App ID и депотами. Добавьте нужные targets и укажите App ID из Steamworks.",
+                MessageType.Info);
+
+            _steamConfig.MigrateIfNeeded();
+
+            for (int i = 0; i < _steamConfig.buildTargets.Count; i++)
+            {
+                var target = _steamConfig.buildTargets[i];
+
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+                // Header
+                EditorGUILayout.BeginHorizontal();
+                target.enabled = EditorGUILayout.Toggle(target.enabled, GUILayout.Width(20));
+
+                var headerLabel = string.IsNullOrEmpty(target.appId)
+                    ? $"{target.targetType}"
+                    : $"{target.targetType} (App ID: {target.appId})";
+                EditorGUILayout.LabelField(headerLabel, EditorStyles.boldLabel);
+
+                GUILayout.FlexibleSpace();
+
+                // Don't allow removing the last target
+                if (_steamConfig.buildTargets.Count > 1)
+                {
+                    if (GUILayout.Button("X", GUILayout.Width(20), GUILayout.Height(18)))
+                    {
+                        _steamConfig.buildTargets.RemoveAt(i);
+                        EditorUtility.SetDirty(_steamConfig);
+                        RefreshSteamCache();
+                        GUIUtility.ExitGUI();
+                        return;
+                    }
+                }
+
+                EditorGUILayout.EndHorizontal();
+
+                if (!target.enabled)
+                {
+                    EditorGUILayout.LabelField("Target отключён. Включите галочку для настройки.", EditorStyles.miniLabel);
+                }
+
+                GUI.enabled = target.enabled;
+
+                // App ID
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField(new GUIContent("App ID *",
+                    "Числовой ID приложения из Steamworks Partner Site.\n" +
+                    "Main: ID основной игры\n" +
+                    "Playtest: отдельный ID из раздела Playtest\n" +
+                    "Demo: отдельный ID демо-версии"),
+                    GUILayout.Width(120));
+                target.appId = EditorGUILayout.TextField(target.appId);
+                if (GUILayout.Button("?", GUILayout.Width(20)))
+                {
+                    Application.OpenURL("https://partner.steamgames.com/apps");
+                }
+                EditorGUILayout.EndHorizontal();
+
+                // App Name
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField(new GUIContent("App Name",
+                    "Название для отображения в этом окне (необязательно)"),
+                    GUILayout.Width(120));
+                target.appName = EditorGUILayout.TextField(target.appName);
+                EditorGUILayout.EndHorizontal();
+
+                // Hint about depots
+                if (target.enabled && target.depotConfig == null && !string.IsNullOrEmpty(target.appId))
+                {
+                    EditorGUILayout.HelpBox(
+                        "Депоты для этого target настраиваются ниже в секции Depots (при активном target).",
+                        MessageType.None);
+                }
+
+                GUI.enabled = true;
+
+                EditorGUILayout.EndVertical();
+                EditorGUILayout.Space(2);
+            }
+
+            // Add target button
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+
+            // Determine which target types are missing
+            var existingTypes = new HashSet<SteamBuildTargetType>(_steamConfig.buildTargets.Select(t => t.targetType));
+
+            if (!existingTypes.Contains(SteamBuildTargetType.Playtest))
+            {
+                if (GUILayout.Button(new GUIContent("+ Playtest",
+                    "Добавить Playtest — бесплатный тестовый доступ к игре (отдельный App ID в Steamworks)"),
+                    GUILayout.Width(90)))
+                {
+                    _steamConfig.buildTargets.Add(new SteamAppTarget
+                    {
+                        targetType = SteamBuildTargetType.Playtest,
+                        enabled = true
+                    });
+                    EditorUtility.SetDirty(_steamConfig);
+                    RefreshSteamCache();
+                }
+            }
+
+            if (!existingTypes.Contains(SteamBuildTargetType.Demo))
+            {
+                if (GUILayout.Button(new GUIContent("+ Demo",
+                    "Добавить Demo — демо-версия игры (отдельный App ID в Steamworks)"),
+                    GUILayout.Width(80)))
+                {
+                    _steamConfig.buildTargets.Add(new SteamAppTarget
+                    {
+                        targetType = SteamBuildTargetType.Demo,
+                        enabled = true
+                    });
+                    EditorUtility.SetDirty(_steamConfig);
+                    RefreshSteamCache();
+                }
+            }
+
+            EditorGUILayout.EndHorizontal();
         }
 
         private void DrawSteamSetupPanel()
@@ -480,32 +657,21 @@ namespace ProtoSystem.Publishing.Editor
                 {
                     EditorGUI.BeginChangeCheck();
 
-                    // App ID
-                    EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.LabelField(new GUIContent("App ID *", 
-                        "Your Steam App ID from Steamworks Partner site.\nFind it at: partner.steamgames.com"), 
-                        GUILayout.Width(120));
-                    _steamConfig.appId = EditorGUILayout.TextField(_steamConfig.appId);
-                    if (GUILayout.Button("?", GUILayout.Width(20)))
-                    {
-                        Application.OpenURL("https://partner.steamgames.com/apps");
-                    }
-                    EditorGUILayout.EndHorizontal();
-
-                    // App Name
-                    EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.LabelField(new GUIContent("App Name", 
-                        "Display name (optional, for your reference)"), GUILayout.Width(120));
-                    _steamConfig.appName = EditorGUILayout.TextField(_steamConfig.appName);
-                    EditorGUILayout.EndHorizontal();
+                    // Build Targets section
+                    DrawBuildTargetsSetup();
 
                     EditorGUILayout.Space(10);
                     EditorGUILayout.LabelField("Account", EditorStyles.boldLabel);
+                    EditorGUILayout.HelpBox(
+                        "Аккаунт Steam с правами на загрузку билдов. Общий для всех targets. " +
+                        "Рекомендуется создать отдельный аккаунт для CI/CD.",
+                        MessageType.None);
 
                     // Username
                     EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.LabelField(new GUIContent("Username *", 
-                        "Steam account with upload permissions.\nRecommended: create separate account for CI/CD"), 
+                    EditorGUILayout.LabelField(new GUIContent("Username *",
+                        "Логин Steam-аккаунта с правами Steamworks (Edit App Metadata, Publish).\n" +
+                        "Найти: partner.steamgames.com → Users & Permissions"),
                         GUILayout.Width(120));
                     _steamConfig.username = EditorGUILayout.TextField(_steamConfig.username);
                     EditorGUILayout.EndHorizontal();
@@ -542,6 +708,10 @@ namespace ProtoSystem.Publishing.Editor
 
                     EditorGUILayout.Space(10);
                     EditorGUILayout.LabelField("SteamCMD", EditorStyles.boldLabel);
+                    EditorGUILayout.HelpBox(
+                        "Путь к steamcmd.exe — утилита Valve для загрузки билдов. " +
+                        "Скачать: partner.steamgames.com/doc/sdk/uploading",
+                        MessageType.None);
 
                     // SteamCMD Path
                     DrawSteamCmdPathField();
@@ -553,6 +723,10 @@ namespace ProtoSystem.Publishing.Editor
 
                     EditorGUILayout.Space(10);
                     EditorGUILayout.LabelField("Options", EditorStyles.boldLabel);
+                    EditorGUILayout.HelpBox(
+                        "Preview Mode — проверка загрузки без фактической отправки на сервер.\n" +
+                        "Auto Set Live — автоматически опубликовать билд на выбранной ветке после загрузки.",
+                        MessageType.None);
 
                     // Preview Mode
                     _steamConfig.previewMode = EditorGUILayout.Toggle(
@@ -567,8 +741,9 @@ namespace ProtoSystem.Publishing.Editor
                     if (EditorGUI.EndChangeCheck())
                     {
                         EditorUtility.SetDirty(_steamConfig);
-                        if (_steamConfig.depotConfig != null)
-                            EditorUtility.SetDirty(_steamConfig.depotConfig);
+                        var at = _steamConfig.ActiveTarget;
+                        if (at?.depotConfig != null)
+                            EditorUtility.SetDirty(at.depotConfig);
                         RefreshSteamCache();
                         RefreshValidationCache();
                     }
@@ -581,21 +756,29 @@ namespace ProtoSystem.Publishing.Editor
 
         private void DrawDepotsEditor()
         {
+            var activeTarget = _steamConfig.ActiveTarget;
+            if (activeTarget == null) return;
+
             // Header
             EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Depots", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField($"Depots ({activeTarget.targetType})", EditorStyles.boldLabel);
             GUILayout.FlexibleSpace();
 
-            if (!string.IsNullOrEmpty(_steamConfig.appId) && GUILayout.Button("Open in Steamworks", GUILayout.Width(120)))
+            if (!string.IsNullOrEmpty(activeTarget.appId) && GUILayout.Button("Open in Steamworks", GUILayout.Width(120)))
             {
-                Application.OpenURL(STEAMWORKS_DEPOTS_URL + _steamConfig.appId);
+                Application.OpenURL(STEAMWORKS_DEPOTS_URL + activeTarget.appId);
             }
             EditorGUILayout.EndHorizontal();
 
+            EditorGUILayout.HelpBox(
+                "Depot — хранилище файлов для платформы (Windows, macOS, Linux). " +
+                "Depot ID = App ID + 1, +2, +3. Путь — папка с готовым билдом.",
+                MessageType.None);
+
             // Depot Config asset (hidden, auto-created)
-            if (_steamConfig.depotConfig == null)
+            if (activeTarget.depotConfig == null)
             {
-                EditorGUILayout.HelpBox("No depot configuration. Click 'Add Depot' to create one.", MessageType.Info);
+                EditorGUILayout.HelpBox("Нет конфигурации депо. Нажмите 'Add Depot' чтобы создать.", MessageType.Info);
 
                 if (GUILayout.Button("+ Add Depot"))
                 {
@@ -606,7 +789,7 @@ namespace ProtoSystem.Publishing.Editor
             }
 
             // Depots list
-            var depots = _steamConfig.depotConfig.depots;
+            var depots = activeTarget.depotConfig.depots;
             int removeIndex = -1;
 
             for (int i = 0; i < depots.Count; i++)
@@ -648,7 +831,7 @@ namespace ProtoSystem.Publishing.Editor
                             TryRevealFolder(fullBuildPath);
                         }
 
-                        using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(_steamConfig?.appId)))
+                        using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(_steamConfig?.ActiveTarget?.appId)))
                         {
                             var appIdFilePath = Path.Combine(fullBuildPath, "steam_appid.txt");
                             var hasAppIdFile = File.Exists(appIdFilePath);
@@ -787,7 +970,7 @@ namespace ProtoSystem.Publishing.Editor
             if (removeIndex >= 0)
             {
                 depots.RemoveAt(removeIndex);
-                EditorUtility.SetDirty(_steamConfig.depotConfig);
+                EditorUtility.SetDirty(activeTarget.depotConfig);
                 RefreshSteamCache();
             }
 
@@ -803,12 +986,15 @@ namespace ProtoSystem.Publishing.Editor
 
         private void CreateDepotConfigIfNeeded()
         {
-            if (_steamConfig.depotConfig != null) return;
+            var activeTarget = _steamConfig.ActiveTarget;
+            if (activeTarget == null) return;
+            if (activeTarget.depotConfig != null) return;
 
             // Auto-create depot config next to steam config
             var steamConfigPath = AssetDatabase.GetAssetPath(_steamConfig);
             var directory = Path.GetDirectoryName(steamConfigPath);
-            var depotConfigPath = Path.Combine(directory, "DepotConfig.asset");
+            var suffix = activeTarget.targetType == SteamBuildTargetType.Main ? "" : $"_{activeTarget.targetType}";
+            var depotConfigPath = Path.Combine(directory, $"DepotConfig{suffix}.asset");
 
             // Ensure unique name
             depotConfigPath = AssetDatabase.GenerateUniqueAssetPath(depotConfigPath);
@@ -816,7 +1002,7 @@ namespace ProtoSystem.Publishing.Editor
             var config = ScriptableObject.CreateInstance<DepotConfig>();
             AssetDatabase.CreateAsset(config, depotConfigPath);
 
-            _steamConfig.depotConfig = config;
+            activeTarget.depotConfig = config;
             EditorUtility.SetDirty(_steamConfig);
             AssetDatabase.SaveAssets();
         }
@@ -825,11 +1011,14 @@ namespace ProtoSystem.Publishing.Editor
         {
             CreateDepotConfigIfNeeded();
 
-            var depots = _steamConfig.depotConfig.depots;
+            var activeTarget = _steamConfig.ActiveTarget;
+            if (activeTarget?.depotConfig == null) return;
+
+            var depots = activeTarget.depotConfig.depots;
 
             // Calculate default depot ID
             var defaultDepotId = "";
-            if (!string.IsNullOrEmpty(_steamConfig.appId) && long.TryParse(_steamConfig.appId, out var appId))
+            if (!string.IsNullOrEmpty(activeTarget.appId) && long.TryParse(activeTarget.appId, out var appId))
             {
                 defaultDepotId = (appId + depots.Count + 1).ToString();
             }
@@ -861,7 +1050,7 @@ namespace ProtoSystem.Publishing.Editor
                 enabled = true
             });
 
-            EditorUtility.SetDirty(_steamConfig.depotConfig);
+            EditorUtility.SetDirty(activeTarget.depotConfig);
             RefreshSteamCache();
         }
 
@@ -950,14 +1139,32 @@ namespace ProtoSystem.Publishing.Editor
         private void DrawBuildSettingsPanel()
         {
             _foldoutBuild = EditorGUILayout.BeginFoldoutHeaderGroup(_foldoutBuild, "Build Settings");
-            
+
             if (_foldoutBuild)
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                
+
+                EditorGUILayout.HelpBox(
+                    "Описание билда — отображается в Steamworks на странице Builds.",
+                    MessageType.None);
+
+                _autoVersionInDescription = EditorGUILayout.Toggle(
+                    new GUIContent("Auto Version", "Автоматически подставлять текущую версию в описание"),
+                    _autoVersionInDescription);
+
+                if (_autoVersionInDescription)
+                {
+                    var version = _patchNotesData != null ? _patchNotesData.currentVersion : PlayerSettings.bundleVersion;
+                    if (!string.IsNullOrEmpty(version))
+                        _buildDescription = $"v{version}";
+                    GUI.enabled = false;
+                }
+
                 _buildDescription = EditorGUILayout.TextField(
-                    new GUIContent("Description", "Build description shown in Steamworks"), 
+                    new GUIContent("Description", "Текст описания, который увидите в Steamworks → Builds"),
                     _buildDescription);
+
+                GUI.enabled = true;
 
                 EditorGUILayout.EndVertical();
             }
@@ -1608,7 +1815,8 @@ namespace ProtoSystem.Publishing.Editor
         {
             try
             {
-                if (_steamConfig == null || string.IsNullOrEmpty(_steamConfig.appId))
+                var activeTarget = _steamConfig?.ActiveTarget;
+                if (activeTarget == null || string.IsNullOrEmpty(activeTarget.appId))
                 {
                     EditorUtility.DisplayDialog("Create steam_appid.txt", "Steam App ID is not set in config.", "OK");
                     return;
@@ -1620,14 +1828,14 @@ namespace ProtoSystem.Publishing.Editor
                     Directory.CreateDirectory(folder);
                 }
 
-                File.WriteAllText(appIdFilePath, _steamConfig.appId.Trim() + "\n", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                File.WriteAllText(appIdFilePath, activeTarget.appId.Trim() + "\n", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
                 // Ensure it won't be uploaded by SteamCMD
                 EnsureExcludePattern(depot, "steam_appid.txt");
 
-                if (_steamConfig?.depotConfig != null)
+                if (activeTarget.depotConfig != null)
                 {
-                    EditorUtility.SetDirty(_steamConfig.depotConfig);
+                    EditorUtility.SetDirty(activeTarget.depotConfig);
                 }
 
                 TryRevealFile(appIdFilePath);
@@ -1929,7 +2137,7 @@ namespace ProtoSystem.Publishing.Editor
                 return;
             }
 
-            var depot = _steamConfig.depotConfig.GetEnabledDepots()[_selectedDepotIndex];
+            var depot = _steamConfig.ActiveTarget.depotConfig.GetEnabledDepots()[_selectedDepotIndex];
 
             SetStatus($"Building {depot.displayName}...", Color.yellow);
             _isProcessing = true;
@@ -2047,14 +2255,21 @@ namespace ProtoSystem.Publishing.Editor
                 return issues;
             }
 
-            // Depot config
-            if (_steamConfig.depotConfig == null)
+            var activeTarget = _steamConfig.ActiveTarget;
+            if (activeTarget == null)
             {
-                issues.Add("No Depot Config - add at least one depot");
+                issues.Add("No build target configured");
                 return issues;
             }
 
-            var depots = _steamConfig.depotConfig.GetEnabledDepots();
+            // Depot config
+            if (activeTarget.depotConfig == null)
+            {
+                issues.Add($"No Depot Config for {activeTarget.targetType} - add at least one depot");
+                return issues;
+            }
+
+            var depots = activeTarget.depotConfig.GetEnabledDepots();
             if (depots.Count == 0)
             {
                 issues.Add("No enabled depots");
@@ -2102,8 +2317,10 @@ namespace ProtoSystem.Publishing.Editor
 
             if (_steamConfig == null) return issues;
 
+            var uploadTarget = _steamConfig.ActiveTarget;
+
             // App ID
-            if (string.IsNullOrEmpty(_steamConfig.appId))
+            if (uploadTarget == null || string.IsNullOrEmpty(uploadTarget.appId))
             {
                 issues.Add("No App ID configured");
             }
@@ -2131,7 +2348,7 @@ namespace ProtoSystem.Publishing.Editor
             }
 
             // Build exists
-            var depots = _steamConfig.depotConfig?.GetEnabledDepots();
+            var depots = uploadTarget?.depotConfig?.GetEnabledDepots();
             if (depots != null && depots.Count > _selectedDepotIndex)
             {
                 var depot = depots[_selectedDepotIndex];
@@ -2156,7 +2373,7 @@ namespace ProtoSystem.Publishing.Editor
             }
 
             // Branches
-            if (_steamConfig.branches == null || _steamConfig.branches.Count == 0)
+            if (uploadTarget?.branches == null || uploadTarget.branches.Count == 0)
             {
                 issues.Add("No branches configured");
             }
@@ -2253,12 +2470,13 @@ namespace ProtoSystem.Publishing.Editor
                 return;
             }
 
-            var depot = _steamConfig.depotConfig.GetEnabledDepots()[_selectedDepotIndex];
+            var uploadTarget = _steamConfig.ActiveTarget;
+            var depot = uploadTarget.depotConfig.GetEnabledDepots()[_selectedDepotIndex];
             var branch = _cache.branchNames[_selectedBranchIndex];
             var buildPath = GetFullBuildPath(depot);
 
-            Debug.Log($"[BuildPublisher] Starting upload to Steam");
-            Debug.Log($"[BuildPublisher] App ID: {_steamConfig.appId}");
+            Debug.Log($"[BuildPublisher] Starting upload to Steam ({uploadTarget.targetType})");
+            Debug.Log($"[BuildPublisher] App ID: {uploadTarget.appId}");
             Debug.Log($"[BuildPublisher] Depot: {depot.depotId} ({depot.displayName})");
             Debug.Log($"[BuildPublisher] Branch: {branch}");
             Debug.Log($"[BuildPublisher] Build path: {buildPath}");
@@ -2346,10 +2564,11 @@ namespace ProtoSystem.Publishing.Editor
                 return;
             }
 
-            var depot = _steamConfig.depotConfig.GetEnabledDepots()[_selectedDepotIndex];
+            var uploadTarget = _steamConfig.ActiveTarget;
+            var depot = uploadTarget.depotConfig.GetEnabledDepots()[_selectedDepotIndex];
             var branch = _cache.branchNames[_selectedBranchIndex];
 
-            Debug.Log($"[BuildPublisher] Starting Build & Publish");
+            Debug.Log($"[BuildPublisher] Starting Build & Publish ({uploadTarget.targetType})");
             Debug.Log($"[BuildPublisher] Depot: {depot.displayName}, Branch: {branch}");
 
             _isProcessing = true;

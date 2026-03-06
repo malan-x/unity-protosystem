@@ -414,6 +414,59 @@ cheatcodes=пароль_в_открытом_виде
 
 ---
 
+## 5.1. Steam Build Targets (Build Publisher)
+
+### Архитектура
+
+`SteamConfig` поддерживает несколько целевых приложений (Build Targets): **Main**, **Playtest**, **Demo**.
+Каждый target — отдельное приложение в Steam со своим App ID, депотами и ветками.
+Общие настройки (username, SteamCMD path, options) — одни на все targets.
+
+```csharp
+// Ключевые типы
+public enum SteamBuildTargetType { Main, Playtest, Demo }
+
+public class SteamAppTarget   // App ID + DepotConfig + branches per target
+public class SteamConfig       // List<SteamAppTarget> + shared settings
+
+// Доступ к активному target
+var target = steamConfig.ActiveTarget;       // текущий выбранный
+var all = steamConfig.GetEnabledTargets();   // все включённые
+```
+
+### Структура SteamConfig
+
+```
+SteamConfig (ScriptableObject)
+├── buildTargets: List<SteamAppTarget>
+│   ├── Main:     appId, depotConfig, branches
+│   ├── Playtest: appId, depotConfig, branches
+│   └── Demo:     appId, depotConfig, branches
+├── activeBuildTarget: SteamBuildTargetType
+├── username, steamCmdPath          (shared)
+└── autoSetLive, previewMode        (shared)
+```
+
+### UI в Build Publisher
+
+- Toolbar `[Main] [PT] [Demo]` в Quick Settings — переключает активный target
+- Branch/Depot обновляются при переключении target
+- Setup Panel: настройка App ID и депотов для каждого target
+- Кнопки `+ Playtest` / `+ Demo` для добавления targets
+
+### Миграция
+
+Старые `SteamConfig` (с `appId`/`depotConfig` на верхнем уровне) автоматически мигрируются в `buildTargets[0]` (Main) при первом обращении к `ActiveTarget`.
+
+### Правила
+
+- Каждый target имеет свой `DepotConfig` ScriptableObject
+- VDF генерируется с App ID активного target
+- `SteamPublisher` работает через `ActiveTarget` — не обращается к legacy полям
+- При создании нового `DepotConfig` для Playtest/Demo суффикс добавляется к имени файла
+
+---
+
 ## 6. Sound System
 
 ### Быстрая настройка

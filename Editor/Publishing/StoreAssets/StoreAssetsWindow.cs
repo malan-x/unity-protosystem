@@ -283,8 +283,9 @@ namespace ProtoSystem.Publishing.Editor
         private void DrawSteamTab()
         {
             // App ID status
-            var hasAppId = _steamConfig != null && !string.IsNullOrEmpty(_steamConfig.appId);
-            
+            var mainTarget = _steamConfig?.ActiveTarget;
+            var hasAppId = mainTarget != null && !string.IsNullOrEmpty(mainTarget.appId);
+
             if (!hasAppId)
             {
                 EditorGUILayout.HelpBox(
@@ -294,10 +295,10 @@ namespace ProtoSystem.Publishing.Editor
             else
             {
                 EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
-                EditorGUILayout.LabelField($"App ID: {_steamConfig.appId}", EditorStyles.boldLabel);
-                if (!string.IsNullOrEmpty(_steamConfig.appName))
+                EditorGUILayout.LabelField($"App ID: {mainTarget.appId}", EditorStyles.boldLabel);
+                if (!string.IsNullOrEmpty(mainTarget.appName))
                 {
-                    EditorGUILayout.LabelField($"({_steamConfig.appName})", EditorStyles.miniLabel);
+                    EditorGUILayout.LabelField($"({mainTarget.appName})", EditorStyles.miniLabel);
                 }
                 GUILayout.FlexibleSpace();
                 EditorGUILayout.EndHorizontal();
@@ -347,7 +348,7 @@ namespace ProtoSystem.Publishing.Editor
             if (GUILayout.Button("📂 Open Steamworks Assets", GUILayout.Height(24)))
             {
                 var url = hasAppId
-                    ? $"{STEAMWORKS_ASSETS_URL}{_steamConfig.appId}"
+                    ? $"{STEAMWORKS_ASSETS_URL}{_steamConfig.ActiveTarget?.appId}"
                     : "https://partner.steamgames.com/";
                 Application.OpenURL(url);
             }
@@ -379,7 +380,7 @@ namespace ProtoSystem.Publishing.Editor
             if (GUILayout.Button("📂 Open Steamworks Store Page", GUILayout.Height(24)))
             {
                 var url = hasAppId
-                    ? $"https://partner.steamgames.com/apps/landing/{_steamConfig.appId}"
+                    ? $"https://partner.steamgames.com/apps/landing/{_steamConfig.ActiveTarget?.appId}"
                     : "https://partner.steamgames.com/";
                 Application.OpenURL(url);
             }
@@ -629,7 +630,7 @@ namespace ProtoSystem.Publishing.Editor
         
         private void ExportSteamLocalizationJson()
         {
-            var appId = _steamConfig.appId;
+            var appId = _steamConfig.ActiveTarget?.appId;
             var sb = new StringBuilder();
             
             sb.Append("{\"itemid\":\"");
@@ -910,7 +911,7 @@ namespace ProtoSystem.Publishing.Editor
             
             if (hasAppId && GUILayout.Button("↑ Upload", GUILayout.Width(70)))
             {
-                Application.OpenURL(GetSteamworksUrl("graphicalassets", _steamConfig.appId));
+                Application.OpenURL(GetSteamworksUrl("graphicalassets", _steamConfig.ActiveTarget?.appId));
             }
             
             EditorGUILayout.EndHorizontal();
@@ -1232,9 +1233,9 @@ namespace ProtoSystem.Publishing.Editor
             // Upload URL (auto-generated from SteamConfig)
             if (_currentTab == PlatformTab.Steam && !string.IsNullOrEmpty(def.steamworksUrl))
             {
-                var hasAppId = _steamConfig != null && !string.IsNullOrEmpty(_steamConfig.appId);
+                var hasAppId = _steamConfig != null && !string.IsNullOrEmpty(_steamConfig.ActiveTarget?.appId);
                 var uploadUrl = hasAppId 
-                    ? GetSteamworksUrl(def.steamworksUrl, _steamConfig.appId)
+                    ? GetSteamworksUrl(def.steamworksUrl, _steamConfig.ActiveTarget?.appId)
                     : "";
                 
                 EditorGUILayout.BeginHorizontal();

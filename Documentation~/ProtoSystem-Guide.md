@@ -13,7 +13,7 @@ ProtoSystem Core (Package)
 ├── EventBus/           — Глобальная шина событий
 ├── Initialization/     — Система инициализации с DI
 ├── Settings/           — Настройки (INI) + чит-коды
-├── Publishing/         — Build Publisher + управление читами
+├── Publishing/         — Build Publisher + Steam Build Targets (Main/Playtest/Demo) + чит-коды
 ├── Network/            — Базовые классы для сетевых систем
 └── Base/               — Базовые классы и интерфейсы
 
