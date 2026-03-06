@@ -471,7 +471,17 @@ namespace ProtoSystem.Publishing.Editor
         private void DrawBuildTargetToolbar()
         {
             var enabledTargets = _steamConfig.GetEnabledTargets();
-            if (enabledTargets.Count <= 1) return;
+            if (enabledTargets.Count == 0) return;
+
+            // Always show target, even with 1 target — so user sees where upload goes
+            if (enabledTargets.Count == 1)
+            {
+                var t = enabledTargets[0];
+                var label = $"{t.targetType}";
+                if (!string.IsNullOrEmpty(t.appId)) label += $" (App {t.appId})";
+                EditorGUILayout.LabelField("Target:", label, EditorStyles.miniLabel);
+                return;
+            }
 
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField("Target:", GUILayout.Width(50));
@@ -1683,6 +1693,18 @@ namespace ProtoSystem.Publishing.Editor
                 }
 
                 EditorGUILayout.EndVertical();
+            }
+
+            // Target indicator above buttons
+            var activeTarget = _steamConfig?.ActiveTarget;
+            if (activeTarget != null)
+            {
+                var targetLabel = $"Upload to: {activeTarget.targetType}";
+                if (!string.IsNullOrEmpty(activeTarget.appId))
+                    targetLabel += $" (App {activeTarget.appId})";
+                if (!string.IsNullOrEmpty(activeTarget.appName))
+                    targetLabel += $" — {activeTarget.appName}";
+                EditorGUILayout.LabelField(targetLabel, EditorStyles.boldLabel);
             }
 
             // Buttons
