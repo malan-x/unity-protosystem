@@ -980,26 +980,44 @@ namespace ProtoSystem.Publishing.Editor
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
+                // Toggle
                 EditorGUI.BeginChangeCheck();
-
                 _cheatsEnabled = EditorGUILayout.Toggle(
                     new GUIContent("Enable Cheats in Build", "Include cheat code hash in the build"),
                     _cheatsEnabled);
-
-                GUI.enabled = _cheatsEnabled;
-
-                _cheatPassword = EditorGUILayout.PasswordField(
-                    new GUIContent("Cheat Password", "Password to unlock cheats in builds"),
-                    _cheatPassword);
-
-                GUI.enabled = true;
-
                 if (EditorGUI.EndChangeCheck())
                 {
                     CheatPasswordSettings.CheatsEnabled = _cheatsEnabled;
+                    if (!_cheatsEnabled)
+                        OnCheatPasswordChanged(); // cleanup generated files
+                }
+
+                // Password + Apply button
+                GUI.enabled = _cheatsEnabled;
+
+                EditorGUILayout.BeginHorizontal();
+                GUI.SetNextControlName("CheatPasswordField");
+                _cheatPassword = EditorGUILayout.TextField(
+                    new GUIContent("Cheat Password", "Password to unlock cheats in builds"),
+                    _cheatPassword);
+
+                var canApply = _cheatsEnabled && !string.IsNullOrEmpty(_cheatPassword);
+                GUI.enabled = canApply;
+
+                // Apply on button click or Enter key
+                var applyClicked = GUILayout.Button("Apply", GUILayout.Width(60), GUILayout.Height(18));
+                var enterPressed = Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Return
+                    && GUI.GetNameOfFocusedControl() == "CheatPasswordField";
+
+                if (applyClicked || enterPressed)
+                {
                     CheatPasswordSettings.CheatPassword = _cheatPassword;
                     OnCheatPasswordChanged();
+                    if (enterPressed) Event.current.Use();
                 }
+
+                GUI.enabled = true;
+                EditorGUILayout.EndHorizontal();
 
                 // Info
                 if (_cheatsEnabled && !string.IsNullOrEmpty(_cheatPassword))
@@ -1011,7 +1029,7 @@ namespace ProtoSystem.Publishing.Editor
                 }
                 else if (_cheatsEnabled && string.IsNullOrEmpty(_cheatPassword))
                 {
-                    EditorGUILayout.HelpBox("Enter a password to enable cheats in builds.", MessageType.Warning);
+                    EditorGUILayout.HelpBox("Enter a password and click Apply.", MessageType.Warning);
                 }
 
                 // Open settings.ini button
