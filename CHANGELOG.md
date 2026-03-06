@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.3] - 2026-03-06
+
+### Added
+- **Cheat Code System** — система чит-кодов через Build Publisher + SettingsSystem
+  - Пароль задаётся в Build Publisher (секция "Cheat Codes")
+  - SHA256 хэш вшивается в скомпилированный скрипт через `.asmref`
+  - При загрузке SettingsSystem автоматически проверяет секцию `[Cheats]` в `settings.ini`
+  - `SettingsSystem.IsCheatsUnlocked` — публичное свойство для проверки
+  - В Editor-режиме читы всегда разрешены
+  - Кнопка "Open settings.ini" в Build Publisher
+  - Генерируемые файлы: `Assets/{namespace}/Cheats/CheatCodeHash.g.cs` + `.asmref`
+
 ## [1.10.1] - 2025-01-26
 
 ### Changed

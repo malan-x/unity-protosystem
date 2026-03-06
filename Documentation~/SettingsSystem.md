@@ -79,6 +79,7 @@ Runtime/Settings/
 ├── SettingsConfig.cs           # ScriptableObject конфигурации
 ├── SettingsEvents.cs           # События для EventBus
 ├── SettingsMigrator.cs         # Миграция версий
+├── CheatCodeHash.cs            # Хэш чит-пароля (default="", задаётся через .asmref)
 ├── Data/
 │   ├── SettingValue.cs         # Обёртка значения с отслеживанием изменений
 │   ├── SettingsSection.cs      # Базовый класс секции
@@ -313,6 +314,9 @@ void RegisterSection(SettingsSection section);
 SettingsSection GetSection(string sectionName);
 T GetCustomSection<T>(string name) where T : SettingsSection;
 
+// Читы
+bool IsCheatsUnlocked { get; }    // Разблокированы ли читы
+
 // Утилиты
 string GetSettingsPath();         // Путь к файлу настроек
 ```
@@ -384,6 +388,59 @@ migrator.RegisterMigration(2, data => {
 | iOS/Android | PlayerPrefs | — |
 
 Можно переопределить через `SettingsConfig.persistenceMode`.
+
+---
+
+## Чит-коды
+
+SettingsSystem поддерживает встроенную систему чит-кодов с защитой через SHA256.
+
+### Как это работает
+
+1. **Разработчик** задаёт пароль в **Build Publisher** (ProtoSystem → Publishing → Build Publisher, секция "Cheat Codes")
+2. При нажатии **Apply** генерируются файлы в `Assets/{namespace}/Cheats/`:
+   - `ProtoSystem.Runtime.asmref` — расширяет сборку ProtoSystem.Runtime
+   - `CheatCodeHash.g.cs` — содержит SHA256 хэш пароля, компилируется в DLL
+3. Также обновляется `settings.ini` — добавляется секция `[Cheats]` с паролем
+4. При запуске игры SettingsSystem автоматически:
+   - Читает секцию `[Cheats]` из INI
+   - Хэширует значение `cheatcodes`
+   - Сравнивает с вшитым хэшем
+   - Если совпало → `IsCheatsUnlocked = true`
+
+### Использование в коде
+
+```csharp
+// Проверка доступности читов
+if (SettingsSystem.Instance.IsCheatsUnlocked)
+{
+    // Выполнить чит-действие
+}
+```
+
+### INI файл
+
+Игрок, знающий пароль, прописывает его вручную:
+
+```ini
+[Cheats]
+cheatcodes=мой_секретный_пароль
+```
+
+### Поведение
+
+| Контекст | IsCheatsUnlocked |
+|----------|-----------------|
+| Unity Editor | Всегда `true` |
+| Билд, правильный пароль | `true` |
+| Билд, неправильный/пустой пароль | `false` |
+| Билд, нет хэша (пароль не задан) | `false` |
+
+### API (SettingsSystem)
+
+```csharp
+bool IsCheatsUnlocked { get; }  // Разблокированы ли читы
+```
 
 ---
 

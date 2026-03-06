@@ -12,6 +12,8 @@ ProtoSystem — это Unity-фреймворк для создания моду
 ProtoSystem Core (Package)
 ├── EventBus/           — Глобальная шина событий
 ├── Initialization/     — Система инициализации с DI
+├── Settings/           — Настройки (INI) + чит-коды
+├── Publishing/         — Build Publisher + управление читами
 ├── Network/            — Базовые классы для сетевых систем
 └── Base/               — Базовые классы и интерфейсы
 

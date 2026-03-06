@@ -377,7 +377,44 @@ Dropdown
 
 ---
 
-## 5. Sound System
+## 5. Cheat Codes (SettingsSystem)
+
+### Архитектура
+
+Пароль → SHA256 хэш → `CheatCodeHash.g.cs` (via `.asmref`) → скомпилирован в DLL.
+При загрузке `SettingsSystem.Load()` читает `[Cheats]` из INI → хэширует → сравнивает → `IsCheatsUnlocked`.
+
+### Настройка
+
+1. **ProtoSystem → Publishing → Build Publisher** → секция "Cheat Codes"
+2. Включить toggle, ввести пароль, нажать **Apply**
+3. Генерируются файлы в `Assets/{namespace}/Cheats/`
+
+### Проверка в коде
+
+```csharp
+if (SettingsSystem.Instance.IsCheatsUnlocked)
+{
+    // чит-логика
+}
+```
+
+### INI формат
+
+```ini
+[Cheats]
+cheatcodes=пароль_в_открытом_виде
+```
+
+### Правила
+
+- В Editor `IsCheatsUnlocked` всегда `true`
+- Хэш хранится в скомпилированном скрипте, не в текстовом файле
+- Файлы генерируются при нажатии Apply, удаляются при выключении toggle
+
+---
+
+## 6. Sound System
 
 ### Быстрая настройка
 
