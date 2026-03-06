@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
@@ -46,6 +48,9 @@ namespace ProtoSystem.Settings
 
         /// <summary>Событие изменения настроек</summary>
         public event Action OnSettingsChanged;
+
+        /// <summary>Разблокированы ли читы (валидация по хэшу из [Cheats] секции)</summary>
+        public bool IsCheatsUnlocked { get; private set; }
 
         #region Singleton Access
         
@@ -236,6 +241,9 @@ namespace ProtoSystem.Settings
                 {
                     section.MarkAllSaved();
                 }
+
+                // Проверяем чит-коды
+                ValidateCheats(data);
             }
             finally
             {
@@ -411,6 +419,48 @@ namespace ProtoSystem.Settings
         /// Получить путь к файлу настроек
         /// </summary>
         public string GetSettingsPath() => _persistence.GetPath();
+
+        #endregion
+
+        #region Cheats
+
+        private void ValidateCheats(Dictionary<string, Dictionary<string, string>> data)
+        {
+#if UNITY_EDITOR
+            IsCheatsUnlocked = true;
+            return;
+#else
+            IsCheatsUnlocked = false;
+
+            var hash = CheatCodeHash.Hash;
+            if (string.IsNullOrEmpty(hash))
+                return;
+
+            if (data.TryGetValue("Cheats", out var cheatsSection) &&
+                cheatsSection.TryGetValue("cheatcodes", out var password) &&
+                !string.IsNullOrEmpty(password))
+            {
+                var inputHash = ComputeSHA256(password);
+                if (string.Equals(inputHash, hash, StringComparison.OrdinalIgnoreCase))
+                {
+                    IsCheatsUnlocked = true;
+                    LogMessage("Cheats unlocked");
+                }
+            }
+#endif
+        }
+
+        private static string ComputeSHA256(string input)
+        {
+            using (var sha256 = SHA256.Create())
+            {
+                var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
+                var sb = new StringBuilder(64);
+                foreach (var b in bytes)
+                    sb.Append(b.ToString("x2"));
+                return sb.ToString();
+            }
+        }
 
         #endregion
 
