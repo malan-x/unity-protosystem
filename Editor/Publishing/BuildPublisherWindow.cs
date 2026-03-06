@@ -590,12 +590,23 @@ namespace ProtoSystem.Publishing.Editor
                 target.appName = EditorGUILayout.TextField(target.appName);
                 EditorGUILayout.EndHorizontal();
 
-                // Hint about depots
+                // Depot Config reference — allows sharing between targets
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField(new GUIContent("Depot Config",
+                    "Конфигурация депо для этого target.\n" +
+                    "Можно использовать один и тот же DepotConfig для Main и Playtest,\n" +
+                    "если они используют общее хранилище файлов."),
+                    GUILayout.Width(120));
+                target.depotConfig = (DepotConfig)EditorGUILayout.ObjectField(
+                    target.depotConfig, typeof(DepotConfig), false);
+                EditorGUILayout.EndHorizontal();
+
                 if (target.enabled && target.depotConfig == null && !string.IsNullOrEmpty(target.appId))
                 {
                     EditorGUILayout.HelpBox(
-                        "Депоты для этого target настраиваются ниже в секции Depots (при активном target).",
-                        MessageType.None);
+                        "Укажите Depot Config или создайте новый в секции Depots ниже (при активном target).\n" +
+                        "Совет: можно назначить один Depot Config на Main и Playtest для общего хранилища.",
+                        MessageType.Info);
                 }
 
                 GUI.enabled = true;
