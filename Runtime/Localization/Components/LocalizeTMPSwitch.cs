@@ -12,7 +12,7 @@ namespace ProtoSystem
     /// При получении события с payload=true → вариант B, false → A.
     ///
     /// Требуется LocalizeTMP на том же GameObject.
-    /// Начальное состояние задаётся через Apply() снаружи.
+    /// Начальное состояние задаётся через InitialStateProvider (для Steam Deck и т.п.).
     /// </summary>
     [RequireComponent(typeof(LocalizeTMP))]
     [AddComponentMenu("ProtoSystem/Localization/Localize TMP Switch")]
@@ -34,6 +34,12 @@ namespace ProtoSystem
         [Tooltip("Fallback текст для варианта B")]
         [SerializeField] private string fallbackB;
 
+        /// <summary>
+        /// Провайдер начального состояния. Вызывается в OnEnable.
+        /// Принимает eventId, возвращает bool? (null = не задано).
+        /// </summary>
+        public static System.Func<int, bool?> InitialStateProvider;
+
         private LocalizeTMP _loc;
 
         private void Awake()
@@ -44,6 +50,10 @@ namespace ProtoSystem
         private void OnEnable()
         {
             EventBus.Subscribe(eventId, OnSwitch);
+            // Применить начальное состояние (Steam Deck: геймпад активен с запуска)
+            var initial = InitialStateProvider?.Invoke(eventId);
+            if (initial.HasValue)
+                Apply(initial.Value);
         }
 
         private void OnDisable()
