@@ -30,12 +30,14 @@ namespace ProtoSystem.Editor
         // Export
         private string _exportTable = "UI";
         private int _sourceLanguageIdx;
-        private int _targetLanguageIdx = 1;
+        private bool[] _targetLanguageToggles;
         private bool _onlyMissing = true;
         private string _exportPath;
-        
+
         // Import
-        private string _importPath;
+        private string _importFolder;
+        private string[] _importFiles = System.Array.Empty<string>();
+        private bool[] _importFileToggles = System.Array.Empty<bool>();
         private bool _overwriteExisting;
         
         // Validate
@@ -73,17 +75,20 @@ namespace ProtoSystem.Editor
                 _languageCodes = _config.supportedLanguages.Select(l => l.code).ToArray();
                 _languageNames = _config.supportedLanguages
                     .Select(l => $"{l.displayName} ({l.code})").ToArray();
-                
+
                 var sourceIdx = _config.supportedLanguages
                     .FindIndex(l => l.isSource || l.code == _config.defaultLanguage);
                 _sourceLanguageIdx = Mathf.Max(0, sourceIdx);
-                _targetLanguageIdx = _sourceLanguageIdx == 0 ? 
-                    Mathf.Min(1, _languageCodes.Length - 1) : 0;
+
+                _targetLanguageToggles = new bool[_languageCodes.Length];
+                for (int i = 0; i < _targetLanguageToggles.Length; i++)
+                    _targetLanguageToggles[i] = i != _sourceLanguageIdx;
             }
             else
             {
                 _languageCodes = new[] { "ru", "en" };
                 _languageNames = new[] { "Русский (ru)", "English (en)" };
+                _targetLanguageToggles = new[] { false, true };
             }
             
             // Таблицы
@@ -102,8 +107,9 @@ namespace ProtoSystem.Editor
             _exportPath = basePath;
             // Import/Validate по умолчанию смотрят в Import-папку
             string importPath = basePath.Replace("/Export", "/Import");
-            _importPath = Directory.Exists(importPath) ? importPath : basePath;
-            _validatePath = _importPath;
+            _importFolder = Directory.Exists(importPath) ? importPath : basePath;
+            _validatePath = _importFolder;
+            RefreshImportFiles();
             
             _initialized = true;
         }
@@ -159,28 +165,64 @@ namespace ProtoSystem.Editor
         {
             EditorGUILayout.LabelField("Экспорт строк для AI-перевода", EditorStyles.boldLabel);
             EditorGUILayout.Space(5);
-            
+
             // Таблица
             int tableIdx = System.Array.IndexOf(_tableNames, _exportTable);
             if (tableIdx < 0) tableIdx = 0;
             tableIdx = EditorGUILayout.Popup("Table", tableIdx, _tableNames);
             _exportTable = _tableNames[tableIdx];
-            
-            // Языки
-            _sourceLanguageIdx = EditorGUILayout.Popup("Source Language", 
+
+            // Язык-источник
+            _sourceLanguageIdx = EditorGUILayout.Popup("Source Language",
                 _sourceLanguageIdx, _languageNames);
-            _targetLanguageIdx = EditorGUILayout.Popup("Target Language", 
-                _targetLanguageIdx, _languageNames);
-            
-            if (_sourceLanguageIdx == _targetLanguageIdx)
+
+            // Целевые языки — галочки
+            EditorGUILayout.Space(3);
+            EditorGUILayout.LabelField("Target Languages", EditorStyles.boldLabel);
+
+            if (_targetLanguageToggles == null || _targetLanguageToggles.Length != _languageCodes.Length)
             {
-                EditorGUILayout.HelpBox("Source и Target языки совпадают!", MessageType.Error);
+                _targetLanguageToggles = new bool[_languageCodes.Length];
+                for (int i = 0; i < _targetLanguageToggles.Length; i++)
+                    _targetLanguageToggles[i] = i != _sourceLanguageIdx;
             }
-            
+
+            // Кнопки Выбрать все / Снять все
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Select All", EditorStyles.miniButtonLeft))
+            {
+                for (int i = 0; i < _targetLanguageToggles.Length; i++)
+                    _targetLanguageToggles[i] = i != _sourceLanguageIdx;
+            }
+            if (GUILayout.Button("Deselect All", EditorStyles.miniButtonRight))
+            {
+                for (int i = 0; i < _targetLanguageToggles.Length; i++)
+                    _targetLanguageToggles[i] = false;
+            }
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUI.indentLevel++;
+            for (int i = 0; i < _languageCodes.Length; i++)
+            {
+                if (i == _sourceLanguageIdx) continue;
+                _targetLanguageToggles[i] = EditorGUILayout.ToggleLeft(_languageNames[i], _targetLanguageToggles[i]);
+            }
+            EditorGUI.indentLevel--;
+
+            bool anyTarget = false;
+            for (int i = 0; i < _targetLanguageToggles.Length; i++)
+            {
+                if (i != _sourceLanguageIdx && _targetLanguageToggles[i])
+                { anyTarget = true; break; }
+            }
+
+            if (!anyTarget)
+                EditorGUILayout.HelpBox("Выберите хотя бы один целевой язык.", MessageType.Warning);
+
             _onlyMissing = EditorGUILayout.Toggle("Only Missing Translations", _onlyMissing);
-            
+
             EditorGUILayout.Space(5);
-            
+
             // Путь
             EditorGUILayout.BeginHorizontal();
             _exportPath = EditorGUILayout.TextField("Export Folder", _exportPath);
@@ -196,10 +238,10 @@ namespace ProtoSystem.Editor
                 }
             }
             EditorGUILayout.EndHorizontal();
-            
+
             EditorGUILayout.Space(10);
-            
-            GUI.enabled = _sourceLanguageIdx != _targetLanguageIdx;
+
+            GUI.enabled = anyTarget;
             if (GUILayout.Button("📤 Export to JSON", GUILayout.Height(30)))
             {
                 DoExport();
@@ -213,37 +255,83 @@ namespace ProtoSystem.Editor
         {
             EditorGUILayout.LabelField("Импорт переводов из JSON", EditorStyles.boldLabel);
             EditorGUILayout.Space(5);
-            
+
+            // Папка с файлами
             EditorGUILayout.BeginHorizontal();
-            _importPath = EditorGUILayout.TextField("JSON File", _importPath);
+            EditorGUI.BeginChangeCheck();
+            _importFolder = EditorGUILayout.TextField("Import Folder", _importFolder);
+            if (EditorGUI.EndChangeCheck())
+                RefreshImportFiles();
+
             if (GUILayout.Button("...", GUILayout.Width(30)))
             {
-                var path = EditorUtility.OpenFilePanel("Select JSON", _importPath, "json");
+                var path = EditorUtility.OpenFolderPanel("Select Import Folder", _importFolder, "");
                 if (!string.IsNullOrEmpty(path))
                 {
                     if (path.StartsWith(Application.dataPath))
-                        _importPath = "Assets" + path.Substring(Application.dataPath.Length);
+                        _importFolder = "Assets" + path.Substring(Application.dataPath.Length);
                     else
-                        _importPath = path;
+                        _importFolder = path;
+                    RefreshImportFiles();
                 }
             }
+
+            if (GUILayout.Button("↻", GUILayout.Width(25)))
+                RefreshImportFiles();
+
             EditorGUILayout.EndHorizontal();
-            
+
             _overwriteExisting = EditorGUILayout.Toggle("Overwrite Existing", _overwriteExisting);
-            
+
+            EditorGUILayout.Space(5);
+
+            // Список файлов
+            if (_importFiles.Length == 0)
+            {
+                EditorGUILayout.HelpBox("JSON файлы не найдены в указанной папке.", MessageType.Info);
+            }
+            else
+            {
+                EditorGUILayout.LabelField($"JSON файлы ({_importFiles.Length}):", EditorStyles.boldLabel);
+
+                // Кнопки выбора
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("Select All", EditorStyles.miniButtonLeft))
+                {
+                    for (int i = 0; i < _importFileToggles.Length; i++)
+                        _importFileToggles[i] = true;
+                }
+                if (GUILayout.Button("Deselect All", EditorStyles.miniButtonRight))
+                {
+                    for (int i = 0; i < _importFileToggles.Length; i++)
+                        _importFileToggles[i] = false;
+                }
+                EditorGUILayout.EndHorizontal();
+
+                EditorGUI.indentLevel++;
+                for (int i = 0; i < _importFiles.Length; i++)
+                {
+                    _importFileToggles[i] = EditorGUILayout.ToggleLeft(
+                        Path.GetFileName(_importFiles[i]), _importFileToggles[i]);
+                }
+                EditorGUI.indentLevel--;
+            }
+
+            bool anySelected = _importFileToggles.Any(t => t);
+
             EditorGUILayout.Space(10);
-            
+
             EditorGUILayout.BeginHorizontal();
+            GUI.enabled = anySelected;
             if (GUILayout.Button("✅ Validate First", GUILayout.Height(30)))
             {
-                _validatePath = _importPath;
-                _validationResults = LocalizationValidator.Validate(_importPath, _metadata);
-                _currentTab = Tab.Validate;
+                DoValidateSelected();
             }
             if (GUILayout.Button("📥 Import", GUILayout.Height(30)))
             {
                 DoImport();
             }
+            GUI.enabled = true;
             EditorGUILayout.EndHorizontal();
         }
         
@@ -319,37 +407,114 @@ namespace ProtoSystem.Editor
         private void DoExport()
         {
             string source = _languageCodes[_sourceLanguageIdx];
-            string target = _languageCodes[_targetLanguageIdx];
-            string fileName = $"{_exportTable}_{source}_to_{target}.json";
-            string fullPath = Path.Combine(_exportPath, fileName);
-            
-            var result = LocalizationExporter.Export(
-                _exportTable, source, target, _metadata, _config, fullPath, _onlyMissing);
-            
-            if (result != null)
+            var exported = new List<string>();
+
+            for (int i = 0; i < _languageCodes.Length; i++)
             {
-                EditorUtility.DisplayDialog("Export Complete", 
-                    $"Exported to:\n{result}\n\nОткройте файл и передайте AI для перевода.", "OK");
-                
-                EditorUtility.RevealInFinder(result);
+                if (i == _sourceLanguageIdx || !_targetLanguageToggles[i]) continue;
+
+                string target = _languageCodes[i];
+                string fileName = $"{_exportTable}_{source}_to_{target}.json";
+                string fullPath = Path.Combine(_exportPath, fileName);
+
+                var result = LocalizationExporter.Export(
+                    _exportTable, source, target, _metadata, _config, fullPath, _onlyMissing);
+
+                if (result != null)
+                    exported.Add(Path.GetFileName(result));
+            }
+
+            if (exported.Count > 0)
+            {
+                EditorUtility.DisplayDialog("Export Complete",
+                    $"Экспортировано файлов: {exported.Count}\n\n" +
+                    string.Join("\n", exported) +
+                    "\n\nОткройте файлы и передайте AI для перевода.", "OK");
+
+                EditorUtility.RevealInFinder(_exportPath);
+            }
+            else
+            {
+                EditorUtility.DisplayDialog("Export", "Нет записей для экспорта.", "OK");
             }
         }
-        
+
         private void DoImport()
         {
-            if (string.IsNullOrEmpty(_importPath) || !File.Exists(_importPath))
+            var selectedFiles = GetSelectedImportFiles();
+            if (selectedFiles.Count == 0)
             {
-                EditorUtility.DisplayDialog("Error", "JSON файл не найден", "OK");
+                EditorUtility.DisplayDialog("Error", "Не выбраны файлы для импорта.", "OK");
                 return;
             }
-            
-            var result = LocalizationImporter.Import(_importPath, _overwriteExisting);
-            
-            string msg = $"Imported: {result.imported}\nSkipped: {result.skipped}\nErrors: {result.errors}";
-            if (result.errorMessages.Count > 0)
-                msg += "\n\n" + string.Join("\n", result.errorMessages);
-            
+
+            int totalImported = 0, totalSkipped = 0, totalErrors = 0;
+            var allMessages = new List<string>();
+
+            foreach (var file in selectedFiles)
+            {
+                var result = LocalizationImporter.Import(file, _overwriteExisting);
+                totalImported += result.imported;
+                totalSkipped += result.skipped;
+                totalErrors += result.errors;
+
+                if (result.errorMessages.Count > 0)
+                    allMessages.Add($"[{Path.GetFileName(file)}]\n  " +
+                        string.Join("\n  ", result.errorMessages));
+            }
+
+            string msg = $"Files: {selectedFiles.Count}\nImported: {totalImported}\n" +
+                         $"Skipped: {totalSkipped}\nErrors: {totalErrors}";
+            if (allMessages.Count > 0)
+                msg += "\n\n" + string.Join("\n", allMessages);
+
             EditorUtility.DisplayDialog("Import Result", msg, "OK");
+        }
+
+        private void DoValidateSelected()
+        {
+            var selectedFiles = GetSelectedImportFiles();
+            _validationResults = new List<ValidationResult>();
+
+            foreach (var file in selectedFiles)
+            {
+                var results = LocalizationValidator.Validate(file, _metadata);
+                foreach (var r in results)
+                    r.message = $"[{Path.GetFileName(file)}] {r.message}";
+                _validationResults.AddRange(results);
+            }
+
+            _currentTab = Tab.Validate;
+        }
+
+        private List<string> GetSelectedImportFiles()
+        {
+            var files = new List<string>();
+            for (int i = 0; i < _importFiles.Length; i++)
+            {
+                if (_importFileToggles[i])
+                    files.Add(_importFiles[i]);
+            }
+            return files;
+        }
+
+        private void RefreshImportFiles()
+        {
+            if (!string.IsNullOrEmpty(_importFolder) && Directory.Exists(_importFolder))
+            {
+                _importFiles = Directory.GetFiles(_importFolder, "*.json")
+                    .OrderBy(f => Path.GetFileName(f))
+                    .ToArray();
+                _importFileToggles = new bool[_importFiles.Length];
+                // По умолчанию все выделены
+                for (int i = 0; i < _importFileToggles.Length; i++)
+                    _importFileToggles[i] = true;
+            }
+            else
+            {
+                _importFiles = System.Array.Empty<string>();
+                _importFileToggles = System.Array.Empty<bool>();
+            }
         }
         
         // ──────────────── Helpers ────────────────
