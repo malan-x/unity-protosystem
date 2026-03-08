@@ -2445,7 +2445,7 @@ namespace ProtoSystem.Publishing.Editor
                     try
                     {
                         var size = GetDirectorySize(dir);
-                        Directory.Delete(dir, true);
+                        DeleteDirectoryWithRetry(dir);
                         totalSize += size;
                         Debug.Log($"[BuildPublisher] Cleanup: deleted '{Path.GetFileName(dir)}' ({size / (1024 * 1024f):F1} MB)");
                     }
@@ -2460,6 +2460,31 @@ namespace ProtoSystem.Publishing.Editor
                 Debug.Log($"[BuildPublisher] Cleanup complete: freed {totalSize / (1024 * 1024f):F1} MB");
 
             return totalSize;
+        }
+
+        private static void DeleteDirectoryWithRetry(string path, int maxAttempts = 3)
+        {
+            for (int i = 0; i < maxAttempts; i++)
+            {
+                try
+                {
+                    // Clear readonly attributes that IL2CPP/Burst may set
+                    foreach (var file in Directory.GetFiles(path, "*", SearchOption.AllDirectories))
+                    {
+                        var attr = File.GetAttributes(file);
+                        if ((attr & FileAttributes.ReadOnly) != 0)
+                            File.SetAttributes(file, attr & ~FileAttributes.ReadOnly);
+                    }
+
+                    Directory.Delete(path, true);
+                    return;
+                }
+                catch (Exception) when (i < maxAttempts - 1)
+                {
+                    // Wait for file handles to be released
+                    System.Threading.Thread.Sleep(500);
+                }
+            }
         }
 
         private static long GetDirectorySize(string path)
