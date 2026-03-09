@@ -379,6 +379,7 @@ namespace ProtoSystem
             public const string TypePollMulti = "ui.community.type_poll_multi";
             public const string TypeNews      = "ui.community.type_news";
             public const string TypeDevLog    = "ui.community.type_devlog";
+            public const string ReadMore      = "ui.community.read_more";
             
             public static class Fallback
             {
@@ -389,6 +390,7 @@ namespace ProtoSystem
                 public const string TypePollMulti = "Несколько ответов";
                 public const string TypeNews      = "Новость";
                 public const string TypeDevLog    = "Dev Log";
+                public const string ReadMore      = "Читать полностью >";
             }
             
             public static class FallbackEn
@@ -400,6 +402,7 @@ namespace ProtoSystem
                 public const string TypePollMulti = "Multiple answers";
                 public const string TypeNews      = "News";
                 public const string TypeDevLog    = "Dev Log";
+                public const string ReadMore      = "Read more >";
             }
         }
         

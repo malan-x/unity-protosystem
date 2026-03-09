@@ -74,9 +74,11 @@ namespace ProtoSystem.UI
         [SerializeField] private Button[]   ratingStars;
         [SerializeField] private TMP_Text   ratingAvgText;
 
-        [Header("Type Badge")]
+        [Header("Type Badge & Meta")]
         [SerializeField] private TMP_Text   typeBadgeText;
         [SerializeField] private LocalizeTMP typeBadgeLocalize;
+        [SerializeField] private TMP_Text   cardMetaText;
+        [SerializeField] private LocalizeTMP cardMetaLocalize;
 
         [Header("Localization (static labels)")]
         [SerializeField] private LocalizeTMP sendButtonLocalize;
@@ -315,6 +317,13 @@ namespace ProtoSystem.UI
             SetVisible(pollCard, true);
             if (pollQuestionText) pollQuestionText.text = poll.question.Get(lang);
 
+            // Meta
+            if (cardMetaText)
+            {
+                int total = poll.votesTotal;
+                cardMetaText.text = total > 0 ? $"{total:N0} votes" : "";
+            }
+
             // Badge: single vs multi
             bool isMulti = poll.pollType == "multi";
             if (typeBadgeLocalize)
@@ -391,6 +400,7 @@ namespace ProtoSystem.UI
                 typeBadgeLocalize.SetKey(UIKeys.CommunityPanel.TypeNews, UIKeys.CommunityPanel.Fallback.TypeNews);
             else if (typeBadgeText)
                 typeBadgeText.text = UIKeys.CommunityPanel.Fallback.TypeNews;
+            if (cardMetaText) cardMetaText.text = "";
             if (announcementTitleText) announcementTitleText.text = ann.title.Get(lang);
             if (announcementBodyText)  announcementBodyText.text  = ann.body.Get(lang);
             SetVisible(announcementUrlButton?.gameObject, !string.IsNullOrEmpty(ann.url));
@@ -406,6 +416,7 @@ namespace ProtoSystem.UI
                 typeBadgeLocalize.SetKey(UIKeys.CommunityPanel.TypeDevLog, UIKeys.CommunityPanel.Fallback.TypeDevLog);
             else if (typeBadgeText)
                 typeBadgeText.text = UIKeys.CommunityPanel.Fallback.TypeDevLog;
+            if (cardMetaText) cardMetaText.text = "";
             if (devLogFocusText) devLogFocusText.text = devLog.focus.Get(lang);
             if (devLogTitleText) devLogTitleText.text = devLog.title.Get(lang);
 
@@ -446,20 +457,43 @@ namespace ProtoSystem.UI
         {
             if (cardsRoot == null) return;
 
+            // Force full layout rebuild from cards up to root
+            Canvas.ForceUpdateCanvases();
+
+            // Rebuild cards container (may have CSF)
+            var cardsRect = cardsRoot.GetComponent<RectTransform>();
+            if (cardsRect) LayoutRebuilder.ForceRebuildLayoutImmediate(cardsRect);
+
+            // Rebuild poll options container if active
+            if (pollCard && pollCard.activeSelf && pollOptionsContainer != null)
+            {
+                var optRect = pollOptionsContainer.GetComponent<RectTransform>();
+                if (optRect) LayoutRebuilder.ForceRebuildLayoutImmediate(optRect);
+            }
+
+            // Rebuild card content parent (for CSF chain)
             GameObject activeCard = null;
             if (pollCard && pollCard.activeSelf) activeCard = pollCard;
             else if (announcementCard && announcementCard.activeSelf) activeCard = announcementCard;
             else if (devLogCard && devLogCard.activeSelf) activeCard = devLogCard;
 
-            if (activeCard == null) return;
+            if (activeCard != null)
+            {
+                var cardParent = activeCard.transform.parent;
+                if (cardParent != null)
+                {
+                    var parentRect = cardParent.GetComponent<RectTransform>();
+                    if (parentRect) LayoutRebuilder.ForceRebuildLayoutImmediate(parentRect);
+                }
+            }
 
-            Canvas.ForceUpdateCanvases();
-            float cardH = LayoutUtility.GetPreferredHeight(activeCard.GetComponent<RectTransform>());
-            float navH = 28f;
-            float total = cardH + navH + 8f;
-
+            // Also handle package generator layout (CardsRoot with LayoutElement)
             var le = cardsRoot.GetComponent<LayoutElement>();
-            if (le) le.preferredHeight = total;
+            if (le && activeCard != null)
+            {
+                float cardH = LayoutUtility.GetPreferredHeight(activeCard.GetComponent<RectTransform>());
+                le.preferredHeight = cardH + 52f; // nav(28) + meta(16) + padding
+            }
 
             LayoutRebuilder.ForceRebuildLayoutImmediate(GetComponent<RectTransform>());
         }

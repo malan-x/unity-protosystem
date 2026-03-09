@@ -390,7 +390,7 @@ namespace ProtoSystem.UI
             cardArea.transform.SetParent(cardsRoot.transform, false);
             var cardAreaRect = cardArea.AddComponent<RectTransform>();
             cardAreaRect.anchorMin = Vector2.zero; cardAreaRect.anchorMax = Vector2.one;
-            cardAreaRect.offsetMin = new Vector2(0, 28); cardAreaRect.offsetMax = Vector2.zero;
+            cardAreaRect.offsetMin = new Vector2(0, 44); cardAreaRect.offsetMax = Vector2.zero;
 
             // Poll card
             var pollCard = CPMakeCard("PollCard", cardArea.transform);
@@ -530,11 +530,20 @@ namespace ProtoSystem.UI
             ratingAvg.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineRight;
             CPSetAnchors(ratingAvg, new Vector2(1, 0), new Vector2(1, 1), new Vector4(-42, 4, -4, -4));
 
+            // Card Meta (e.g. vote count)
+            var cardMetaGO = CreateText("CardMeta", cardsRoot.transform, "", 9);
+            cardMetaGO.GetComponent<TMP_Text>().color = new Color(0.5f, 0.5f, 0.5f);
+            cardMetaGO.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.BottomLeft;
+            cardMetaGO.GetComponent<TMP_Text>().raycastTarget = false;
+            CPSetAnchors(cardMetaGO, new Vector2(0, 0), new Vector2(0.5f, 0), new Vector4(8, 28, 0, 44));
+            cardMetaGO.AddComponent<LocalizeTMP>(); // key set dynamically by runtime
+
             // Type Badge (top-right corner of CardsRoot)
             var typeBadgeGO = CreateText("TypeBadge", cardsRoot.transform, "", 10);
             typeBadgeGO.GetComponent<TMP_Text>().fontStyle = FontStyles.UpperCase;
             typeBadgeGO.GetComponent<TMP_Text>().color = new Color(0.6f, 0.6f, 0.6f);
             typeBadgeGO.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineRight;
+            typeBadgeGO.GetComponent<TMP_Text>().raycastTarget = false;
             CPSetAnchors(typeBadgeGO, new Vector2(0.5f, 1), new Vector2(1, 1), new Vector4(0, -24, -8, -4));
             AddLocalization(typeBadgeGO, UIKeys.CommunityPanel.TypePoll, UIKeys.CommunityPanel.Fallback.TypePoll);
 
@@ -583,6 +592,9 @@ namespace ProtoSystem.UI
             SetField(component, "pollOptionPrefab",       pollOptionPrefab);
             SetField(component, "devLogItemPrefab",       devLogItemPrefab);
             SetField(component, "typeBadgeText",          typeBadgeGO.GetComponent<TMP_Text>());
+            SetField(component, "cardMetaText",            cardMetaGO.GetComponent<TMP_Text>());
+            var cardMetaLocalize = cardMetaGO.GetComponent<LocalizeTMP>();
+            if (cardMetaLocalize) SetField(component, "cardMetaLocalize", cardMetaLocalize);
             var typeBadgeLocalize = typeBadgeGO.GetComponent<LocalizeTMP>();
             if (typeBadgeLocalize) SetField(component, "typeBadgeLocalize", typeBadgeLocalize);
 
@@ -634,7 +646,9 @@ namespace ProtoSystem.UI
             rect.pivot     = new Vector2(0.5f, 1);
             rect.sizeDelta = new Vector2(0, 100);
             rect.anchoredPosition = Vector2.zero;
-            go.AddComponent<Image>().color = new Color(0.13f, 0.13f, 0.13f, 0f);
+            var cardImg = go.AddComponent<Image>();
+            cardImg.color = new Color(0.13f, 0.13f, 0.13f, 0f);
+            cardImg.raycastTarget = false;
             return go;
         }
 
