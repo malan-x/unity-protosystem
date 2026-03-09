@@ -301,7 +301,10 @@ namespace ProtoSystem.UI
                 var optId  = opt.id;
                 var pollId = poll.id;
                 btn?.onClick.AddListener(async () =>
-                    await _liveOpsSystem.SubmitPollAnswerAsync(pollId, new[] { optId }));
+                {
+                    if (_liveOpsSystem != null)
+                        await _liveOpsSystem.SubmitPollAnswerAsync(pollId, new[] { optId });
+                });
             }
         }
 
