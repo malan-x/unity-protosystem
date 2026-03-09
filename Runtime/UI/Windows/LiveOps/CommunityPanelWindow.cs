@@ -1,8 +1,10 @@
 // Packages/com.protosystem.core/Runtime/UI/Windows/LiveOps/CommunityPanelWindow.cs
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using ProtoSystem;
 using ProtoSystem.LiveOps;
 
 namespace ProtoSystem.UI
@@ -61,16 +63,25 @@ namespace ProtoSystem.UI
         [SerializeField] private TMP_Text       messageCharCountText;
         private const int MessageMaxChars = 120;
 
-        [Header("Wishlist")]
-        [SerializeField] private GameObject wishlistRoot;
-        [SerializeField] private Image      wishlistFill;
-        [SerializeField] private TMP_Text   wishlistCountText;
-        [SerializeField] private TMP_Text   wishlistDescText;
+        [Header("Goal")]
+        [SerializeField] private GameObject goalRoot;
+        [SerializeField] private Image      goalFill;
+        [SerializeField] private TMP_Text   goalCountText;
+        [SerializeField] private TMP_Text   goalDescText;
 
         [Header("Rating")]
         [SerializeField] private GameObject ratingRoot;
         [SerializeField] private Button[]   ratingStars;
         [SerializeField] private TMP_Text   ratingAvgText;
+
+        [Header("Type Badge")]
+        [SerializeField] private TMP_Text   typeBadgeText;
+        [SerializeField] private LocalizeTMP typeBadgeLocalize;
+
+        [Header("Localization (static labels)")]
+        [SerializeField] private LocalizeTMP sendButtonLocalize;
+        [SerializeField] private LocalizeTMP placeholderLocalize;
+        [SerializeField] private LocalizeTMP ratingLabelLocalize;
 
         #endregion
 
@@ -113,7 +124,7 @@ namespace ProtoSystem.UI
 
             SetVisible(cardsRoot,    false);
             SetVisible(messageRoot,  false);
-            SetVisible(wishlistRoot, false);
+            SetVisible(goalRoot,     false);
             SetVisible(ratingRoot,   false);
         }
 
@@ -163,24 +174,39 @@ namespace ProtoSystem.UI
             // Видимость виджетов
             SetVisible(cardsRoot,    stub.showCards);
             SetVisible(messageRoot,  stub.showMessages);
-            SetVisible(wishlistRoot, stub.showWishlist);
+            SetVisible(goalRoot,     stub.showGoal);
             SetVisible(ratingRoot,   stub.showRating);
 
-            // Карточки
+            // Карточки из единого списка
             _polls.Clear();
             _announcements.Clear();
             _devLog = null;
 
-            if (stub.hasPoll)            _polls.Add(stub.poll.ToLiveOpsPoll());
-            if (stub.haAnnouncement)     _announcements.Add(stub.announcement.ToAnnouncement());
-            if (stub.hasDevLog)          _devLog = stub.devLog.ToDevLog();
+            if (stub.cards != null)
+            {
+                foreach (var entry in stub.cards)
+                {
+                    switch (entry.type)
+                    {
+                        case StubCardType.Poll:
+                            _polls.Add(entry.poll.ToLiveOpsPoll());
+                            break;
+                        case StubCardType.Announcement:
+                            _announcements.Add(entry.announcement.ToAnnouncement());
+                            break;
+                        case StubCardType.DevLog:
+                            _devLog = entry.devLog.ToDevLog();
+                            break;
+                    }
+                }
+            }
 
             RebuildCardList();
             ShowCard(0);
 
-            // Вишлист
-            if (stub.showWishlist)
-                RefreshWishlist(stub.wishlist.ToMilestone());
+            // Goal
+            if (stub.showGoal)
+                RefreshWishlist(stub.goal.ToMilestone());
 
             // Рейтинг
             if (stub.showRating)
@@ -235,7 +261,7 @@ namespace ProtoSystem.UI
             if (_liveOpsSystem == null) return;
             SetVisible(cardsRoot,    _liveOpsSystem.IsWidgetVisible("cards"));
             SetVisible(messageRoot,  _liveOpsSystem.IsWidgetVisible("messages"));
-            SetVisible(wishlistRoot, _liveOpsSystem.IsWidgetVisible("wishlist"));
+            SetVisible(goalRoot,     _liveOpsSystem.IsWidgetVisible("wishlist"));
             SetVisible(ratingRoot,   _liveOpsSystem.IsWidgetVisible("rating"));
         }
 
@@ -281,6 +307,7 @@ namespace ProtoSystem.UI
             }
 
             UpdateCardCounter(index + 1, _cardKeys.Count);
+            StartCoroutine(AdjustCardsRootHeightDeferred());
         }
 
         private void ShowPollCard(LiveOpsPoll poll, string lang)
@@ -288,15 +315,62 @@ namespace ProtoSystem.UI
             SetVisible(pollCard, true);
             if (pollQuestionText) pollQuestionText.text = poll.question.Get(lang);
 
+            // Badge: single vs multi
+            bool isMulti = poll.pollType == "multi";
+            if (typeBadgeLocalize)
+                typeBadgeLocalize.SetKey(
+                    isMulti ? UIKeys.CommunityPanel.TypePollMulti : UIKeys.CommunityPanel.TypePoll,
+                    isMulti ? UIKeys.CommunityPanel.Fallback.TypePollMulti : UIKeys.CommunityPanel.Fallback.TypePoll);
+            else if (typeBadgeText)
+                typeBadgeText.text = isMulti ? UIKeys.CommunityPanel.Fallback.TypePollMulti : UIKeys.CommunityPanel.Fallback.TypePoll;
+
             foreach (Transform child in pollOptionsContainer) Destroy(child.gameObject);
+
+            bool hasVoted = System.Array.Exists(poll.options, o => o.selected);
 
             foreach (var opt in poll.options)
             {
                 if (pollOptionPrefab == null) break;
                 var go  = Instantiate(pollOptionPrefab, pollOptionsContainer);
-                var btn = go.GetComponentInChildren<Button>();
-                var txt = go.GetComponentInChildren<TMP_Text>();
-                if (txt) txt.text = opt.label.Get(lang);
+                go.SetActive(true);
+                var btn = go.GetComponent<Button>();
+                if (btn) btn.interactable = true;
+
+                // Label
+                var labelT = FindChildRecursive(go.transform, "Label");
+                if (labelT) labelT.GetComponent<TMP_Text>().text = opt.label.Get(lang);
+
+                // Checkmark
+                var checkmark = FindChildRecursive(go.transform, "Checkmark");
+                if (checkmark) checkmark.gameObject.SetActive(opt.selected);
+
+                // Pct text — only visible after voting
+                var pctT = FindChildRecursive(go.transform, "Pct");
+                if (pctT)
+                {
+                    pctT.gameObject.SetActive(hasVoted);
+                    if (hasVoted)
+                        pctT.GetComponent<TMP_Text>().text = $"{opt.Percent(poll.votesTotal):0}%";
+                }
+
+                // Fill bar — only visible after voting, width = percent
+                var fillT = FindChildRecursive(go.transform, "FillBar");
+                if (fillT)
+                {
+                    fillT.gameObject.SetActive(hasVoted);
+                    if (hasVoted)
+                    {
+                        var fillRect = fillT.GetComponent<RectTransform>();
+                        if (fillRect)
+                        {
+                            float pct = opt.Percent(poll.votesTotal) / 100f;
+                            fillRect.anchorMin = Vector2.zero;
+                            fillRect.anchorMax = new Vector2(pct, 1f);
+                            fillRect.offsetMin = new Vector2(1, 1);
+                            fillRect.offsetMax = new Vector2(-1, -1);
+                        }
+                    }
+                }
 
                 var optId  = opt.id;
                 var pollId = poll.id;
@@ -313,6 +387,10 @@ namespace ProtoSystem.UI
         private void ShowAnnouncementCard(LiveOpsAnnouncement ann, string lang)
         {
             SetVisible(announcementCard, true);
+            if (typeBadgeLocalize)
+                typeBadgeLocalize.SetKey(UIKeys.CommunityPanel.TypeNews, UIKeys.CommunityPanel.Fallback.TypeNews);
+            else if (typeBadgeText)
+                typeBadgeText.text = UIKeys.CommunityPanel.Fallback.TypeNews;
             if (announcementTitleText) announcementTitleText.text = ann.title.Get(lang);
             if (announcementBodyText)  announcementBodyText.text  = ann.body.Get(lang);
             SetVisible(announcementUrlButton?.gameObject, !string.IsNullOrEmpty(ann.url));
@@ -324,6 +402,10 @@ namespace ProtoSystem.UI
         private void ShowDevLogCard(LiveOpsDevLog devLog, string lang)
         {
             SetVisible(devLogCard, true);
+            if (typeBadgeLocalize)
+                typeBadgeLocalize.SetKey(UIKeys.CommunityPanel.TypeDevLog, UIKeys.CommunityPanel.Fallback.TypeDevLog);
+            else if (typeBadgeText)
+                typeBadgeText.text = UIKeys.CommunityPanel.Fallback.TypeDevLog;
             if (devLogFocusText) devLogFocusText.text = devLog.focus.Get(lang);
             if (devLogTitleText) devLogTitleText.text = devLog.title.Get(lang);
 
@@ -333,6 +415,7 @@ namespace ProtoSystem.UI
             {
                 if (devLogItemPrefab == null) break;
                 var go  = Instantiate(devLogItemPrefab, devLogItemsContainer);
+                go.SetActive(true);
                 var txt = go.GetComponentInChildren<TMP_Text>();
                 var tog = go.GetComponentInChildren<Toggle>();
                 if (txt) txt.text = item.label.Get(lang);
@@ -348,6 +431,38 @@ namespace ProtoSystem.UI
 
         private void UpdateCardCounter(int current, int total) =>
             cardCounterText.SafeSet(total > 0 ? $"{current}/{total}" : "");
+
+        /// <summary>
+        /// Пересчитать высоту CardsRoot по активной карточке.
+        /// </summary>
+        private IEnumerator AdjustCardsRootHeightDeferred()
+        {
+            // Wait for layout to settle after Instantiate
+            yield return null;
+            AdjustCardsRootHeight();
+        }
+
+        private void AdjustCardsRootHeight()
+        {
+            if (cardsRoot == null) return;
+
+            GameObject activeCard = null;
+            if (pollCard && pollCard.activeSelf) activeCard = pollCard;
+            else if (announcementCard && announcementCard.activeSelf) activeCard = announcementCard;
+            else if (devLogCard && devLogCard.activeSelf) activeCard = devLogCard;
+
+            if (activeCard == null) return;
+
+            Canvas.ForceUpdateCanvases();
+            float cardH = LayoutUtility.GetPreferredHeight(activeCard.GetComponent<RectTransform>());
+            float navH = 28f;
+            float total = cardH + navH + 8f;
+
+            var le = cardsRoot.GetComponent<LayoutElement>();
+            if (le) le.preferredHeight = total;
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(GetComponent<RectTransform>());
+        }
 
         #endregion
 
@@ -375,14 +490,14 @@ namespace ProtoSystem.UI
 
         #endregion
 
-        #region Wishlist
+        #region Goal
 
         private void RefreshWishlist(LiveOpsMilestoneData data)
         {
             var lang = stubConfig?.language ?? _liveOpsSystem?.Language ?? "en";
-            if (wishlistFill)      wishlistFill.fillAmount    = data.Progress;
-            if (wishlistCountText) wishlistCountText.text     = $"{data.current:N0} / {data.goal:N0}";
-            if (wishlistDescText)  wishlistDescText.text      = data.description.Get(lang);
+            if (goalFill)      goalFill.fillAmount    = data.Progress;
+            if (goalCountText) goalCountText.text     = $"{data.current:N0} / {data.goal:N0}";
+            if (goalDescText)  goalDescText.text      = data.description.Get(lang);
         }
 
         #endregion
@@ -420,6 +535,18 @@ namespace ProtoSystem.UI
             if (go) go.SetActive(visible);
         }
 
+        private static Transform FindChildRecursive(Transform parent, string name)
+        {
+            for (int i = 0; i < parent.childCount; i++)
+            {
+                var child = parent.GetChild(i);
+                if (child.name == name) return child;
+                var found = FindChildRecursive(child, name);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
         /// <summary>
         /// Тогл выбора опции опроса в stub-режиме (локальный, без сервера).
         /// </summary>
@@ -440,8 +567,13 @@ namespace ProtoSystem.UI
                 opt.selected = !opt.selected;
             }
 
+            // Simulate adding a vote
+            opt.votes++;
+            poll.votesTotal++;
+
             var lang = stubConfig?.language ?? "en";
             ShowPollCard(poll, lang);
+            StartCoroutine(AdjustCardsRootHeightDeferred());
         }
 
         #endregion

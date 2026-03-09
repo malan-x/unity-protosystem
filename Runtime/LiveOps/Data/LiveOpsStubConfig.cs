@@ -25,26 +25,40 @@ namespace ProtoSystem.LiveOps
         [Header("Panel Visibility")]
         public bool showCards    = true;
         public bool showMessages = true;
-        public bool showWishlist = true;
+        public bool showGoal     = true;
         public bool showRating   = true;
 
-        [Header("Poll Card")]
-        public bool         hasPoll = true;
-        public StubPollData poll    = new();
+        [Header("Cards (each entry is a poll, announcement, or devlog)")]
+        public StubCardEntry[] cards = Array.Empty<StubCardEntry>();
 
-        [Header("Announcement Card")]
-        public bool                haAnnouncement = false;
-        public StubAnnouncementData announcement  = new();
-
-        [Header("DevLog Card")]
-        public bool         hasDevLog = false;
-        public StubDevLogData devLog  = new();
-
-        [Header("Wishlist")]
-        public StubMilestoneData wishlist = new();
+        [Header("Goal (progress bar)")]
+        public StubMilestoneData goal = new();
 
         [Header("Rating")]
         public StubRatingData rating = new();
+
+        // ── Legacy compat (editor-only, kept for migration) ──────────
+        [HideInInspector] public bool showWishlist;
+        [HideInInspector] public bool hasPoll;
+        [HideInInspector] public bool haAnnouncement;
+        [HideInInspector] public bool hasDevLog;
+        [HideInInspector] public StubPollData poll;
+        [HideInInspector] public StubAnnouncementData announcement;
+        [HideInInspector] public StubDevLogData devLog;
+        [HideInInspector] public StubMilestoneData wishlist;
+    }
+
+    // ─── Card Entry ──────────────────────────────────────────────────────────
+
+    public enum StubCardType { Poll, Announcement, DevLog }
+
+    [Serializable]
+    public class StubCardEntry
+    {
+        public StubCardType type = StubCardType.Poll;
+        public StubPollData         poll         = new();
+        public StubAnnouncementData announcement = new();
+        public StubDevLogData       devLog       = new();
     }
 
     // ─── Вложенные данные ─────────────────────────────────────────────────────

@@ -149,126 +149,173 @@ namespace ProtoSystem.UI
             string stubPath = basePath + "/LiveOpsStubs";
             EnsureFolder(stubPath);
 
+            // ── Single poll only ──────────────────────────────────────
             CreateStub(stubPath, "LiveOpsStub_Poll", stub =>
             {
                 stub.showCards    = true;
                 stub.showMessages = true;
-                stub.showWishlist = false;
+                stub.showGoal     = false;
                 stub.showRating   = false;
-                stub.hasPoll           = true;
-                stub.haAnnouncement    = false;
-                stub.hasDevLog         = false;
-                stub.poll = new ProtoSystem.LiveOps.StubPollData
+                stub.cards = new[]
                 {
-                    id       = "stub_poll_1",
-                    question = new ProtoSystem.LiveOps.StubLocalizedString { text = "What feature should we add next?" },
-                    pollType = "single",
-                    options  = new[]
+                    new ProtoSystem.LiveOps.StubCardEntry
                     {
-                        new ProtoSystem.LiveOps.StubPollOption { id = "opt_1", label = "New weapons",     votes = 180 },
-                        new ProtoSystem.LiveOps.StubPollOption { id = "opt_2", label = "New locations",   votes = 95  },
-                        new ProtoSystem.LiveOps.StubPollOption { id = "opt_3", label = "Multiplayer mode",votes = 240 },
+                        type = ProtoSystem.LiveOps.StubCardType.Poll,
+                        poll = new ProtoSystem.LiveOps.StubPollData
+                        {
+                            id       = "stub_poll_1",
+                            question = new ProtoSystem.LiveOps.StubLocalizedString { text = "What feature should we add next?" },
+                            pollType = "single",
+                            options  = new[]
+                            {
+                                new ProtoSystem.LiveOps.StubPollOption { id = "opt_1", label = "New weapons",      votes = 180 },
+                                new ProtoSystem.LiveOps.StubPollOption { id = "opt_2", label = "New locations",    votes = 95  },
+                                new ProtoSystem.LiveOps.StubPollOption { id = "opt_3", label = "Multiplayer mode", votes = 240 },
+                            },
+                        },
                     },
-                    userVoteId = "",
                 };
             });
 
+            // ── Announcement + goal + rating ─────────────────────────
             CreateStub(stubPath, "LiveOpsStub_Announcement", stub =>
             {
                 stub.showCards    = true;
                 stub.showMessages = true;
-                stub.showWishlist = true;
+                stub.showGoal     = true;
                 stub.showRating   = true;
-                stub.hasPoll           = false;
-                stub.haAnnouncement    = true;
-                stub.hasDevLog         = false;
-                stub.announcement = new ProtoSystem.LiveOps.StubAnnouncementData
+                stub.cards = new[]
                 {
-                    id    = "stub_ann_1",
-                    title = "Major Update v0.8 Released!",
-                    body  = "We have been working tirelessly to bring you a massive content update. New biomes, weapons, and a revamped crafting system await.",
-                    url   = "https://store.steampowered.com",
+                    new ProtoSystem.LiveOps.StubCardEntry
+                    {
+                        type = ProtoSystem.LiveOps.StubCardType.Announcement,
+                        announcement = new ProtoSystem.LiveOps.StubAnnouncementData
+                        {
+                            id    = "stub_ann_1",
+                            title = "Major Update v0.8 Released!",
+                            body  = "We have been working tirelessly to bring you a massive content update. New biomes, weapons, and a revamped crafting system await.",
+                            url   = "https://store.steampowered.com",
+                        },
+                    },
                 };
-                stub.wishlist = new ProtoSystem.LiveOps.StubMilestoneData
-                    { description = "Wishlist on Steam", current = 5800, goal = 10000, unit = "wishlists" };
+                stub.goal = new ProtoSystem.LiveOps.StubMilestoneData
+                    { description = "Early Access goal", current = 5800, goal = 10000, unit = "wishlists" };
                 stub.rating = new ProtoSystem.LiveOps.StubRatingData
                     { avg = 8.2f, count = 320, userVote = 8 };
             });
 
+            // ── DevLog only ──────────────────────────────────────────
             CreateStub(stubPath, "LiveOpsStub_DevLog", stub =>
             {
                 stub.showCards    = true;
                 stub.showMessages = false;
-                stub.showWishlist = true;
+                stub.showGoal     = true;
                 stub.showRating   = true;
-                stub.hasPoll           = false;
-                stub.haAnnouncement    = false;
-                stub.hasDevLog         = true;
-                stub.devLog = new ProtoSystem.LiveOps.StubDevLogData
+                stub.cards = new[]
                 {
-                    id          = "stub_devlog_1",
-                    focus       = "Currently working on",
-                    title       = "Convoy AI & Events",
-                    description = "Major work on enemy convoy AI and random event system.",
-                    items       = new[]
+                    new ProtoSystem.LiveOps.StubCardEntry
                     {
-                        new ProtoSystem.LiveOps.StubDevLogItem { label = "Convoy pathfinding",     done = true  },
-                        new ProtoSystem.LiveOps.StubDevLogItem { label = "Enemy attack patterns",  done = true  },
-                        new ProtoSystem.LiveOps.StubDevLogItem { label = "Random event triggers",  done = false },
-                        new ProtoSystem.LiveOps.StubDevLogItem { label = "Event reward system",    done = false },
+                        type = ProtoSystem.LiveOps.StubCardType.DevLog,
+                        devLog = new ProtoSystem.LiveOps.StubDevLogData
+                        {
+                            id          = "stub_devlog_1",
+                            focus       = "Currently working on",
+                            title       = "Convoy AI & Events",
+                            description = "Major work on enemy convoy AI and random event system.",
+                            items       = new[]
+                            {
+                                new ProtoSystem.LiveOps.StubDevLogItem { label = "Convoy pathfinding",     done = true  },
+                                new ProtoSystem.LiveOps.StubDevLogItem { label = "Enemy attack patterns",  done = true  },
+                                new ProtoSystem.LiveOps.StubDevLogItem { label = "Random event triggers",  done = false },
+                                new ProtoSystem.LiveOps.StubDevLogItem { label = "Event reward system",    done = false },
+                            },
+                        },
                     },
                 };
-                stub.wishlist = new ProtoSystem.LiveOps.StubMilestoneData
-                    { description = "Wishlist on Steam", current = 3200, goal = 10000, unit = "wishlists" };
+                stub.goal = new ProtoSystem.LiveOps.StubMilestoneData
+                    { description = "Steam followers", current = 3200, goal = 10000, unit = "followers" };
                 stub.rating = new ProtoSystem.LiveOps.StubRatingData
                     { avg = 7.4f, count = 142, userVote = 0 };
             });
 
+            // ── All widgets: 4 cards (single poll + multi poll + announcement + devlog) ──
             CreateStub(stubPath, "LiveOpsStub_AllWidgets", stub =>
             {
                 stub.showCards    = true;
                 stub.showMessages = true;
-                stub.showWishlist = true;
+                stub.showGoal     = true;
                 stub.showRating   = true;
-                stub.hasPoll           = true;
-                stub.haAnnouncement    = true;
-                stub.hasDevLog         = true;
-                // Все три карточки — можно листать
-                stub.poll = new ProtoSystem.LiveOps.StubPollData
+                stub.cards = new[]
                 {
-                    id       = "stub_all_poll",
-                    question = new ProtoSystem.LiveOps.StubLocalizedString { text = "Rate your last play session" },
-                    pollType = "single",
-                    options  = new[]
+                    // Card 1: single-choice poll
+                    new ProtoSystem.LiveOps.StubCardEntry
                     {
-                        new ProtoSystem.LiveOps.StubPollOption { id = "r1", label = "Great",    votes = 95  },
-                        new ProtoSystem.LiveOps.StubPollOption { id = "r2", label = "Good",     votes = 180 },
-                        new ProtoSystem.LiveOps.StubPollOption { id = "r3", label = "Average",  votes = 40  },
+                        type = ProtoSystem.LiveOps.StubCardType.Poll,
+                        poll = new ProtoSystem.LiveOps.StubPollData
+                        {
+                            id       = "stub_all_poll_single",
+                            question = new ProtoSystem.LiveOps.StubLocalizedString { text = "Rate your last play session" },
+                            pollType = "single",
+                            options  = new[]
+                            {
+                                new ProtoSystem.LiveOps.StubPollOption { id = "r1", label = "Great",   votes = 95  },
+                                new ProtoSystem.LiveOps.StubPollOption { id = "r2", label = "Good",    votes = 180 },
+                                new ProtoSystem.LiveOps.StubPollOption { id = "r3", label = "Average", votes = 40  },
+                            },
+                        },
                     },
-                    userVoteId = "r2",
-                };
-                stub.announcement = new ProtoSystem.LiveOps.StubAnnouncementData
-                {
-                    id    = "stub_all_ann",
-                    title = "Community Event: Survivor's Race",
-                    body  = "Join our weekend event and compete for exclusive cosmetics!",
-                    url   = "https://store.steampowered.com",
-                };
-                stub.devLog = new ProtoSystem.LiveOps.StubDevLogData
-                {
-                    id          = "stub_all_devlog",
-                    focus       = "This week",
-                    title       = "Polishing & Bugfixes",
-                    description = "Final stretch before Early Access launch.",
-                    items       = new[]
+                    // Card 2: multi-choice poll (5 options)
+                    new ProtoSystem.LiveOps.StubCardEntry
                     {
-                        new ProtoSystem.LiveOps.StubDevLogItem { label = "Loading screen fix",  done = true  },
-                        new ProtoSystem.LiveOps.StubDevLogItem { label = "Sound balance pass",  done = true  },
-                        new ProtoSystem.LiveOps.StubDevLogItem { label = "Store page assets",   done = false },
+                        type = ProtoSystem.LiveOps.StubCardType.Poll,
+                        poll = new ProtoSystem.LiveOps.StubPollData
+                        {
+                            id       = "stub_all_poll_multi",
+                            question = new ProtoSystem.LiveOps.StubLocalizedString { text = "What should we focus on next?" },
+                            pollType = "multi",
+                            options  = new[]
+                            {
+                                new ProtoSystem.LiveOps.StubPollOption { id = "m1", label = "Content",     votes = 520 },
+                                new ProtoSystem.LiveOps.StubPollOption { id = "m2", label = "Visuals",     votes = 340 },
+                                new ProtoSystem.LiveOps.StubPollOption { id = "m3", label = "Mechanics",   votes = 470 },
+                                new ProtoSystem.LiveOps.StubPollOption { id = "m4", label = "Multiplayer", votes = 280 },
+                                new ProtoSystem.LiveOps.StubPollOption { id = "m5", label = "Modding",     votes = 150 },
+                            },
+                        },
+                    },
+                    // Card 3: announcement
+                    new ProtoSystem.LiveOps.StubCardEntry
+                    {
+                        type = ProtoSystem.LiveOps.StubCardType.Announcement,
+                        announcement = new ProtoSystem.LiveOps.StubAnnouncementData
+                        {
+                            id    = "stub_all_ann",
+                            title = "Community Event: Survivor's Race",
+                            body  = "Join our weekend event and compete for exclusive cosmetics!",
+                            url   = "https://store.steampowered.com",
+                        },
+                    },
+                    // Card 4: devlog
+                    new ProtoSystem.LiveOps.StubCardEntry
+                    {
+                        type = ProtoSystem.LiveOps.StubCardType.DevLog,
+                        devLog = new ProtoSystem.LiveOps.StubDevLogData
+                        {
+                            id          = "stub_all_devlog",
+                            focus       = "This week",
+                            title       = "Polishing & Bugfixes",
+                            description = "Final stretch before Early Access launch.",
+                            items       = new[]
+                            {
+                                new ProtoSystem.LiveOps.StubDevLogItem { label = "Loading screen fix", done = true  },
+                                new ProtoSystem.LiveOps.StubDevLogItem { label = "Sound balance pass", done = true  },
+                                new ProtoSystem.LiveOps.StubDevLogItem { label = "Store page assets",  done = false },
+                            },
+                        },
                     },
                 };
-                stub.wishlist = new ProtoSystem.LiveOps.StubMilestoneData
-                    { description = "Wishlist goal", current = 7650, goal = 10000, unit = "wishlists" };
+                stub.goal = new ProtoSystem.LiveOps.StubMilestoneData
+                    { description = "Early Access goal", current = 7650, goal = 10000, unit = "wishlists" };
                 stub.rating = new ProtoSystem.LiveOps.StubRatingData
                     { avg = 8.8f, count = 512, userVote = 9 };
             });
@@ -304,6 +351,8 @@ namespace ProtoSystem.UI
         {
             // ─── Root: фиксированный размер, растягивается VLG ───
             var root = CreateWindowBase("CommunityPanelWindow", new Vector2(480, 500));
+            // Pivot bottom-center — panel grows upward
+            root.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0);
 
             var rootVLG = root.AddComponent<VerticalLayoutGroup>();
             rootVLG.padding = new RectOffset(6, 6, 6, 6);
@@ -312,9 +361,11 @@ namespace ProtoSystem.UI
             rootVLG.childControlHeight = true;
             rootVLG.childForceExpandWidth  = true;
             rootVLG.childForceExpandHeight = false;
+            var rootCSF = root.AddComponent<ContentSizeFitter>();
+            rootCSF.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             // ─── Cards (занимает всё свободное место) ────────────
-            var cardsRoot = CPMakeBlock("CardsRoot", root.transform, flexibleHeight: 1);
+            var cardsRoot = CPMakeBlock("CardsRoot", root.transform, preferredHeight: 200);
 
             // NavBar внутри CardsRoot снизу
             var cardNavBar = new GameObject("NavBar");
@@ -338,15 +389,17 @@ namespace ProtoSystem.UI
             var cardArea = new GameObject("CardArea");
             cardArea.transform.SetParent(cardsRoot.transform, false);
             var cardAreaRect = cardArea.AddComponent<RectTransform>();
-            cardAreaRect.anchorMin = new Vector2(0, 0); cardAreaRect.anchorMax = Vector2.one;
+            cardAreaRect.anchorMin = Vector2.zero; cardAreaRect.anchorMax = Vector2.one;
             cardAreaRect.offsetMin = new Vector2(0, 28); cardAreaRect.offsetMax = Vector2.zero;
 
             // Poll card
             var pollCard = CPMakeCard("PollCard", cardArea.transform);
             var pollVLG  = pollCard.AddComponent<VerticalLayoutGroup>();
             pollVLG.padding = new RectOffset(10, 10, 8, 8); pollVLG.spacing = 6;
-            pollVLG.childControlWidth = true; pollVLG.childControlHeight = false;
-            pollVLG.childForceExpandWidth = true;
+            pollVLG.childControlWidth = true; pollVLG.childControlHeight = true;
+            pollVLG.childForceExpandWidth = true; pollVLG.childForceExpandHeight = false;
+            var pollCSF = pollCard.AddComponent<ContentSizeFitter>();
+            pollCSF.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             var pollQuestion = CreateText("Question", pollCard.transform, "Вопрос опроса?", 16);
             pollQuestion.GetComponent<TMP_Text>().fontStyle = FontStyles.Bold;
             pollQuestion.AddComponent<LayoutElement>().preferredHeight = 40;
@@ -356,22 +409,24 @@ namespace ProtoSystem.UI
             var optVLG = pollOptions.AddComponent<VerticalLayoutGroup>();
             optVLG.spacing = 5; optVLG.childControlWidth = true; optVLG.childControlHeight = false;
             optVLG.childForceExpandWidth = true;
-            pollOptions.AddComponent<LayoutElement>().flexibleHeight = 1;
+            // Options container — no flexibleHeight, grows with content
 
             // Announcement card
             var annCard = CPMakeCard("AnnouncementCard", cardArea.transform);
             annCard.SetActive(false);
             var annVLG = annCard.AddComponent<VerticalLayoutGroup>();
             annVLG.padding = new RectOffset(10, 10, 8, 8); annVLG.spacing = 6;
-            annVLG.childControlWidth = true; annVLG.childControlHeight = false;
-            annVLG.childForceExpandWidth = true;
+            annVLG.childControlWidth = true; annVLG.childControlHeight = true;
+            annVLG.childForceExpandWidth = true; annVLG.childForceExpandHeight = false;
+            var annCSF = annCard.AddComponent<ContentSizeFitter>();
+            annCSF.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             var annTitle = CreateText("Title", annCard.transform, "Заголовок новости", 16);
             annTitle.GetComponent<TMP_Text>().fontStyle = FontStyles.Bold;
             annTitle.AddComponent<LayoutElement>().preferredHeight = 28;
             var annBody = CreateText("Body", annCard.transform, "Текст новости.", 13);
             annBody.GetComponent<TMP_Text>().color = new Color(0.8f, 0.8f, 0.8f);
             annBody.GetComponent<TMP_Text>().enableWordWrapping = true;
-            annBody.AddComponent<LayoutElement>().flexibleHeight = 1;
+            annBody.AddComponent<LayoutElement>().preferredHeight = 60;
             var annUrlBtn = CreateButton("UrlButton", annCard.transform, "Читать полностью →", new Vector2(170, 28));
             annUrlBtn.AddComponent<LayoutElement>().preferredHeight = 28;
 
@@ -380,8 +435,10 @@ namespace ProtoSystem.UI
             devCard.SetActive(false);
             var devVLGRoot = devCard.AddComponent<VerticalLayoutGroup>();
             devVLGRoot.padding = new RectOffset(10, 10, 8, 8); devVLGRoot.spacing = 4;
-            devVLGRoot.childControlWidth = true; devVLGRoot.childControlHeight = false;
-            devVLGRoot.childForceExpandWidth = true;
+            devVLGRoot.childControlWidth = true; devVLGRoot.childControlHeight = true;
+            devVLGRoot.childForceExpandWidth = true; devVLGRoot.childForceExpandHeight = false;
+            var devCSF = devCard.AddComponent<ContentSizeFitter>();
+            devCSF.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             var devFocus = CreateText("Focus", devCard.transform, "Сейчас в работе", 11);
             devFocus.GetComponent<TMP_Text>().color = new Color(0.6f, 0.8f, 1f);
             devFocus.AddComponent<LayoutElement>().preferredHeight = 18;
@@ -394,39 +451,50 @@ namespace ProtoSystem.UI
             var devItemsVLG = devItems.AddComponent<VerticalLayoutGroup>();
             devItemsVLG.spacing = 3; devItemsVLG.childControlWidth = true; devItemsVLG.childControlHeight = false;
             devItemsVLG.childForceExpandWidth = true;
-            devItems.AddComponent<LayoutElement>().flexibleHeight = 1;
+            // Items container — no flexibleHeight, grows with content
 
             // ─── Message Row (абсолютное позиционирование — без VLG внутри) ───
-            var msgRoot = CPMakeBlock("MessageRoot", root.transform, preferredHeight: 44);
+            var msgRoot = CPMakeBlock("MessageRoot", root.transform, preferredHeight: 56);
             // input: левая часть
             var msgInput = CreateTMPInputField("MessageInput", msgRoot.transform);
             var msgInputField = msgInput.GetComponent<TMP_InputField>();
             if (msgInputField != null) msgInputField.characterLimit = 120;
-            CPSetAnchors(msgInput, new Vector2(0, 0), new Vector2(1, 1), new Vector4(6, 4, -58, -4));
+            CPSetAnchors(msgInput, new Vector2(0, 0), new Vector2(1, 1), new Vector4(6, 14, -114, -4));
+            // Localize placeholder
+            var placeholderGO = msgInput.transform.Find("Text Area/Placeholder")?.gameObject;
+            if (placeholderGO != null)
+            {
+                placeholderGO.GetComponent<TMP_Text>().text = UIKeys.CommunityPanel.Fallback.Placeholder;
+                AddLocalization(placeholderGO, UIKeys.CommunityPanel.Placeholder, UIKeys.CommunityPanel.Fallback.Placeholder);
+            }
             // кнопка отправки: правая, 44×36
-            var sendBtn = CreateButton("SendButton", msgRoot.transform, "→", new Vector2(44, 36));
-            CPSetAnchors(sendBtn, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector4(-50, -18, -6, 18));
+            var sendBtn = CreateButton("SendButton", msgRoot.transform, UIKeys.CommunityPanel.Fallback.SendButton, new Vector2(100, 36));
+            CPSetAnchors(sendBtn, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector4(-106, -18, -6, 18));
+            AddLocalization(sendBtn.transform.Find("Text")?.gameObject,
+                UIKeys.CommunityPanel.SendButton, UIKeys.CommunityPanel.Fallback.SendButton);
             // счётчик символов: снизу справа
+            // Char count — under input field, not under send button
             var charCount = CreateText("CharCount", msgRoot.transform, "0/120", 9);
             charCount.GetComponent<TMP_Text>().color = new Color(0.55f, 0.55f, 0.55f);
-            charCount.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.BottomRight;
-            CPSetAnchors(charCount, new Vector2(1, 0), new Vector2(1, 0), new Vector4(-54, 1, -4, 13));
+            charCount.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.TopRight;
+            CPSetAnchors(charCount, new Vector2(0, 0), new Vector2(1, 0), new Vector4(6, 0, -114, 13));
 
             // ─── Wishlist Strip (абсолютное позиционирование) ───
             var wishRoot = CPMakeBlock("WishlistRoot", root.transform, preferredHeight: 52);
-            // текст описания: слева сверху
+            // текст описания: по центру сверху
             var wishDesc  = CreateText("Description", wishRoot.transform, "Вишлист в Steam", 12);
-            CPSetAnchors(wishDesc,  new Vector2(0, 1), new Vector2(0.6f, 1), new Vector4(8, -22, 0, -4));
-            // счётчик: справа сверху
-            var wishCount = CreateText("Count", wishRoot.transform, "0 / 10 000", 12);
-            wishCount.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.TopRight;
-            CPSetAnchors(wishCount, new Vector2(0.4f, 1), new Vector2(1, 1), new Vector4(0, -22, -8, -4));
+            wishDesc.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.Top;
+            CPSetAnchors(wishDesc,  new Vector2(0, 1), new Vector2(1, 1), new Vector4(8, -22, -8, -4));
+            // счётчик: справа от прогресс-бара
+            var wishCount = CreateText("Count", wishRoot.transform, "0 / 10 000", 11);
+            wishCount.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineRight;
+            CPSetAnchors(wishCount, new Vector2(1, 0), new Vector2(1, 0), new Vector4(-80, 4, -8, 18));
             // фон прогресс-бара
             var barBg = new GameObject("BarBg");
             barBg.transform.SetParent(wishRoot.transform, false);
             barBg.AddComponent<RectTransform>();
             barBg.AddComponent<Image>().color = new Color(0.18f, 0.18f, 0.18f);
-            CPSetAnchors(barBg, new Vector2(0, 0), new Vector2(1, 0), new Vector4(8, 4, -8, 18));
+            CPSetAnchors(barBg, new Vector2(0, 0), new Vector2(1, 0), new Vector4(8, 4, -90, 18));
             // заливка прогресс-бара
             var barFillGO  = new GameObject("Fill");
             barFillGO.transform.SetParent(barBg.transform, false);
@@ -445,7 +513,7 @@ namespace ProtoSystem.UI
             var starsHolder = new GameObject("Stars");
             starsHolder.transform.SetParent(ratingRoot.transform, false);
             starsHolder.AddComponent<RectTransform>();
-            CPSetAnchors(starsHolder, new Vector2(0, 0), new Vector2(1, 1), new Vector4(8, 4, -44, -4));
+            CPSetAnchors(starsHolder, new Vector2(0, 0), new Vector2(1, 1), new Vector4(64, 4, -44, -4));
             var starsHLG = starsHolder.AddComponent<HorizontalLayoutGroup>();
             starsHLG.spacing = 2;
             starsHLG.childAlignment      = TextAnchor.MiddleLeft;
@@ -461,6 +529,28 @@ namespace ProtoSystem.UI
             var ratingAvg = CreateText("Avg", ratingRoot.transform, "—", 15);
             ratingAvg.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineRight;
             CPSetAnchors(ratingAvg, new Vector2(1, 0), new Vector2(1, 1), new Vector4(-42, 4, -4, -4));
+
+            // Type Badge (top-right corner of CardsRoot)
+            var typeBadgeGO = CreateText("TypeBadge", cardsRoot.transform, "", 10);
+            typeBadgeGO.GetComponent<TMP_Text>().fontStyle = FontStyles.UpperCase;
+            typeBadgeGO.GetComponent<TMP_Text>().color = new Color(0.6f, 0.6f, 0.6f);
+            typeBadgeGO.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineRight;
+            CPSetAnchors(typeBadgeGO, new Vector2(0.5f, 1), new Vector2(1, 1), new Vector4(0, -24, -8, -4));
+            AddLocalization(typeBadgeGO, UIKeys.CommunityPanel.TypePoll, UIKeys.CommunityPanel.Fallback.TypePoll);
+
+            // ─── Sub-prefabs (inactive children of root, used as templates) ───
+            var pollOptionPrefab = CPCreatePollOptionPrefab();
+            pollOptionPrefab.transform.SetParent(root.transform, false);
+            pollOptionPrefab.SetActive(false);
+            var devLogItemPrefab = CPCreateDevLogItemPrefab();
+            devLogItemPrefab.transform.SetParent(root.transform, false);
+            devLogItemPrefab.SetActive(false);
+
+            // ─── Rating label (with LocalizeTMP) ──────────────────
+            var ratingLabelGO = CreateText("RatingLabel", ratingRoot.transform, UIKeys.CommunityPanel.Fallback.RatingLabel, 12);
+            ratingLabelGO.GetComponent<TMP_Text>().fontStyle = FontStyles.Bold;
+            CPSetAnchors(ratingLabelGO, new Vector2(0, 0), new Vector2(0, 1), new Vector4(8, 4, 60, -4));
+            AddLocalization(ratingLabelGO, UIKeys.CommunityPanel.RatingLabel, UIKeys.CommunityPanel.Fallback.RatingLabel);
 
             // ─── Component Setup ──────────────────────────────────
             var component = root.AddComponent<ProtoSystem.UI.CommunityPanelWindow>();
@@ -483,13 +573,26 @@ namespace ProtoSystem.UI
             SetField(component, "messageInput",           msgInput.GetComponent<TMP_InputField>());
             SetField(component, "messageSendButton",      sendBtn.GetComponent<Button>());
             SetField(component, "messageCharCountText",   charCount.GetComponent<TMP_Text>());
-            SetField(component, "wishlistRoot",           wishRoot);
-            SetField(component, "wishlistFill",           barFillImg);
-            SetField(component, "wishlistCountText",      wishCount.GetComponent<TMP_Text>());
-            SetField(component, "wishlistDescText",       wishDesc.GetComponent<TMP_Text>());
+            SetField(component, "goalRoot",           wishRoot);
+            SetField(component, "goalFill",           barFillImg);
+            SetField(component, "goalCountText",      wishCount.GetComponent<TMP_Text>());
+            SetField(component, "goalDescText",       wishDesc.GetComponent<TMP_Text>());
             SetField(component, "ratingRoot",             ratingRoot);
             SetField(component, "ratingStars",            starButtons);
             SetField(component, "ratingAvgText",          ratingAvg.GetComponent<TMP_Text>());
+            SetField(component, "pollOptionPrefab",       pollOptionPrefab);
+            SetField(component, "devLogItemPrefab",       devLogItemPrefab);
+            SetField(component, "typeBadgeText",          typeBadgeGO.GetComponent<TMP_Text>());
+            var typeBadgeLocalize = typeBadgeGO.GetComponent<LocalizeTMP>();
+            if (typeBadgeLocalize) SetField(component, "typeBadgeLocalize", typeBadgeLocalize);
+
+            // Localized labels
+            var sendLocalize = sendBtn.transform.Find("Text")?.GetComponent<LocalizeTMP>();
+            if (sendLocalize) SetField(component, "sendButtonLocalize", sendLocalize);
+            var phLocalize = placeholderGO?.GetComponent<LocalizeTMP>();
+            if (phLocalize) SetField(component, "placeholderLocalize", phLocalize);
+            var ratingLocalize = ratingLabelGO?.GetComponent<LocalizeTMP>();
+            if (ratingLocalize) SetField(component, "ratingLabelLocalize", ratingLocalize);
 
             return SavePrefab(root, "CommunityPanelWindow");
         }
@@ -520,15 +623,139 @@ namespace ProtoSystem.UI
             return go;
         }
 
-        // Карточка внутри CardsRoot (stretch на весь CardArea)
+        // Карточка внутри CardsRoot (top-anchored, width=stretch, height=auto via CSF)
         private static GameObject CPMakeCard(string name, Transform parent)
         {
             var go   = new GameObject(name);
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero; rect.offsetMax = Vector2.zero;
-            go.AddComponent<Image>().color = new Color(0.13f, 0.13f, 0.13f, 0f); // прозрачный фон
+            rect.anchorMin = new Vector2(0, 1);
+            rect.anchorMax = new Vector2(1, 1);
+            rect.pivot     = new Vector2(0.5f, 1);
+            rect.sizeDelta = new Vector2(0, 100);
+            rect.anchoredPosition = Vector2.zero;
+            go.AddComponent<Image>().color = new Color(0.13f, 0.13f, 0.13f, 0f);
+            return go;
+        }
+
+        /// <summary>Создаёт под-префаб варианта опроса (Button + Label + Pct).</summary>
+        private static GameObject CPCreatePollOptionPrefab()
+        {
+            var go = new GameObject("PollOption");
+            var rect = go.AddComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(0, 32);
+
+            var bgImg = go.AddComponent<Image>();
+            bgImg.color = new Color(0.2f, 0.2f, 0.2f, 0.6f);
+            bgImg.raycastTarget = true;
+
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = bgImg;
+            btn.transition = Selectable.Transition.None;
+            btn.navigation = new Navigation { mode = Navigation.Mode.None };
+
+            // FillBar (hidden by default, width set by runtime via anchorMax.x)
+            var fillBar = new GameObject("FillBar");
+            fillBar.transform.SetParent(go.transform, false);
+            var fillRect = fillBar.AddComponent<RectTransform>();
+            fillRect.anchorMin = Vector2.zero;
+            fillRect.anchorMax = new Vector2(0, 1); // 0 width by default
+            fillRect.offsetMin = new Vector2(1, 1);
+            fillRect.offsetMax = new Vector2(-1, -1);
+            var fillImg = fillBar.AddComponent<Image>();
+            fillImg.color = new Color(0.3f, 0.6f, 1f, 0.3f);
+            fillImg.raycastTarget = false;
+            fillBar.SetActive(false);
+
+            // Content HLG
+            var content = new GameObject("Content");
+            content.transform.SetParent(go.transform, false);
+            var contentRect = content.AddComponent<RectTransform>();
+            contentRect.anchorMin = Vector2.zero; contentRect.anchorMax = Vector2.one;
+            contentRect.offsetMin = new Vector2(8, 0); contentRect.offsetMax = new Vector2(-8, 0);
+            var hlg = content.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 6;
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            hlg.childControlWidth = true; hlg.childControlHeight = false;
+            hlg.childForceExpandWidth = false;
+
+            // Checkbox
+            var checkGO = new GameObject("Check");
+            checkGO.transform.SetParent(content.transform, false);
+            checkGO.AddComponent<RectTransform>().sizeDelta = new Vector2(18, 18);
+            var checkLE = checkGO.AddComponent<LayoutElement>();
+            checkLE.preferredWidth = 18; checkLE.preferredHeight = 18;
+            var checkBg = checkGO.AddComponent<Image>();
+            checkBg.color = new Color(0.25f, 0.25f, 0.3f, 1f);
+            checkBg.raycastTarget = false;
+            // Checkmark inside
+            var checkmarkGO = new GameObject("Checkmark");
+            checkmarkGO.transform.SetParent(checkGO.transform, false);
+            var cmRect = checkmarkGO.AddComponent<RectTransform>();
+            cmRect.anchorMin = new Vector2(0.15f, 0.15f);
+            cmRect.anchorMax = new Vector2(0.85f, 0.85f);
+            cmRect.offsetMin = Vector2.zero; cmRect.offsetMax = Vector2.zero;
+            var cmImg = checkmarkGO.AddComponent<Image>();
+            cmImg.color = new Color(0.29f, 0.62f, 1f, 1f);
+            cmImg.raycastTarget = false;
+            checkmarkGO.SetActive(false); // hidden by default
+
+            // Label
+            var labelGO = CreateText("Label", content.transform, "Option", 14);
+            labelGO.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineLeft;
+            labelGO.GetComponent<TMP_Text>().raycastTarget = false;
+            labelGO.AddComponent<LayoutElement>().flexibleWidth = 1;
+
+            // Percent (hidden by default, shown after voting)
+            var pctGO = CreateText("Pct", content.transform, "0%", 13);
+            pctGO.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineRight;
+            pctGO.GetComponent<TMP_Text>().raycastTarget = false;
+            pctGO.AddComponent<LayoutElement>().preferredWidth = 50;
+            pctGO.SetActive(false);
+
+            go.AddComponent<LayoutElement>().preferredHeight = 32;
+            return go;
+        }
+
+        /// <summary>Создаёт под-префаб элемента devlog (Toggle + Label).</summary>
+        private static GameObject CPCreateDevLogItemPrefab()
+        {
+            var go = new GameObject("DevLogItem");
+            var rect = go.AddComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(0, 24);
+
+            var hlg = go.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 6;
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            hlg.childControlWidth = false; hlg.childControlHeight = true;
+
+            // Toggle
+            var toggleGO = new GameObject("Toggle");
+            toggleGO.transform.SetParent(go.transform, false);
+            toggleGO.AddComponent<RectTransform>().sizeDelta = new Vector2(18, 18);
+            toggleGO.AddComponent<LayoutElement>().preferredWidth = 18;
+            var bgImg = toggleGO.AddComponent<Image>();
+            bgImg.color = new Color(0.25f, 0.25f, 0.3f, 1f);
+            var checkGO = new GameObject("Checkmark");
+            checkGO.transform.SetParent(toggleGO.transform, false);
+            var checkRect = checkGO.AddComponent<RectTransform>();
+            checkRect.anchorMin = new Vector2(0.15f, 0.15f);
+            checkRect.anchorMax = new Vector2(0.85f, 0.85f);
+            checkRect.offsetMin = Vector2.zero; checkRect.offsetMax = Vector2.zero;
+            var checkImg = checkGO.AddComponent<Image>();
+            checkImg.color = new Color(0.3f, 0.7f, 0.3f, 1f);
+            var toggle = toggleGO.AddComponent<Toggle>();
+            toggle.targetGraphic = bgImg;
+            toggle.graphic = checkImg;
+            toggle.isOn = false;
+            toggle.interactable = false;
+
+            // Label
+            var labelGO = CreateText("Label", go.transform, "Task item", 13);
+            labelGO.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineLeft;
+            labelGO.AddComponent<LayoutElement>().flexibleWidth = 1;
+
+            go.AddComponent<LayoutElement>().preferredHeight = 24;
             return go;
         }
 

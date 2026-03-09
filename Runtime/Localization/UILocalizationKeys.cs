@@ -367,6 +367,43 @@ namespace ProtoSystem
         }
         
         // ═══════════════════════════════════════════════════════════════
+        // COMMUNITY PANEL (LiveOps)
+        // ═══════════════════════════════════════════════════════════════
+        
+        public static class CommunityPanel
+        {
+            public const string SendButton    = "ui.community.send";
+            public const string Placeholder   = "ui.community.placeholder";
+            public const string RatingLabel   = "ui.community.rating_label";
+            public const string TypePoll      = "ui.community.type_poll";
+            public const string TypePollMulti = "ui.community.type_poll_multi";
+            public const string TypeNews      = "ui.community.type_news";
+            public const string TypeDevLog    = "ui.community.type_devlog";
+            
+            public static class Fallback
+            {
+                public const string SendButton    = "Отправить";
+                public const string Placeholder   = "Написать разработчикам…";
+                public const string RatingLabel   = "Оценка";
+                public const string TypePoll      = "Один ответ";
+                public const string TypePollMulti = "Несколько ответов";
+                public const string TypeNews      = "Новость";
+                public const string TypeDevLog    = "Dev Log";
+            }
+            
+            public static class FallbackEn
+            {
+                public const string SendButton    = "Send";
+                public const string Placeholder   = "Write to developers…";
+                public const string RatingLabel   = "Rating";
+                public const string TypePoll      = "Single answer";
+                public const string TypePollMulti = "Multiple answers";
+                public const string TypeNews      = "News";
+                public const string TypeDevLog    = "Dev Log";
+            }
+        }
+        
+        // ═══════════════════════════════════════════════════════════════
         // COMMON
         // ═══════════════════════════════════════════════════════════════
         
