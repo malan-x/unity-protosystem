@@ -170,5 +170,17 @@ namespace ProtoSystem
             public const int RecordingStopped = 11003;
             public const int ReplaySaved      = 11004;
         }
+
+        /// <summary>
+        /// События LiveOps / Community Panel (11100-11199)
+        /// </summary>
+        public static class LiveOps
+        {
+            /// <summary>
+            /// Данные LiveOps обновлены. Payload: LiveOpsDataPayload { Type, Data }.
+            /// Type — константа из LiveOpsDataType ("panel_config", "polls", etc.)
+            /// </summary>
+            public const int DataUpdated = 11100;
+        }
     }
 }

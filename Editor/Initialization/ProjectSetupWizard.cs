@@ -726,6 +726,7 @@ namespace ProtoSystem.Editor
                         ("README.md", "README.md"),
                         ("CHANGELOG.md", "CHANGELOG.md"),
                         (Path.Combine("Editor", "Initialization", "UI_INITIALIZER_QUICK_GUIDE.md"), "UI_INITIALIZER_QUICK_GUIDE.md"),
+                        (Path.Combine("Documentation~", "LiveOps.md"), "LiveOps.md"),
                     };
 
                     foreach (var (sourceRelative, destFileName) in filesToCopy)

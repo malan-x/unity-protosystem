@@ -9,32 +9,55 @@ namespace ProtoSystem.LiveOps
     [Serializable]
     public class LiveOpsPoll
     {
-        /// <summary>Уникальный идентификатор опроса.</summary>
         public string id;
 
-        /// <summary>Вопрос опроса.</summary>
-        public string question;
+        /// <summary>Вопрос — локализован.</summary>
+        public LocalizedString question = new();
 
-        /// <summary>Варианты ответов.</summary>
-        public string[] options;
+        /// <summary>"single" — один ответ, "multi" — несколько.</summary>
+        public string pollType = "single";
 
-        /// <summary>Дата истечения в UTC (ISO 8601). Null — бессрочно.</summary>
+        /// <summary>Варианты ответов с количеством голосов.</summary>
+        public LiveOpsPollOption[] options = Array.Empty<LiveOpsPollOption>();
+
+        /// <summary>Суммарное количество голосов.</summary>
+        public int votesTotal;
+
+        /// <summary>
+        /// Выбранные игроком варианты (id). Null — не голосовал.
+        /// Заполняется сервером при наличии X-Steam-ID.
+        /// </summary>
+        public string[] userVote;
+
+        /// <summary>Дата истечения (ISO 8601 UTC). Null — бессрочно.</summary>
         public string expiresAt;
     }
 
-    /// <summary>
-    /// Ответ игрока на опрос.
-    /// </summary>
+    /// <summary>Вариант ответа на опрос.</summary>
+    [Serializable]
+    public class LiveOpsPollOption
+    {
+        public string id;
+
+        /// <summary>Текст варианта — локализован.</summary>
+        public LocalizedString label = new();
+
+        /// <summary>Количество голосов за этот вариант.</summary>
+        public int votes;
+
+        public float Percent(int totalVotes) =>
+            totalVotes > 0 ? (float)votes / totalVotes * 100f : 0f;
+    }
+
+    /// <summary>Ответ игрока на опрос (POST /polls/{id}/vote).</summary>
     [Serializable]
     public class LiveOpsPollAnswer
     {
-        /// <summary>Идентификатор опроса.</summary>
         public string pollId;
 
-        /// <summary>Индекс выбранного варианта.</summary>
-        public int optionIndex;
+        /// <summary>Один или несколько id вариантов (single и multi).</summary>
+        public string[] optionIds;
 
-        /// <summary>Анонимный идентификатор игрока.</summary>
         public string playerId;
     }
 }

@@ -176,6 +176,9 @@ namespace ProtoSystem.UI
             
             DrawAudioSettingsConfiguration();
             EditorGUILayout.Space(10);
+
+            DrawCommunityPanelSection();
+            EditorGUILayout.Space(10);
             
             if (generationMode == GenerationMode.Styled)
             {
@@ -595,6 +598,33 @@ namespace ProtoSystem.UI
                 EditorGUI.DrawRect(rect, new Color(0.2f, 0.2f, 0.2f, 0.3f));
             }
             
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawCommunityPanelSection()
+        {
+            EditorGUILayout.Space(5);
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            GUILayout.Label("📡 Community Panel", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Префаб панели связи с игроками (опросы, новости, devlog, рейтинг).", EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.Space(3);
+            if (GUILayout.Button("Сгенерировать CommunityPanelWindow", GUILayout.Height(28)))
+            {
+                SavePreferences();
+                ApplyGeneratorSettings();
+                UIWindowPrefabGenerator.OverwriteWithoutPrompt = overwriteWithoutPrompt;
+                UIWindowPrefabGenerator.GenerateCommunityPanel();
+                ClearGeneratorSettings();
+            }
+            EditorGUILayout.Space(4);
+            if (GUILayout.Button("Сгенерировать Stub-конфиги (4 шт.)", GUILayout.Height(24)))
+            {
+                SavePreferences();
+                ApplyGeneratorSettings();
+                UIWindowPrefabGenerator.OverwriteWithoutPrompt = overwriteWithoutPrompt;
+                UIWindowPrefabGenerator.GenerateLiveOpsStubs();
+                ClearGeneratorSettings();
+            }
             EditorGUILayout.EndVertical();
         }
 

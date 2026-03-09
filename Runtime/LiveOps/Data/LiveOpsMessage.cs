@@ -12,11 +12,11 @@ namespace ProtoSystem.LiveOps
         /// <summary>Уникальный идентификатор сообщения.</summary>
         public string id;
 
-        /// <summary>Заголовок сообщения.</summary>
-        public string title;
+        /// <summary>Заголовок — локализован.</summary>
+        public LocalizedString title = new();
 
-        /// <summary>Текст сообщения.</summary>
-        public string body;
+        /// <summary>Текст сообщения — локализован.</summary>
+        public LocalizedString body = new();
 
         /// <summary>Тип сообщения (info / warning / event).</summary>
         public string type;

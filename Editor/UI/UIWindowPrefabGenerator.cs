@@ -141,6 +141,397 @@ namespace ProtoSystem.UI
 
         #region Individual Generators
 
+        [MenuItem("ProtoSystem/UI/Prefabs/LiveOps/Generate Stub Configs", priority = 116)]
+        public static void GenerateLiveOpsStubs()
+        {
+            string basePath = ResolveOutputPath();
+            EnsureFolder(basePath);
+            string stubPath = basePath + "/LiveOpsStubs";
+            EnsureFolder(stubPath);
+
+            CreateStub(stubPath, "LiveOpsStub_Poll", stub =>
+            {
+                stub.showCards    = true;
+                stub.showMessages = true;
+                stub.showWishlist = false;
+                stub.showRating   = false;
+                stub.hasPoll           = true;
+                stub.haAnnouncement    = false;
+                stub.hasDevLog         = false;
+                stub.poll = new ProtoSystem.LiveOps.StubPollData
+                {
+                    id       = "stub_poll_1",
+                    question = new ProtoSystem.LiveOps.StubLocalizedString { text = "What feature should we add next?" },
+                    pollType = "single",
+                    options  = new[]
+                    {
+                        new ProtoSystem.LiveOps.StubPollOption { id = "opt_1", label = "New weapons",     votes = 180 },
+                        new ProtoSystem.LiveOps.StubPollOption { id = "opt_2", label = "New locations",   votes = 95  },
+                        new ProtoSystem.LiveOps.StubPollOption { id = "opt_3", label = "Multiplayer mode",votes = 240 },
+                    },
+                    userVoteId = "",
+                };
+            });
+
+            CreateStub(stubPath, "LiveOpsStub_Announcement", stub =>
+            {
+                stub.showCards    = true;
+                stub.showMessages = true;
+                stub.showWishlist = true;
+                stub.showRating   = true;
+                stub.hasPoll           = false;
+                stub.haAnnouncement    = true;
+                stub.hasDevLog         = false;
+                stub.announcement = new ProtoSystem.LiveOps.StubAnnouncementData
+                {
+                    id    = "stub_ann_1",
+                    title = "Major Update v0.8 Released!",
+                    body  = "We have been working tirelessly to bring you a massive content update. New biomes, weapons, and a revamped crafting system await.",
+                    url   = "https://store.steampowered.com",
+                };
+                stub.wishlist = new ProtoSystem.LiveOps.StubMilestoneData
+                    { description = "Wishlist on Steam", current = 5800, goal = 10000, unit = "wishlists" };
+                stub.rating = new ProtoSystem.LiveOps.StubRatingData
+                    { avg = 8.2f, count = 320, userVote = 8 };
+            });
+
+            CreateStub(stubPath, "LiveOpsStub_DevLog", stub =>
+            {
+                stub.showCards    = true;
+                stub.showMessages = false;
+                stub.showWishlist = true;
+                stub.showRating   = true;
+                stub.hasPoll           = false;
+                stub.haAnnouncement    = false;
+                stub.hasDevLog         = true;
+                stub.devLog = new ProtoSystem.LiveOps.StubDevLogData
+                {
+                    id          = "stub_devlog_1",
+                    focus       = "Currently working on",
+                    title       = "Convoy AI & Events",
+                    description = "Major work on enemy convoy AI and random event system.",
+                    items       = new[]
+                    {
+                        new ProtoSystem.LiveOps.StubDevLogItem { label = "Convoy pathfinding",     done = true  },
+                        new ProtoSystem.LiveOps.StubDevLogItem { label = "Enemy attack patterns",  done = true  },
+                        new ProtoSystem.LiveOps.StubDevLogItem { label = "Random event triggers",  done = false },
+                        new ProtoSystem.LiveOps.StubDevLogItem { label = "Event reward system",    done = false },
+                    },
+                };
+                stub.wishlist = new ProtoSystem.LiveOps.StubMilestoneData
+                    { description = "Wishlist on Steam", current = 3200, goal = 10000, unit = "wishlists" };
+                stub.rating = new ProtoSystem.LiveOps.StubRatingData
+                    { avg = 7.4f, count = 142, userVote = 0 };
+            });
+
+            CreateStub(stubPath, "LiveOpsStub_AllWidgets", stub =>
+            {
+                stub.showCards    = true;
+                stub.showMessages = true;
+                stub.showWishlist = true;
+                stub.showRating   = true;
+                stub.hasPoll           = true;
+                stub.haAnnouncement    = true;
+                stub.hasDevLog         = true;
+                // Все три карточки — можно листать
+                stub.poll = new ProtoSystem.LiveOps.StubPollData
+                {
+                    id       = "stub_all_poll",
+                    question = new ProtoSystem.LiveOps.StubLocalizedString { text = "Rate your last play session" },
+                    pollType = "single",
+                    options  = new[]
+                    {
+                        new ProtoSystem.LiveOps.StubPollOption { id = "r1", label = "Great",    votes = 95  },
+                        new ProtoSystem.LiveOps.StubPollOption { id = "r2", label = "Good",     votes = 180 },
+                        new ProtoSystem.LiveOps.StubPollOption { id = "r3", label = "Average",  votes = 40  },
+                    },
+                    userVoteId = "r2",
+                };
+                stub.announcement = new ProtoSystem.LiveOps.StubAnnouncementData
+                {
+                    id    = "stub_all_ann",
+                    title = "Community Event: Survivor's Race",
+                    body  = "Join our weekend event and compete for exclusive cosmetics!",
+                    url   = "https://store.steampowered.com",
+                };
+                stub.devLog = new ProtoSystem.LiveOps.StubDevLogData
+                {
+                    id          = "stub_all_devlog",
+                    focus       = "This week",
+                    title       = "Polishing & Bugfixes",
+                    description = "Final stretch before Early Access launch.",
+                    items       = new[]
+                    {
+                        new ProtoSystem.LiveOps.StubDevLogItem { label = "Loading screen fix",  done = true  },
+                        new ProtoSystem.LiveOps.StubDevLogItem { label = "Sound balance pass",  done = true  },
+                        new ProtoSystem.LiveOps.StubDevLogItem { label = "Store page assets",   done = false },
+                    },
+                };
+                stub.wishlist = new ProtoSystem.LiveOps.StubMilestoneData
+                    { description = "Wishlist goal", current = 7650, goal = 10000, unit = "wishlists" };
+                stub.rating = new ProtoSystem.LiveOps.StubRatingData
+                    { avg = 8.8f, count = 512, userVote = 9 };
+            });
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log($"[UIWindowPrefabGenerator] LiveOps stub configs saved to '{stubPath}'");
+        }
+
+        private static void CreateStub(string folderPath, string name,
+            System.Action<ProtoSystem.LiveOps.LiveOpsStubConfig> configure)
+        {
+            string assetPath = $"{folderPath}/{name}.asset";
+            var existing = AssetDatabase.LoadAssetAtPath<ProtoSystem.LiveOps.LiveOpsStubConfig>(assetPath);
+            if (existing != null && !OverwriteWithoutPrompt)
+            {
+                if (!EditorUtility.DisplayDialog("Asset exists", $"{name} already exists. Overwrite?", "Yes", "Skip"))
+                    return;
+                AssetDatabase.DeleteAsset(assetPath);
+            }
+            else if (existing != null)
+            {
+                AssetDatabase.DeleteAsset(assetPath);
+            }
+
+            var stub = ScriptableObject.CreateInstance<ProtoSystem.LiveOps.LiveOpsStubConfig>();
+            configure(stub);
+            AssetDatabase.CreateAsset(stub, assetPath);
+        }
+
+        [MenuItem("ProtoSystem/UI/Prefabs/Windows/Community Panel", priority = 115)]
+        public static bool GenerateCommunityPanel()
+        {
+            // ─── Root: фиксированный размер, растягивается VLG ───
+            var root = CreateWindowBase("CommunityPanelWindow", new Vector2(480, 500));
+
+            var rootVLG = root.AddComponent<VerticalLayoutGroup>();
+            rootVLG.padding = new RectOffset(6, 6, 6, 6);
+            rootVLG.spacing = 4;
+            rootVLG.childControlWidth  = true;
+            rootVLG.childControlHeight = true;
+            rootVLG.childForceExpandWidth  = true;
+            rootVLG.childForceExpandHeight = false;
+
+            // ─── Cards (занимает всё свободное место) ────────────
+            var cardsRoot = CPMakeBlock("CardsRoot", root.transform, flexibleHeight: 1);
+
+            // NavBar внутри CardsRoot снизу
+            var cardNavBar = new GameObject("NavBar");
+            cardNavBar.transform.SetParent(cardsRoot.transform, false);
+            var navRect = cardNavBar.AddComponent<RectTransform>();
+            navRect.anchorMin = new Vector2(0, 0); navRect.anchorMax = new Vector2(1, 0);
+            navRect.pivot     = new Vector2(0.5f, 0);
+            navRect.sizeDelta = new Vector2(0, 28);
+            var navHLG = cardNavBar.AddComponent<HorizontalLayoutGroup>();
+            navHLG.childAlignment      = TextAnchor.MiddleCenter;
+            navHLG.childControlHeight  = false;
+            navHLG.childControlWidth   = false;
+            navHLG.childForceExpandWidth = false;
+            navHLG.spacing = 8;
+            var prevBtn   = CreateButton("PrevButton", cardNavBar.transform, "◄", new Vector2(32, 24));
+            var counterGO = CreateText("Counter", cardNavBar.transform, "1/3", 13);
+            counterGO.AddComponent<LayoutElement>().preferredWidth = 50;
+            var nextBtn   = CreateButton("NextButton", cardNavBar.transform, "►", new Vector2(32, 24));
+
+            // Область карточек (занимает весь CardsRoot кроме NavBar)
+            var cardArea = new GameObject("CardArea");
+            cardArea.transform.SetParent(cardsRoot.transform, false);
+            var cardAreaRect = cardArea.AddComponent<RectTransform>();
+            cardAreaRect.anchorMin = new Vector2(0, 0); cardAreaRect.anchorMax = Vector2.one;
+            cardAreaRect.offsetMin = new Vector2(0, 28); cardAreaRect.offsetMax = Vector2.zero;
+
+            // Poll card
+            var pollCard = CPMakeCard("PollCard", cardArea.transform);
+            var pollVLG  = pollCard.AddComponent<VerticalLayoutGroup>();
+            pollVLG.padding = new RectOffset(10, 10, 8, 8); pollVLG.spacing = 6;
+            pollVLG.childControlWidth = true; pollVLG.childControlHeight = false;
+            pollVLG.childForceExpandWidth = true;
+            var pollQuestion = CreateText("Question", pollCard.transform, "Вопрос опроса?", 16);
+            pollQuestion.GetComponent<TMP_Text>().fontStyle = FontStyles.Bold;
+            pollQuestion.AddComponent<LayoutElement>().preferredHeight = 40;
+            var pollOptions = new GameObject("Options");
+            pollOptions.transform.SetParent(pollCard.transform, false);
+            pollOptions.AddComponent<RectTransform>();
+            var optVLG = pollOptions.AddComponent<VerticalLayoutGroup>();
+            optVLG.spacing = 5; optVLG.childControlWidth = true; optVLG.childControlHeight = false;
+            optVLG.childForceExpandWidth = true;
+            pollOptions.AddComponent<LayoutElement>().flexibleHeight = 1;
+
+            // Announcement card
+            var annCard = CPMakeCard("AnnouncementCard", cardArea.transform);
+            annCard.SetActive(false);
+            var annVLG = annCard.AddComponent<VerticalLayoutGroup>();
+            annVLG.padding = new RectOffset(10, 10, 8, 8); annVLG.spacing = 6;
+            annVLG.childControlWidth = true; annVLG.childControlHeight = false;
+            annVLG.childForceExpandWidth = true;
+            var annTitle = CreateText("Title", annCard.transform, "Заголовок новости", 16);
+            annTitle.GetComponent<TMP_Text>().fontStyle = FontStyles.Bold;
+            annTitle.AddComponent<LayoutElement>().preferredHeight = 28;
+            var annBody = CreateText("Body", annCard.transform, "Текст новости.", 13);
+            annBody.GetComponent<TMP_Text>().color = new Color(0.8f, 0.8f, 0.8f);
+            annBody.GetComponent<TMP_Text>().enableWordWrapping = true;
+            annBody.AddComponent<LayoutElement>().flexibleHeight = 1;
+            var annUrlBtn = CreateButton("UrlButton", annCard.transform, "Читать полностью →", new Vector2(170, 28));
+            annUrlBtn.AddComponent<LayoutElement>().preferredHeight = 28;
+
+            // DevLog card
+            var devCard = CPMakeCard("DevLogCard", cardArea.transform);
+            devCard.SetActive(false);
+            var devVLGRoot = devCard.AddComponent<VerticalLayoutGroup>();
+            devVLGRoot.padding = new RectOffset(10, 10, 8, 8); devVLGRoot.spacing = 4;
+            devVLGRoot.childControlWidth = true; devVLGRoot.childControlHeight = false;
+            devVLGRoot.childForceExpandWidth = true;
+            var devFocus = CreateText("Focus", devCard.transform, "Сейчас в работе", 11);
+            devFocus.GetComponent<TMP_Text>().color = new Color(0.6f, 0.8f, 1f);
+            devFocus.AddComponent<LayoutElement>().preferredHeight = 18;
+            var devTitle = CreateText("Title", devCard.transform, "Dev Log", 15);
+            devTitle.GetComponent<TMP_Text>().fontStyle = FontStyles.Bold;
+            devTitle.AddComponent<LayoutElement>().preferredHeight = 24;
+            var devItems = new GameObject("Items");
+            devItems.transform.SetParent(devCard.transform, false);
+            devItems.AddComponent<RectTransform>();
+            var devItemsVLG = devItems.AddComponent<VerticalLayoutGroup>();
+            devItemsVLG.spacing = 3; devItemsVLG.childControlWidth = true; devItemsVLG.childControlHeight = false;
+            devItemsVLG.childForceExpandWidth = true;
+            devItems.AddComponent<LayoutElement>().flexibleHeight = 1;
+
+            // ─── Message Row (абсолютное позиционирование — без VLG внутри) ───
+            var msgRoot = CPMakeBlock("MessageRoot", root.transform, preferredHeight: 44);
+            // input: левая часть
+            var msgInput = CreateTMPInputField("MessageInput", msgRoot.transform);
+            var msgInputField = msgInput.GetComponent<TMP_InputField>();
+            if (msgInputField != null) msgInputField.characterLimit = 120;
+            CPSetAnchors(msgInput, new Vector2(0, 0), new Vector2(1, 1), new Vector4(6, 4, -58, -4));
+            // кнопка отправки: правая, 44×36
+            var sendBtn = CreateButton("SendButton", msgRoot.transform, "→", new Vector2(44, 36));
+            CPSetAnchors(sendBtn, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector4(-50, -18, -6, 18));
+            // счётчик символов: снизу справа
+            var charCount = CreateText("CharCount", msgRoot.transform, "0/120", 9);
+            charCount.GetComponent<TMP_Text>().color = new Color(0.55f, 0.55f, 0.55f);
+            charCount.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.BottomRight;
+            CPSetAnchors(charCount, new Vector2(1, 0), new Vector2(1, 0), new Vector4(-54, 1, -4, 13));
+
+            // ─── Wishlist Strip (абсолютное позиционирование) ───
+            var wishRoot = CPMakeBlock("WishlistRoot", root.transform, preferredHeight: 52);
+            // текст описания: слева сверху
+            var wishDesc  = CreateText("Description", wishRoot.transform, "Вишлист в Steam", 12);
+            CPSetAnchors(wishDesc,  new Vector2(0, 1), new Vector2(0.6f, 1), new Vector4(8, -22, 0, -4));
+            // счётчик: справа сверху
+            var wishCount = CreateText("Count", wishRoot.transform, "0 / 10 000", 12);
+            wishCount.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.TopRight;
+            CPSetAnchors(wishCount, new Vector2(0.4f, 1), new Vector2(1, 1), new Vector4(0, -22, -8, -4));
+            // фон прогресс-бара
+            var barBg = new GameObject("BarBg");
+            barBg.transform.SetParent(wishRoot.transform, false);
+            barBg.AddComponent<RectTransform>();
+            barBg.AddComponent<Image>().color = new Color(0.18f, 0.18f, 0.18f);
+            CPSetAnchors(barBg, new Vector2(0, 0), new Vector2(1, 0), new Vector4(8, 4, -8, 18));
+            // заливка прогресс-бара
+            var barFillGO  = new GameObject("Fill");
+            barFillGO.transform.SetParent(barBg.transform, false);
+            var barFillRect = barFillGO.AddComponent<RectTransform>();
+            barFillRect.anchorMin = Vector2.zero; barFillRect.anchorMax = Vector2.one;
+            barFillRect.offsetMin = Vector2.zero; barFillRect.offsetMax = Vector2.zero;
+            var barFillImg = barFillGO.AddComponent<Image>();
+            barFillImg.color      = new Color(0.2f, 0.75f, 0.35f);
+            barFillImg.type       = Image.Type.Filled;
+            barFillImg.fillMethod = Image.FillMethod.Horizontal;
+            barFillImg.fillAmount = 0.4f;
+
+            // ─── Rating Strip (абсолютное позиционирование) ───
+            var ratingRoot = CPMakeBlock("RatingRoot", root.transform, preferredHeight: 40);
+            // звёзды в HLG-контейнере который позиционируется абсолютно в ratingRoot
+            var starsHolder = new GameObject("Stars");
+            starsHolder.transform.SetParent(ratingRoot.transform, false);
+            starsHolder.AddComponent<RectTransform>();
+            CPSetAnchors(starsHolder, new Vector2(0, 0), new Vector2(1, 1), new Vector4(8, 4, -44, -4));
+            var starsHLG = starsHolder.AddComponent<HorizontalLayoutGroup>();
+            starsHLG.spacing = 2;
+            starsHLG.childAlignment      = TextAnchor.MiddleLeft;
+            starsHLG.childControlWidth   = false; starsHLG.childControlHeight  = false;
+            starsHLG.childForceExpandWidth = false; starsHLG.childForceExpandHeight = false;
+            var starButtons = new Button[10];
+            for (int i = 0; i < 10; i++)
+            {
+                var starGO  = CreateButton($"Star{i + 1}", starsHolder.transform, "★", new Vector2(24, 24));
+                starButtons[i] = starGO.GetComponent<Button>();
+            }
+            // средняя оценка: справа
+            var ratingAvg = CreateText("Avg", ratingRoot.transform, "—", 15);
+            ratingAvg.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineRight;
+            CPSetAnchors(ratingAvg, new Vector2(1, 0), new Vector2(1, 1), new Vector4(-42, 4, -4, -4));
+
+            // ─── Component Setup ──────────────────────────────────
+            var component = root.AddComponent<ProtoSystem.UI.CommunityPanelWindow>();
+            SetField(component, "cardsRoot",              cardsRoot);
+            SetField(component, "cardPrevButton",         prevBtn.GetComponent<Button>());
+            SetField(component, "cardNextButton",         nextBtn.GetComponent<Button>());
+            SetField(component, "cardCounterText",        counterGO.GetComponent<TMP_Text>());
+            SetField(component, "pollCard",               pollCard);
+            SetField(component, "pollQuestionText",       pollQuestion.GetComponent<TMP_Text>());
+            SetField(component, "pollOptionsContainer",   pollOptions.transform);
+            SetField(component, "announcementCard",       annCard);
+            SetField(component, "announcementTitleText",  annTitle.GetComponent<TMP_Text>());
+            SetField(component, "announcementBodyText",   annBody.GetComponent<TMP_Text>());
+            SetField(component, "announcementUrlButton",  annUrlBtn.GetComponent<Button>());
+            SetField(component, "devLogCard",             devCard);
+            SetField(component, "devLogFocusText",        devFocus.GetComponent<TMP_Text>());
+            SetField(component, "devLogTitleText",        devTitle.GetComponent<TMP_Text>());
+            SetField(component, "devLogItemsContainer",   devItems.transform);
+            SetField(component, "messageRoot",            msgRoot);
+            SetField(component, "messageInput",           msgInput.GetComponent<TMP_InputField>());
+            SetField(component, "messageSendButton",      sendBtn.GetComponent<Button>());
+            SetField(component, "messageCharCountText",   charCount.GetComponent<TMP_Text>());
+            SetField(component, "wishlistRoot",           wishRoot);
+            SetField(component, "wishlistFill",           barFillImg);
+            SetField(component, "wishlistCountText",      wishCount.GetComponent<TMP_Text>());
+            SetField(component, "wishlistDescText",       wishDesc.GetComponent<TMP_Text>());
+            SetField(component, "ratingRoot",             ratingRoot);
+            SetField(component, "ratingStars",            starButtons);
+            SetField(component, "ratingAvgText",          ratingAvg.GetComponent<TMP_Text>());
+
+            return SavePrefab(root, "CommunityPanelWindow");
+        }
+
+        // Установить anchors + offsets за один вызов (offsetMin/Max в пикселях от anchor)
+        // offsets = (left, bottom, right, top) — right/top задаются отрицательными для отступа от верхнего/правого
+        private static void CPSetAnchors(GameObject go, Vector2 anchorMin, Vector2 anchorMax, Vector4 offsets)
+        {
+            var r = go.GetComponent<RectTransform>();
+            if (r == null) return;
+            r.anchorMin  = anchorMin;
+            r.anchorMax  = anchorMax;
+            r.offsetMin  = new Vector2(offsets.x, offsets.y);   // left, bottom
+            r.offsetMax  = new Vector2(offsets.z, offsets.w);   // right (negative = inset), top (negative = inset)
+        }
+
+        // Блок-секция с тёмным фоном и LayoutElement
+        private static GameObject CPMakeBlock(string name, Transform parent,
+            float preferredHeight = -1, float flexibleHeight = -1)
+        {
+            var go   = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.AddComponent<RectTransform>();
+            go.AddComponent<Image>().color = new Color(0.13f, 0.13f, 0.13f, 0.95f);
+            var le   = go.AddComponent<LayoutElement>();
+            if (preferredHeight >= 0) le.preferredHeight = preferredHeight;
+            if (flexibleHeight  >= 0) le.flexibleHeight  = flexibleHeight;
+            return go;
+        }
+
+        // Карточка внутри CardsRoot (stretch на весь CardArea)
+        private static GameObject CPMakeCard(string name, Transform parent)
+        {
+            var go   = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var rect = go.AddComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero; rect.offsetMax = Vector2.zero;
+            go.AddComponent<Image>().color = new Color(0.13f, 0.13f, 0.13f, 0f); // прозрачный фон
+            return go;
+        }
+
         [MenuItem("ProtoSystem/UI/Prefabs/Windows/Main Menu", priority = 110)]
         public static bool GenerateMainMenu()
         {

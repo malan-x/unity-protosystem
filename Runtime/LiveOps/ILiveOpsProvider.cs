@@ -21,19 +21,35 @@ namespace ProtoSystem.LiveOps
     /// </summary>
     public interface ILiveOpsProvider
     {
-        /// <summary>Получить список активных сообщений (MOTD/новости).</summary>
+        // ── Существующие методы ──────────────────────────────────────
+
         Task<List<LiveOpsMessage>> FetchMessagesAsync();
+        Task<List<LiveOpsPoll>>    FetchPollsAsync();
+        Task<bool>                 SubmitPollAnswerAsync(LiveOpsPollAnswer answer);
+        Task<bool>                 SendEventAsync(LiveOpsEvent evt);
+        Task<bool>                 SubmitFeedbackAsync(LiveOpsFeedback feedback);
 
-        /// <summary>Получить список активных опросов.</summary>
-        Task<List<LiveOpsPoll>> FetchPollsAsync();
+        // ── Community Panel (новые методы, default = не реализовано) ──
+        // Существующие провайдеры не ломаются — просто переопределите нужные.
 
-        /// <summary>Отправить ответ на опрос.</summary>
-        Task<bool> SubmitPollAnswerAsync(LiveOpsPollAnswer answer);
+        /// <summary>GET /config — конфигурация виджетов панели.</summary>
+        Task<LiveOpsPanelConfig> FetchPanelConfigAsync() =>
+            Task.FromResult<LiveOpsPanelConfig>(null);
 
-        /// <summary>Отправить аналитическое событие.</summary>
-        Task<bool> SendEventAsync(LiveOpsEvent evt);
+        /// <summary>GET /announcements.</summary>
+        Task<List<LiveOpsAnnouncement>> FetchAnnouncementsAsync() =>
+            Task.FromResult<List<LiveOpsAnnouncement>>(null);
 
-        /// <summary>Отправить фидбек от игрока.</summary>
-        Task<bool> SubmitFeedbackAsync(LiveOpsFeedback feedback);
+        /// <summary>GET /devlog.</summary>
+        Task<LiveOpsDevLog> FetchDevLogAsync() =>
+            Task.FromResult<LiveOpsDevLog>(null);
+
+        /// <summary>GET /ratings?version={version}.</summary>
+        Task<LiveOpsRatingData> FetchRatingAsync(string version) =>
+            Task.FromResult<LiveOpsRatingData>(null);
+
+        /// <summary>POST /ratings.</summary>
+        Task<LiveOpsRatingResult> SubmitRatingAsync(LiveOpsRatingSubmit submit) =>
+            Task.FromResult<LiveOpsRatingResult>(null);
     }
 }
