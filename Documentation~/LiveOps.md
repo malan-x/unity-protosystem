@@ -66,14 +66,35 @@ CommunityPanelWindow.Start()
 MainMenuWindow
   └── CommunityPanelWindow (MonoEventBus)
         ├── CardsRoot   — карусель (опросы / новости / devlog)
-        ├── MessageRoot — поле сообщения игрока
-        ├── WishlistRoot — прогресс-бар вишлиста
+        │     ├── NavBar       — кнопки < > и счётчик
+        │     ├── CardArea     — PollCard / AnnouncementCard / DevLogCard
+        │     ├── CardMeta     — мета-инфо (кол-во голосов и т.д.)
+        │     └── TypeBadge    — тип записи (Один ответ / Новость / Dev Log)
+        ├── MessageRoot — поле сообщения игрока + счётчик символов
+        ├── GoalRoot    — прогресс-бар цели (вишлист, фолловеры и т.д.)
         └── RatingRoot  — 10 звёзд + средняя оценка
+        PollOption   — под-префаб пункта опроса (инстанцируется в runtime)
+        DevLogItem   — под-префаб пункта чеклиста
 ```
 
-**Генерация:** ProtoSystem → UI → Tools → UI Generator → **Community Panel**
+**Генерация:** ProtoSystem → UI → Prefabs → Windows → **Community Panel**
 
-`LiveOpsSystem` берётся автоматически через `SystemInitializationManager.Instance?.GetSystem<LiveOpsSystem>()`. Поле в Inspector не нужно.
+**Важно:**
+- `pivot = (0.5, 0)` — панель растёт вверх, нижняя граница фиксирована
+- Высота CardsRoot динамическая — подстраивается под активную карточку через `AdjustCardsRootHeight()`
+- `LiveOpsSystem` берётся автоматически через `SystemInitializationManager`. Поле в Inspector не нужно
+- Под-префабы (PollOption, DevLogItem) хранятся как неактивные дети root — runtime делает `Instantiate` + `SetActive(true)`
+
+### Опросы (Poll)
+
+Поддерживаются два типа: `"single"` (один ответ) и `"multi"` (несколько).
+
+После голосования появляются:
+- FillBar — полоса процента (ширина через `anchorMax.x`)
+- Pct — текст процента
+- Checkmark — галочка выбранного пункта
+
+В stub-режиме клики работают локально (`ToggleStubPollSelection`), инкрементируя счётчики голосов.
 
 ---
 
@@ -83,14 +104,37 @@ MainMenuWindow
 ProtoSystem → UI → Prefabs → LiveOps → Generate Stub Configs
 ```
 
+### Структура StubConfig
+
+`LiveOpsStubConfig` содержит:
+- `showCards / showMessages / showGoal / showRating` — видимость виджетов
+- `StubCardEntry[] cards` — единый список записей (каждая имеет `StubCardType`: Poll / Announcement / DevLog)
+- `StubMilestoneData goal` — прогресс-бар цели
+- `StubRatingData rating` — рейтинг
+
+`StubCardEntry` — полиморфная запись:
+```csharp
+public enum StubCardType { Poll, Announcement, DevLog }
+
+public class StubCardEntry
+{
+    public StubCardType type;        // тип записи
+    public StubPollData poll;         // данные опроса (если type == Poll)
+    public StubAnnouncementData announcement;
+    public StubDevLogData devLog;
+}
+```
+
+### Готовые пресеты
+
 Создаёт 4 ассета в `<OutputPath>/LiveOpsStubs/`:
 
-| Ассет | Содержимое |
-|-------|-----------|
-| `LiveOpsStub_Poll` | Опрос + поле сообщения |
-| `LiveOpsStub_Announcement` | Новость + вишлист + рейтинг |
-| `LiveOpsStub_DevLog` | Dev Log + вишлист + рейтинг |
-| `LiveOpsStub_AllWidgets` | Все 3 карточки + все виджеты |
+| Ассет | Карточки | Виджеты |
+|-------|----------|----------|
+| `LiveOpsStub_Poll` | 1 опрос (single) | сообщение |
+| `LiveOpsStub_Announcement` | 1 новость | goal + рейтинг + сообщение |
+| `LiveOpsStub_DevLog` | 1 devlog | goal + рейтинг |
+| `LiveOpsStub_AllWidgets` | single poll + multi poll (5 пунктов) + новость + devlog | все |
 
 Назначить `.asset` в поле **Stub Config** компонента `CommunityPanelWindow`.  
 В PlayMode можно менять ассет на лету — панель обновится на следующем кадре.  
@@ -163,6 +207,7 @@ private void OnLiveOpsDataUpdated(object payload)
 
 ## Локализация
 
+### Серверные строки
 ```csharp
 string lang = liveOpsSystem.Language; // из LiveOpsConfig.defaultLanguage
 string text = message.title.Get(lang); // fallback → "en" → первый доступный
@@ -172,6 +217,27 @@ JSON с сервера:
 ```json
 "title": { "ru": "Заголовок", "en": "Title", "de": "Titel" }
 ```
+
+### UI-ключи (статические надписи)
+
+Определены в `UIKeys.CommunityPanel` (`UILocalizationKeys.cs`):
+
+| Ключ | ru | en |
+|------|-----|-----|
+| `ui.community.send` | Отправить | Send |
+| `ui.community.placeholder` | Написать разработчикам… | Write to developers… |
+| `ui.community.rating_label` | Оценка | Rating |
+| `ui.community.type_poll` | Один ответ | Single answer |
+| `ui.community.type_poll_multi` | Несколько ответов | Multiple answers |
+| `ui.community.type_news` | Новость | News |
+| `ui.community.type_devlog` | Dev Log | Dev Log |
+| `ui.community.read_more` | Читать полностью > | Read more > |
+
+Генератор ставит `LocalizeTMP` на статичные элементы. TypeBadge переключается динамически через `SetBadge()` — метод сохраняет префикс ключа из генератора (может быть `lc.community.*` или `ui.community.*`), меняя только суффикс.
+
+### Интеграция с проектом
+
+Проект может определить свои ключи с другим префиксом (например `lc.community.*` в `LCKeys`) и указать их в своём генераторе. Runtime автоматически подхватит правильный префикс.
 
 ---
 
@@ -187,7 +253,7 @@ JSON с сервера:
 ```
 
 Проверяется на клиенте: `liveOpsSystem.IsWidgetVisible("rating")`.  
-Ключи: `"cards"` · `"messages"` · `"wishlist"` · `"rating"`.
+Ключи: `"cards"` · `"messages"` · `"wishlist"` (legacy) / `"goal"` · `"rating"`.
 
 ---
 
@@ -216,7 +282,10 @@ liveOpsConfig.SetProvider(new MyGameProvider(serverUrl, projectId));
 | `Data/LiveOpsWidgetConfig.cs` | PanelConfig, WidgetDef, ShowAfter, PlayerContext |
 | `Data/LiveOpsAnnouncement.cs` | Новость/объявление |
 | `Data/LiveOpsDevLog.cs` | Dev Log с чеклистом |
-| `Data/LiveOpsMilestone.cs` | Прогресс-бар (вишлист) |
+| `Data/LiveOpsPoll.cs` | Опрос (single/multi) с опциями и голосами |
+| `Data/LiveOpsMilestone.cs` | Прогресс-бар цели |
 | `Data/LiveOpsRating.cs` | Рейтинг билда |
-| `Data/LiveOpsStubConfig.cs` | Mock-данные для тестирования |
+| `Data/LiveOpsStubConfig.cs` | StubConfig + StubCardEntry + StubCardType |
+| `Localization/UILocalizationKeys.cs` | Ключи локализации UI (`UIKeys.CommunityPanel.*`) |
 | `UI/Windows/LiveOps/CommunityPanelWindow.cs` | UI-компонент панели |
+| `Editor/UI/UIWindowPrefabGenerator.cs` | Генератор префаба + стабов |

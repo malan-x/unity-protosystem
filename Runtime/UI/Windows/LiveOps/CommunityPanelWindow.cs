@@ -326,12 +326,9 @@ namespace ProtoSystem.UI
 
             // Badge: single vs multi
             bool isMulti = poll.pollType == "multi";
-            if (typeBadgeLocalize)
-                typeBadgeLocalize.SetKey(
-                    isMulti ? UIKeys.CommunityPanel.TypePollMulti : UIKeys.CommunityPanel.TypePoll,
-                    isMulti ? UIKeys.CommunityPanel.Fallback.TypePollMulti : UIKeys.CommunityPanel.Fallback.TypePoll);
-            else if (typeBadgeText)
-                typeBadgeText.text = isMulti ? UIKeys.CommunityPanel.Fallback.TypePollMulti : UIKeys.CommunityPanel.Fallback.TypePoll;
+            SetBadge(
+                isMulti ? "type_poll_multi" : "type_poll",
+                isMulti ? UIKeys.CommunityPanel.Fallback.TypePollMulti : UIKeys.CommunityPanel.Fallback.TypePoll);
 
             foreach (Transform child in pollOptionsContainer) Destroy(child.gameObject);
 
@@ -396,10 +393,7 @@ namespace ProtoSystem.UI
         private void ShowAnnouncementCard(LiveOpsAnnouncement ann, string lang)
         {
             SetVisible(announcementCard, true);
-            if (typeBadgeLocalize)
-                typeBadgeLocalize.SetKey(UIKeys.CommunityPanel.TypeNews, UIKeys.CommunityPanel.Fallback.TypeNews);
-            else if (typeBadgeText)
-                typeBadgeText.text = UIKeys.CommunityPanel.Fallback.TypeNews;
+            SetBadge("type_news", UIKeys.CommunityPanel.Fallback.TypeNews);
             if (cardMetaText) cardMetaText.text = "";
             if (announcementTitleText) announcementTitleText.text = ann.title.Get(lang);
             if (announcementBodyText)  announcementBodyText.text  = ann.body.Get(lang);
@@ -412,10 +406,7 @@ namespace ProtoSystem.UI
         private void ShowDevLogCard(LiveOpsDevLog devLog, string lang)
         {
             SetVisible(devLogCard, true);
-            if (typeBadgeLocalize)
-                typeBadgeLocalize.SetKey(UIKeys.CommunityPanel.TypeDevLog, UIKeys.CommunityPanel.Fallback.TypeDevLog);
-            else if (typeBadgeText)
-                typeBadgeText.text = UIKeys.CommunityPanel.Fallback.TypeDevLog;
+            SetBadge("type_devlog", UIKeys.CommunityPanel.Fallback.TypeDevLog);
             if (cardMetaText) cardMetaText.text = "";
             if (devLogFocusText) devLogFocusText.text = devLog.focus.Get(lang);
             if (devLogTitleText) devLogTitleText.text = devLog.title.Get(lang);
@@ -567,6 +558,35 @@ namespace ProtoSystem.UI
         private static void SetVisible(GameObject go, bool visible)
         {
             if (go) go.SetActive(visible);
+        }
+
+        /// <summary>
+        /// Установить текст badge по суффиксу ключа.
+        /// Префикс берётся из текущего ключа LocalizeTMP (может быть lc.community.* или ui.community.*).
+        /// </summary>
+        private void SetBadge(string keySuffix, string fallback)
+        {
+            if (typeBadgeLocalize)
+            {
+                // Derive prefix from the key that generator set (e.g. "lc.community." or "ui.community.")
+                string prefix = "ui.community.";
+                var existingKey = GetLocalizeTMPKey(typeBadgeLocalize);
+                if (!string.IsNullOrEmpty(existingKey))
+                {
+                    int lastDot = existingKey.LastIndexOf('.');
+                    if (lastDot > 0) prefix = existingKey.Substring(0, lastDot + 1);
+                }
+                typeBadgeLocalize.SetKey(prefix + keySuffix, fallback);
+            }
+            else if (typeBadgeText)
+                typeBadgeText.text = fallback;
+        }
+
+        private static string GetLocalizeTMPKey(LocalizeTMP loc)
+        {
+            if (loc == null) return null;
+            var field = typeof(LocalizeTMP).GetField("key", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            return field?.GetValue(loc) as string;
         }
 
         private static Transform FindChildRecursive(Transform parent, string name)
