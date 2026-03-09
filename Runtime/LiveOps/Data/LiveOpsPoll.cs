@@ -45,6 +45,9 @@ namespace ProtoSystem.LiveOps
         /// <summary>Количество голосов за этот вариант.</summary>
         public int votes;
 
+        /// <summary>Выбран ли вариант текущим игроком (клиентское состояние).</summary>
+        [NonSerialized] public bool selected;
+
         public float Percent(int totalVotes) =>
             totalVotes > 0 ? (float)votes / totalVotes * 100f : 0f;
     }

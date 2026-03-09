@@ -304,6 +304,8 @@ namespace ProtoSystem.UI
                 {
                     if (_liveOpsSystem != null)
                         await _liveOpsSystem.SubmitPollAnswerAsync(pollId, new[] { optId });
+                    else
+                        ToggleStubPollSelection(pollId, optId, poll);
                 });
             }
         }
@@ -416,6 +418,30 @@ namespace ProtoSystem.UI
         private static void SetVisible(GameObject go, bool visible)
         {
             if (go) go.SetActive(visible);
+        }
+
+        /// <summary>
+        /// Тогл выбора опции опроса в stub-режиме (локальный, без сервера).
+        /// </summary>
+        private void ToggleStubPollSelection(string pollId, string optId, LiveOpsPoll poll)
+        {
+            if (poll == null) return;
+            var opt = System.Array.Find(poll.options, o => o.id == optId);
+            if (opt == null) return;
+
+            bool isSingle = poll.pollType == "single";
+            if (isSingle)
+            {
+                foreach (var o in poll.options) o.selected = false;
+                opt.selected = true;
+            }
+            else
+            {
+                opt.selected = !opt.selected;
+            }
+
+            var lang = stubConfig?.language ?? "en";
+            ShowPollCard(poll, lang);
         }
 
         #endregion
