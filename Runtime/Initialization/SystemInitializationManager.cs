@@ -407,35 +407,33 @@ namespace ProtoSystem
                 // Инициализируем системы по порядку
                 bool allSucceeded = await InitializeSystemsInOrder(orderedSystems);
 
-                isInitialized = allSucceeded;
+                isInitialized = true;
                 OnInitializationComplete?.Invoke(allSucceeded);
 
                 if (allSucceeded)
                 {
                     LogMessage("Все системы инициализированы успешно!");
-
-                    // После успешной инициализации всех систем инициализируем post-зависимости
-                    LogMessage("Начинаем инициализацию post-зависимостей...");
-                    bool postResult = InitializePostDependencies();
-                    OnPostDependenciesComplete?.Invoke(postResult);
-
-                    if (postResult)
-                    {
-                        LogMessage("Post-зависимости инициализированы успешно!");
-                    }
-                    else
-                    {
-                        LogError("Инициализация post-зависимостей завершена с ошибками");
-                    }
-
-                    return postResult;
                 }
                 else
                 {
-                    LogError("Инициализация завершена с ошибками");
+                    LogError("Некоторые системы не инициализированы, но post-зависимости будут обработаны для успешных систем");
                 }
 
-                return allSucceeded;
+                // Инициализируем post-зависимости для успешно инициализированных систем
+                LogMessage("Начинаем инициализацию post-зависимостей...");
+                bool postResult = InitializePostDependencies();
+                OnPostDependenciesComplete?.Invoke(postResult);
+
+                if (postResult)
+                {
+                    LogMessage("Post-зависимости инициализированы успешно!");
+                }
+                else
+                {
+                    LogError("Инициализация post-зависимостей завершена с ошибками");
+                }
+
+                return allSucceeded && postResult;
             }
             catch (Exception ex)
             {
