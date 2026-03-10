@@ -390,6 +390,9 @@ namespace ProtoSystem
 
             try
             {
+                // Анализируем зависимости перед сортировкой
+                AnalyzeDependencies();
+
                 // Получаем системы в правильном порядке
                 var orderedSystems = GetSystemsInInitializationOrder();
 
