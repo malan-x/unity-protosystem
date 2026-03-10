@@ -315,34 +315,47 @@ namespace ProtoSystem.LiveOps
             ReportProgress(0.3f);
 
             // Health check
-            if (_provider is DefaultHttpLiveOpsProvider httpProvider)
+            try
             {
-                ProtoLogger.LogInit(SystemId, "Health check...");
-                // временно снижаем таймаут до healthCheckTimeoutSeconds
-                var originalTimeout = config.requestTimeoutSeconds;
-                var pingProvider = new DefaultHttpLiveOpsProvider(
-                    config.serverUrl, config.projectId, _playerId, config.healthCheckTimeoutSeconds);
-                _serverAvailable = await pingProvider.PingAsync();
-                ProtoLogger.LogInit(SystemId, _serverAvailable
-                    ? "Health check: OK"
-                    : "Health check: сервер недоступен, панель скрыта");
+                if (_provider is DefaultHttpLiveOpsProvider httpProvider)
+                {
+                    ProtoLogger.LogInit(SystemId, "Health check...");
+                    var pingProvider = new DefaultHttpLiveOpsProvider(
+                        config.serverUrl, config.projectId, _playerId, config.healthCheckTimeoutSeconds);
+                    _serverAvailable = await pingProvider.PingAsync();
+                    ProtoLogger.LogInit(SystemId, _serverAvailable
+                        ? "Health check: OK"
+                        : "Health check: сервер недоступен, панель скрыта");
+                }
+                else if (_provider != null)
+                {
+                    // Кастомный провайдер — считаем сервер доступным
+                    _serverAvailable = true;
+                }
             }
-            else if (_provider != null)
+            catch (Exception ex)
             {
-                // Кастомный провайдер — считаем сервер доступным
-                _serverAvailable = true;
+                _serverAvailable = false;
+                ProtoLogger.LogWarning(SystemId, $"Health check failed: {ex.Message}");
             }
 
             ReportProgress(0.5f);
 
-            if (_serverAvailable)
+            try
             {
-                await FetchAsync();
-                await FlushAnalyticsQueueAsync();
+                if (_serverAvailable)
+                {
+                    await FetchAsync();
+                    await FlushAnalyticsQueueAsync();
+                }
+                else if (_provider == null)
+                {
+                    ProtoLogger.LogWarning(SystemId, "ILiveOpsProvider не установлен и serverUrl пуст. Задайте config.serverUrl.");
+                }
             }
-            else if (_provider == null)
+            catch (Exception ex)
             {
-                ProtoLogger.LogWarning(SystemId, "ILiveOpsProvider не установлен и serverUrl пуст. Задайте config.serverUrl.");
+                ProtoLogger.LogWarning(SystemId, $"Fetch failed: {ex.Message}");
             }
 
             // Подписка на открытие главного меню
