@@ -25,6 +25,11 @@
             "name": "com.unity.localization",
             "expression": "",
             "define": "PROTO_HAS_LOCALIZATION"
+        },
+        {
+            "name": "com.rlabrecque.steamworks.net",
+            "expression": "",
+            "define": "STEAMWORKS_NET"
         }
     ],
     "noEngineReferences": false

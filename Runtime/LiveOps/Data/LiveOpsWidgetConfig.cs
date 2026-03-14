@@ -15,11 +15,10 @@ namespace ProtoSystem.LiveOps
     {
         public LiveOpsWidgetDef cards    = new();
         public LiveOpsWidgetDef messages = new();
-        public LiveOpsWidgetDef wishlist = new();
+        public LiveOpsWidgetDef goal     = new();
         public LiveOpsWidgetDef rating   = new();
 
-        public LiveOpsMilestoneData wishlistData;
-        public LiveOpsRatingMeta    ratingMeta;
+        public LiveOpsRatingMeta ratingMeta;
     }
 
     /// <summary>Определение одного виджета: включён ли и условия показа.</summary>

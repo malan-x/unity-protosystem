@@ -163,7 +163,7 @@ namespace ProtoSystem.LiveOps
             var devItems = new LiveOpsDevLogItem[items.Length];
             for (int i = 0; i < items.Length; i++)
                 devItems[i] = new LiveOpsDevLogItem
-                    { label = LocalizedString.FromRaw(items[i].label), done = items[i].done };
+                    { name = LocalizedString.FromRaw(items[i].label), status = items[i].done ? "done" : "todo" };
 
             return new LiveOpsDevLog
             {
@@ -187,6 +187,7 @@ namespace ProtoSystem.LiveOps
     [Serializable]
     public class StubMilestoneData
     {
+        public string title       = "Early Access";
         public string description = "Wishlist on Steam";
         public int    current     = 3200;
         public int    goal        = 10000;
@@ -194,6 +195,7 @@ namespace ProtoSystem.LiveOps
 
         public LiveOpsMilestoneData ToMilestone() => new()
         {
+            title       = LocalizedString.FromRaw(title),
             description = LocalizedString.FromRaw(description),
             current     = current,
             goal        = goal,

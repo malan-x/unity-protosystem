@@ -47,7 +47,10 @@ namespace ProtoSystem
         #if PROTO_HAS_LOCALIZATION
         private Dictionary<string, StringTable> _loadedTables = new();
         #endif
-        
+
+        /// <summary>Рантайм-ключи, добавленные через Set(). table → key → value.</summary>
+        private readonly Dictionary<string, Dictionary<string, string>> _runtimeEntries = new();
+
         #endregion
         
         #region Properties
@@ -400,6 +403,9 @@ namespace ProtoSystem
         
         public bool Has(string table, string key)
         {
+            if (_runtimeEntries.TryGetValue(table, out var rtDict) && rtDict.ContainsKey(key))
+                return true;
+
             #if PROTO_HAS_LOCALIZATION
             try
             {
@@ -414,9 +420,32 @@ namespace ProtoSystem
         }
         
         #endregion
-        
+
+        #region Runtime Keys
+
+        /// <summary>
+        /// Добавить/перезаписать ключ локализации в рантайме.
+        /// Рантайм-ключи имеют приоритет над загруженными таблицами.
+        /// При смене языка LocalizeTMP автоматически вызовет UpdateText(),
+        /// поэтому серверные данные нужно перезаписывать при смене языка.
+        /// </summary>
+        public void Set(string key, string value)
+            => Set(config.defaultStringTable, key, value);
+
+        public void Set(string table, string key, string value)
+        {
+            if (!_runtimeEntries.TryGetValue(table, out var dict))
+            {
+                dict = new Dictionary<string, string>();
+                _runtimeEntries[table] = dict;
+            }
+            dict[key] = value;
+        }
+
+        #endregion
+
         #region Language API
-        
+
         public void SetLanguage(string languageCode)
         {
             if (languageCode == _currentLanguage) return;
@@ -465,6 +494,11 @@ namespace ProtoSystem
         
         private string GetInternal(string tableName, string key, string fallback)
         {
+            // Рантайм-ключи — наивысший приоритет
+            if (_runtimeEntries.TryGetValue(tableName, out var rtDict) &&
+                rtDict.TryGetValue(key, out var rtValue))
+                return rtValue;
+
             #if PROTO_HAS_LOCALIZATION
             try
             {
@@ -474,7 +508,7 @@ namespace ProtoSystem
             }
             catch { /* fallback */ }
             #endif
-            
+
             if (fallback != null) return fallback;
             
             if (config.logMissingKeys)

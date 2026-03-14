@@ -8,6 +8,7 @@ namespace ProtoSystem.LiveOps
     [Serializable]
     public class LiveOpsMilestoneData
     {
+        public LocalizedString title = new();
         public LocalizedString description = new();
         public int current;
         public int goal;

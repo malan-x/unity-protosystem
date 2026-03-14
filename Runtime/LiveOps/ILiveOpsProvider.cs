@@ -51,5 +51,21 @@ namespace ProtoSystem.LiveOps
         /// <summary>POST /ratings.</summary>
         Task<LiveOpsRatingResult> SubmitRatingAsync(LiveOpsRatingSubmit submit) =>
             Task.FromResult<LiveOpsRatingResult>(null);
+
+        /// <summary>GET /milestone — текущая цель (вишлист, продажи и т.п.).</summary>
+        Task<LiveOpsMilestoneData> FetchMilestoneAsync() =>
+            Task.FromResult<LiveOpsMilestoneData>(null);
+
+        /// <summary>GET /content_order — порядок отображения контента в карусели.</summary>
+        Task<LiveOpsContentOrder> FetchContentOrderAsync() =>
+            Task.FromResult<LiveOpsContentOrder>(null);
+
+        /// <summary>GET /api/messages/my — сообщения текущего игрока с ответами.</summary>
+        Task<List<LiveOpsConversationItem>> FetchMyMessagesAsync(string playerId) =>
+            Task.FromResult<List<LiveOpsConversationItem>>(null);
+
+        /// <summary>POST /api/messages/confirm — подтвердить получение ответов (sent → delivered).</summary>
+        Task<int> ConfirmRepliesAsync(string[] ids) =>
+            Task.FromResult(0);
     }
 }

@@ -44,8 +44,8 @@ namespace ProtoSystem.LiveOps
         [Tooltip("Показывать рейтинг билда.")]
         public bool enableRating = true;
 
-        [Tooltip("Показывать прогресс-бар вишлиста.")]
-        public bool enableWishlist = true;
+        [Tooltip("Показывать прогресс-бар цели (milestone).")]
+        public bool enableGoal = true;
 
         [Header("Behaviour")]
         [Tooltip("Интервал периодического обновления (секунды). 0 — отключить периодику.")]
@@ -69,6 +69,10 @@ namespace ProtoSystem.LiveOps
         [Tooltip("Таймаут HTTP-запросов (секунды).")]
         public float requestTimeoutSeconds = 10f;
 
+        [Header("Provider")]
+        [Tooltip("Default — универсальный REST (кастомный бэкенд).\nPocketBase — для бэкенда на PocketBase.")]
+        public LiveOpsProviderType providerType = LiveOpsProviderType.PocketBase;
+
         // Провайдер устанавливается программно, не через инспектор
         [NonSerialized] private ILiveOpsProvider _provider;
 
@@ -77,5 +81,13 @@ namespace ProtoSystem.LiveOps
 
         /// <summary>Получить провайдер бэкенда.</summary>
         public ILiveOpsProvider GetProvider() => _provider;
+
+        /// <summary>Создать провайдер по настройкам конфига.</summary>
+        public ILiveOpsProvider CreateProvider(string playerId = null)
+        {
+            return providerType == LiveOpsProviderType.PocketBase
+                ? new PocketBaseHttpLiveOpsProvider(serverUrl, projectId, playerId, requestTimeoutSeconds)
+                : (ILiveOpsProvider)new DefaultHttpLiveOpsProvider(serverUrl, projectId, playerId, requestTimeoutSeconds);
+        }
     }
 }

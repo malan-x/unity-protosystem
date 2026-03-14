@@ -380,7 +380,13 @@ namespace ProtoSystem
             public const string TypeNews      = "ui.community.type_news";
             public const string TypeDevLog    = "ui.community.type_devlog";
             public const string ReadMore      = "ui.community.read_more";
-            
+            public const string ConvTitle     = "ui.community.conv_title";
+            public const string Expand        = "ui.community.expand";
+            public const string Collapse      = "ui.community.collapse";
+            public const string Loading       = "ui.community.loading";
+            public const string NewCards      = "ui.community.new_cards";
+            public const string AllSeen       = "ui.community.all_seen";
+
             public static class Fallback
             {
                 public const string SendButton    = "Отправить";
@@ -391,8 +397,14 @@ namespace ProtoSystem
                 public const string TypeNews      = "Новость";
                 public const string TypeDevLog    = "Dev Log";
                 public const string ReadMore      = "Читать полностью >";
+                public const string ConvTitle     = "Сообщения";
+                public const string Expand        = "Развернуть ▼";
+                public const string Collapse      = "Свернуть ▲";
+                public const string Loading       = "Обновление…";
+                public const string NewCards      = "{0} новых";
+                public const string AllSeen       = "Нет новых";
             }
-            
+
             public static class FallbackEn
             {
                 public const string SendButton    = "Send";
@@ -403,6 +415,12 @@ namespace ProtoSystem
                 public const string TypeNews      = "News";
                 public const string TypeDevLog    = "Dev Log";
                 public const string ReadMore      = "Read more >";
+                public const string ConvTitle     = "Messages";
+                public const string Expand        = "Expand ▼";
+                public const string Collapse      = "Collapse ▲";
+                public const string Loading       = "Updating…";
+                public const string NewCards      = "{0} new";
+                public const string AllSeen       = "No new";
             }
         }
         

@@ -364,8 +364,65 @@ namespace ProtoSystem.UI
             var rootCSF = root.AddComponent<ContentSizeFitter>();
             rootCSF.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
+            // ═══ CollapsedRoot: компактная строка summary + expand ═══
+            var collapsedRoot = new GameObject("CollapsedRoot");
+            collapsedRoot.transform.SetParent(root.transform, false);
+            var collapsedRect = collapsedRoot.AddComponent<RectTransform>();
+            collapsedRect.pivot = new Vector2(0.5f, 0f);
+            var collapsedCG = collapsedRoot.AddComponent<CanvasGroup>();
+            var collapsedLE = collapsedRoot.AddComponent<LayoutElement>();
+            collapsedLE.preferredHeight = 22;
+            var collapsedHLG = collapsedRoot.AddComponent<HorizontalLayoutGroup>();
+            collapsedHLG.padding = new RectOffset(6, 6, 2, 2);
+            collapsedHLG.spacing = 6;
+            collapsedHLG.childControlWidth = false;
+            collapsedHLG.childControlHeight = false;
+            collapsedHLG.childForceExpandWidth = false;
+            collapsedHLG.childForceExpandHeight = false;
+            collapsedHLG.childAlignment = TextAnchor.MiddleLeft;
+
+            // Status text (показывает "Обновление..." пока грузятся данные)
+            var statusGO = CreateText("StatusText", collapsedRoot.transform, UIKeys.CommunityPanel.Fallback.Loading, 10);
+            statusGO.GetComponent<TMP_Text>().color = new Color(0.5f, 0.5f, 0.5f);
+            statusGO.GetComponent<TMP_Text>().fontStyle = FontStyles.Italic;
+            statusGO.GetComponent<RectTransform>().sizeDelta = new Vector2(90, 18);
+
+            // Summary text (количество новых карточек)
+            var summaryGO = CreateText("SummaryText", collapsedRoot.transform, "", 10);
+            summaryGO.GetComponent<TMP_Text>().fontStyle = FontStyles.Bold;
+            summaryGO.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineLeft;
+            summaryGO.GetComponent<RectTransform>().sizeDelta = new Vector2(80, 18);
+
+            // Spacer (прижимает кнопку вправо)
+            var collapsedSpacer = new GameObject("Spacer");
+            collapsedSpacer.transform.SetParent(collapsedRoot.transform, false);
+            collapsedSpacer.AddComponent<RectTransform>();
+            var spacerLE = collapsedSpacer.AddComponent<LayoutElement>();
+            spacerLE.flexibleWidth = 1;
+
+            // Expand button (компактная, справа)
+            var expandBtn = CreateButton("ExpandButton", collapsedRoot.transform,
+                UIKeys.CommunityPanel.Fallback.Expand, new Vector2(100, 18));
+            var expandBtnText = expandBtn.transform.Find("Text")?.GetComponent<TMP_Text>();
+            if (expandBtnText) expandBtnText.fontSize = 10;
+            AddLocalization(expandBtn.transform.Find("Text")?.gameObject,
+                UIKeys.CommunityPanel.Expand, UIKeys.CommunityPanel.Fallback.Expand);
+
+            // ═══ ExpandedRoot: карточки, сообщения, переписка, кнопка свернуть ═══
+            var expandedRoot = new GameObject("ExpandedRoot");
+            expandedRoot.transform.SetParent(root.transform, false);
+            var expandedRect = expandedRoot.AddComponent<RectTransform>();
+            expandedRect.pivot = new Vector2(0.5f, 0f);
+            var expandedCG = expandedRoot.AddComponent<CanvasGroup>();
+            var expandedVLG = expandedRoot.AddComponent<VerticalLayoutGroup>();
+            expandedVLG.spacing = 4;
+            expandedVLG.childControlWidth = true;
+            expandedVLG.childControlHeight = true;
+            expandedVLG.childForceExpandWidth = true;
+            expandedVLG.childForceExpandHeight = false;
+
             // ─── Cards (занимает всё свободное место) ────────────
-            var cardsRoot = CPMakeBlock("CardsRoot", root.transform, preferredHeight: 200);
+            var cardsRoot = CPMakeBlock("CardsRoot", expandedRoot.transform, preferredHeight: 200);
 
             // NavBar внутри CardsRoot снизу
             var cardNavBar = new GameObject("NavBar");
@@ -423,10 +480,12 @@ namespace ProtoSystem.UI
             var annTitle = CreateText("Title", annCard.transform, "Заголовок новости", 16);
             annTitle.GetComponent<TMP_Text>().fontStyle = FontStyles.Bold;
             annTitle.AddComponent<LayoutElement>().preferredHeight = 28;
+            annTitle.AddComponent<LocalizeTMP>();
             var annBody = CreateText("Body", annCard.transform, "Текст новости.", 13);
             annBody.GetComponent<TMP_Text>().color = new Color(0.8f, 0.8f, 0.8f);
             annBody.GetComponent<TMP_Text>().enableWordWrapping = true;
             annBody.AddComponent<LayoutElement>().preferredHeight = 60;
+            annBody.AddComponent<LocalizeTMP>();
             var annUrlBtn = CreateButton("UrlButton", annCard.transform, "Читать полностью →", new Vector2(170, 28));
             annUrlBtn.AddComponent<LayoutElement>().preferredHeight = 28;
 
@@ -454,7 +513,7 @@ namespace ProtoSystem.UI
             // Items container — no flexibleHeight, grows with content
 
             // ─── Message Row (абсолютное позиционирование — без VLG внутри) ───
-            var msgRoot = CPMakeBlock("MessageRoot", root.transform, preferredHeight: 56);
+            var msgRoot = CPMakeBlock("MessageRoot", expandedRoot.transform, preferredHeight: 56);
             // input: левая часть
             var msgInput = CreateTMPInputField("MessageInput", msgRoot.transform);
             var msgInputField = msgInput.GetComponent<TMP_InputField>();
@@ -479,12 +538,53 @@ namespace ProtoSystem.UI
             charCount.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.TopRight;
             CPSetAnchors(charCount, new Vector2(0, 0), new Vector2(1, 0), new Vector4(6, 0, -114, 13));
 
+            // ─── Conversation Button + Badge (слева от send button) ───
+            var convBtn = CreateButton("ConversationButton", msgRoot.transform, "", new Vector2(36, 36));
+            CPSetAnchors(convBtn, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector4(-142, -18, -108, 18));
+            // Hide text child, add envelope icon instead
+            var convBtnText = convBtn.transform.Find("Text");
+            if (convBtnText != null) convBtnText.gameObject.SetActive(false);
+            var envelopeSprite = CPCreateEnvelopeSprite(64, Color.white, "icon_envelope");
+            var envelopeIcon = new GameObject("Icon");
+            envelopeIcon.transform.SetParent(convBtn.transform, false);
+            var envelopeRect = envelopeIcon.AddComponent<RectTransform>();
+            envelopeRect.anchorMin = new Vector2(0.5f, 0.5f);
+            envelopeRect.anchorMax = new Vector2(0.5f, 0.5f);
+            envelopeRect.sizeDelta = new Vector2(20, 20);
+            envelopeRect.anchoredPosition = Vector2.zero;
+            var envelopeImg = envelopeIcon.AddComponent<Image>();
+            envelopeImg.sprite = envelopeSprite;
+            envelopeImg.color = new Color(0.9f, 0.9f, 0.9f);
+            envelopeImg.raycastTarget = false;
+            // Notification badge (красный кружок поверх кнопки)
+            var badge = new GameObject("NotificationBadge");
+            badge.transform.SetParent(convBtn.transform, false);
+            var badgeRect = badge.AddComponent<RectTransform>();
+            badgeRect.anchorMin = new Vector2(1, 1);
+            badgeRect.anchorMax = new Vector2(1, 1);
+            badgeRect.pivot = new Vector2(1, 1);
+            badgeRect.sizeDelta = new Vector2(18, 18);
+            badgeRect.anchoredPosition = new Vector2(4, 4);
+            var badgeImg = badge.AddComponent<Image>();
+            badgeImg.color = new Color(0.85f, 0.15f, 0.15f);
+            // Badge count text
+            var badgeCount = CreateText("Count", badge.transform, "0", 10);
+            var badgeCountRect = badgeCount.GetComponent<RectTransform>();
+            badgeCountRect.anchorMin = Vector2.zero;
+            badgeCountRect.anchorMax = Vector2.one;
+            badgeCountRect.offsetMin = Vector2.zero;
+            badgeCountRect.offsetMax = Vector2.zero;
+            badgeCount.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.Center;
+            badgeCount.GetComponent<TMP_Text>().color = Color.white;
+            badge.SetActive(false);
+
             // ─── Wishlist Strip (абсолютное позиционирование) ───
             var wishRoot = CPMakeBlock("WishlistRoot", root.transform, preferredHeight: 52);
             // текст описания: по центру сверху
-            var wishDesc  = CreateText("Description", wishRoot.transform, "Вишлист в Steam", 12);
+            var wishDesc  = CreateText("Description", wishRoot.transform, "", 12);
             wishDesc.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.Top;
             CPSetAnchors(wishDesc,  new Vector2(0, 1), new Vector2(1, 1), new Vector4(8, -22, -8, -4));
+            wishDesc.AddComponent<LocalizeTMP>();
             // счётчик: справа от прогресс-бара
             var wishCount = CreateText("Count", wishRoot.transform, "0 / 10 000", 11);
             wishCount.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineRight;
@@ -507,28 +607,56 @@ namespace ProtoSystem.UI
             barFillImg.fillMethod = Image.FillMethod.Horizontal;
             barFillImg.fillAmount = 0.4f;
 
-            // ─── Rating Strip (абсолютное позиционирование) ───
-            var ratingRoot = CPMakeBlock("RatingRoot", root.transform, preferredHeight: 40);
-            // звёзды в HLG-контейнере который позиционируется абсолютно в ratingRoot
-            var starsHolder = new GameObject("Stars");
-            starsHolder.transform.SetParent(ratingRoot.transform, false);
-            starsHolder.AddComponent<RectTransform>();
-            CPSetAnchors(starsHolder, new Vector2(0, 0), new Vector2(1, 1), new Vector4(64, 4, -44, -4));
-            var starsHLG = starsHolder.AddComponent<HorizontalLayoutGroup>();
-            starsHLG.spacing = 2;
-            starsHLG.childAlignment      = TextAnchor.MiddleLeft;
-            starsHLG.childControlWidth   = false; starsHLG.childControlHeight  = false;
-            starsHLG.childForceExpandWidth = false; starsHLG.childForceExpandHeight = false;
-            var starButtons = new Button[10];
-            for (int i = 0; i < 10; i++)
-            {
-                var starGO  = CreateButton($"Star{i + 1}", starsHolder.transform, "★", new Vector2(24, 24));
-                starButtons[i] = starGO.GetComponent<Button>();
-            }
-            // средняя оценка: справа
-            var ratingAvg = CreateText("Avg", ratingRoot.transform, "—", 15);
+            // ─── Rating Strip (звёзды + ховер/клик через EventTrigger) ───
+            var ratingRoot = CPMakeBlock("RatingRoot", root.transform, preferredHeight: 48);
+
+            // Процедурные спрайты: ряд из 10 звёзд (сохраняются как PNG-ассеты)
+            var starBgSprite   = CPCreateStarRowSprite(10, 32, new Color(0.3f, 0.3f, 0.3f, 0.5f), "rating_stars_bg");
+            var starFillSprite = CPCreateStarRowSprite(10, 32, new Color(1f, 0.85f, 0.2f),        "rating_stars_fill");
+
+            // StarsArea — область ховера/клика (прозрачный Image для raycast)
+            var starsAreaGO = new GameObject("StarsArea");
+            starsAreaGO.transform.SetParent(ratingRoot.transform, false);
+            var starsAreaRect = starsAreaGO.AddComponent<RectTransform>();
+            CPSetAnchors(starsAreaGO, new Vector2(0, 0), new Vector2(1, 1), new Vector4(64, 4, -60, -4));
+            var starsAreaImg = starsAreaGO.AddComponent<Image>();
+            starsAreaImg.color = Color.clear; // невидимый, но ловит raycast
+
+            // Background — полный ряд тусклых звёзд
+            var bgGO = new GameObject("StarsBg");
+            bgGO.transform.SetParent(starsAreaGO.transform, false);
+            var bgRect = bgGO.AddComponent<RectTransform>();
+            bgRect.anchorMin = Vector2.zero; bgRect.anchorMax = Vector2.one;
+            bgRect.offsetMin = Vector2.zero; bgRect.offsetMax = Vector2.zero;
+            var bgImg = bgGO.AddComponent<Image>();
+            bgImg.sprite = starBgSprite;
+            bgImg.type = Image.Type.Simple;
+            bgImg.raycastTarget = false;
+
+            // Fill — яркие звёзды, Image.Type.Filled (горизонтально)
+            var fillGO = new GameObject("StarsFill");
+            fillGO.transform.SetParent(starsAreaGO.transform, false);
+            var fillRect = fillGO.AddComponent<RectTransform>();
+            fillRect.anchorMin = Vector2.zero; fillRect.anchorMax = Vector2.one;
+            fillRect.offsetMin = Vector2.zero; fillRect.offsetMax = Vector2.zero;
+            var fillImg = fillGO.AddComponent<Image>();
+            fillImg.sprite     = starFillSprite;
+            fillImg.type       = Image.Type.Filled;
+            fillImg.fillMethod = Image.FillMethod.Horizontal;
+            fillImg.fillOrigin = (int)Image.OriginHorizontal.Left;
+            fillImg.fillAmount = 0f;
+            fillImg.raycastTarget = false;
+
+            // Текст текущего значения (справа от звёзд)
+            var ratingValueGO = CreateText("ValueText", ratingRoot.transform, "—", 18);
+            ratingValueGO.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.Center;
+            ratingValueGO.GetComponent<TMP_Text>().fontStyle = FontStyles.Bold;
+            CPSetAnchors(ratingValueGO, new Vector2(1, 0), new Vector2(1, 1), new Vector4(-58, 4, -34, -4));
+
+            // средняя оценка: правый край
+            var ratingAvg = CreateText("Avg", ratingRoot.transform, "—", 13);
             ratingAvg.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineRight;
-            CPSetAnchors(ratingAvg, new Vector2(1, 0), new Vector2(1, 1), new Vector4(-42, 4, -4, -4));
+            CPSetAnchors(ratingAvg, new Vector2(1, 0), new Vector2(1, 1), new Vector4(-32, 4, -4, -4));
 
             // Card Meta (e.g. vote count)
             var cardMetaGO = CreateText("CardMeta", cardsRoot.transform, "", 9);
@@ -582,12 +710,155 @@ namespace ProtoSystem.UI
             SetField(component, "messageInput",           msgInput.GetComponent<TMP_InputField>());
             SetField(component, "messageSendButton",      sendBtn.GetComponent<Button>());
             SetField(component, "messageCharCountText",   charCount.GetComponent<TMP_Text>());
+            SetField(component, "conversationButton",    convBtn.GetComponent<Button>());
+            SetField(component, "notificationBadge",     badge);
+            SetField(component, "notificationCountText", badgeCount.GetComponent<TMP_Text>());
+
+            // ─── Conversation Panel (встроенная переписка, скрыта по умолчанию) ───
+            // ConversationRoot — child корневого VLG, фиксированная preferredHeight для ограничения
+            var convRoot = new GameObject("ConversationRoot");
+            convRoot.transform.SetParent(expandedRoot.transform, false);
+            convRoot.AddComponent<RectTransform>();
+            convRoot.AddComponent<Image>().color = new Color(0.13f, 0.13f, 0.13f, 0.95f);
+            var convRootLE = convRoot.AddComponent<LayoutElement>();
+            convRootLE.preferredHeight = 400; // макс. высота панели переписки
+
+            var convVLG = convRoot.AddComponent<VerticalLayoutGroup>();
+            convVLG.padding = new RectOffset(6, 6, 4, 4);
+            convVLG.spacing = 4;
+            convVLG.childControlWidth = true;
+            convVLG.childControlHeight = true;
+            convVLG.childForceExpandWidth = true;
+            convVLG.childForceExpandHeight = false;
+
+            // ── Header: кнопка назад (фиксированная ширина) + заголовок ──
+            var convHeader = new GameObject("ConvHeader");
+            convHeader.transform.SetParent(convRoot.transform, false);
+            convHeader.AddComponent<RectTransform>();
+            var convHeaderHLG = convHeader.AddComponent<HorizontalLayoutGroup>();
+            convHeaderHLG.padding = new RectOffset(0, 0, 0, 0);
+            convHeaderHLG.spacing = 8;
+            convHeaderHLG.childControlWidth = false;
+            convHeaderHLG.childControlHeight = false;
+            convHeaderHLG.childForceExpandWidth = false;
+            convHeaderHLG.childForceExpandHeight = false;
+            convHeaderHLG.childAlignment = TextAnchor.MiddleLeft;
+            var convHeaderLE = convHeader.AddComponent<LayoutElement>();
+            convHeaderLE.minHeight = 30;
+            convHeaderLE.preferredHeight = 30;
+
+            var convBackBtn = CreateButton("ConvBackButton", convHeader.transform, "", new Vector2(40, 28));
+            var convBackBtnRect = convBackBtn.GetComponent<RectTransform>();
+            convBackBtnRect.sizeDelta = new Vector2(40, 28);
+            // Hide text child, add back arrow icon instead
+            var backBtnText = convBackBtn.transform.Find("Text");
+            if (backBtnText != null) backBtnText.gameObject.SetActive(false);
+            var backArrowSprite = CPCreateBackArrowSprite(64, Color.white, "icon_back");
+            var backArrowIcon = new GameObject("Icon");
+            backArrowIcon.transform.SetParent(convBackBtn.transform, false);
+            var backArrowRect = backArrowIcon.AddComponent<RectTransform>();
+            backArrowRect.anchorMin = new Vector2(0.5f, 0.5f);
+            backArrowRect.anchorMax = new Vector2(0.5f, 0.5f);
+            backArrowRect.sizeDelta = new Vector2(16, 16);
+            backArrowRect.anchoredPosition = Vector2.zero;
+            var backArrowImg = backArrowIcon.AddComponent<Image>();
+            backArrowImg.sprite = backArrowSprite;
+            backArrowImg.color = new Color(0.9f, 0.9f, 0.9f);
+            backArrowImg.raycastTarget = false;
+
+            var convTitleGO = CreateText("ConvTitle", convHeader.transform, UIKeys.CommunityPanel.Fallback.ConvTitle, 14);
+            convTitleGO.GetComponent<TMP_Text>().fontStyle = FontStyles.Bold;
+            convTitleGO.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.Left;
+            AddLocalization(convTitleGO, UIKeys.CommunityPanel.ConvTitle, UIKeys.CommunityPanel.Fallback.ConvTitle);
+            var convTitleRect = convTitleGO.GetComponent<RectTransform>();
+            convTitleRect.sizeDelta = new Vector2(200, 28);
+
+            // ── Translation controls (right side of header, not part of HLG) ──
+            var transGroup = new GameObject("TransGroup");
+            transGroup.transform.SetParent(convHeader.transform, false);
+            var transGroupRect = transGroup.AddComponent<RectTransform>();
+            transGroupRect.anchorMin = new Vector2(1, 0);
+            transGroupRect.anchorMax = new Vector2(1, 1);
+            transGroupRect.pivot = new Vector2(1, 0.5f);
+            transGroupRect.sizeDelta = new Vector2(70, 0);
+            transGroupRect.anchoredPosition = new Vector2(0, 0);
+
+            var transHLG = transGroup.AddComponent<HorizontalLayoutGroup>();
+            transHLG.spacing = 4;
+            transHLG.childControlWidth = false;
+            transHLG.childControlHeight = false;
+            transHLG.childForceExpandWidth = false;
+            transHLG.childForceExpandHeight = false;
+            transHLG.childAlignment = TextAnchor.MiddleRight;
+
+            var langLabel = CreateText("LangLabel", transGroup.transform, "??", 11);
+            langLabel.GetComponent<TMP_Text>().color = new Color(0.5f, 0.5f, 0.5f);
+            langLabel.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.Center;
+            langLabel.GetComponent<RectTransform>().sizeDelta = new Vector2(28, 28);
+
+            var translateBtn = CreateButton("TranslateButton", transGroup.transform, "Aa", new Vector2(36, 28));
+            translateBtn.GetComponent<RectTransform>().sizeDelta = new Vector2(36, 28);
+
+            // ── ScrollView с ограниченной высотой ──
+            var convScroll = CreateScrollView("ConvScrollView", convRoot.transform);
+            var convScrollLE = convScroll.AddComponent<LayoutElement>();
+            convScrollLE.flexibleHeight = 1;
+            convScrollLE.preferredHeight = 200;
+
+            var convContent = convScroll.transform.Find("Viewport/Content");
+            var convContentVLG = convContent.gameObject.AddComponent<VerticalLayoutGroup>();
+            convContentVLG.padding = new RectOffset(4, 4, 4, 4);
+            convContentVLG.spacing = 6;
+            convContentVLG.childControlWidth = true;
+            convContentVLG.childControlHeight = true;
+            convContentVLG.childForceExpandWidth = true;
+            convContentVLG.childForceExpandHeight = false;
+            var convContentCSF = convContent.gameObject.AddComponent<ContentSizeFitter>();
+            convContentCSF.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            // ── Empty state (внутри scroll content, по центру) ──
+            var convEmpty = CreateText("ConvEmptyState", convContent, "No messages yet", 13);
+            convEmpty.GetComponent<TMP_Text>().color = new Color(0.5f, 0.5f, 0.5f);
+            convEmpty.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.Center;
+            var convEmptyLE = convEmpty.AddComponent<LayoutElement>();
+            convEmptyLE.preferredHeight = 60;
+            convEmpty.SetActive(false);
+
+            // Message item prefab (inactive, хранится в convRoot как шаблон)
+            var convMsgItem = ConvCreateMessageItemPrefab();
+            convMsgItem.transform.SetParent(convRoot.transform, false);
+            convMsgItem.SetActive(false);
+
+            SetField(component, "conversationRoot",                convRoot);
+            SetField(component, "conversationMessagesContainer",   convContent);
+            SetField(component, "conversationMessageItemPrefab",   convMsgItem);
+            SetField(component, "conversationEmptyState",          convEmpty);
+            SetField(component, "conversationBackButton",          convBackBtn.GetComponent<Button>());
+            SetField(component, "translationLangLabel",             langLabel.GetComponent<TMP_Text>());
+            SetField(component, "translationToggleButton",          translateBtn.GetComponent<Button>());
+
+            // Деактивируем convRoot ПОСЛЕ создания всех детей
+            convRoot.SetActive(false);
+
+            // ─── Collapse button (внизу expandedRoot) ───
+            var collapseBtn = CreateButton("CollapseButton", expandedRoot.transform,
+                UIKeys.CommunityPanel.Fallback.Collapse, new Vector2(120, 28));
+            AddLocalization(collapseBtn.transform.Find("Text")?.gameObject,
+                UIKeys.CommunityPanel.Collapse, UIKeys.CommunityPanel.Fallback.Collapse);
+            var collapseBtnLE = collapseBtn.AddComponent<LayoutElement>();
+            collapseBtnLE.preferredHeight = 28;
+
+            // expandedRoot скрыт по умолчанию (панель стартует свёрнутой)
+            expandedRoot.SetActive(false);
+
             SetField(component, "goalRoot",           wishRoot);
             SetField(component, "goalFill",           barFillImg);
             SetField(component, "goalCountText",      wishCount.GetComponent<TMP_Text>());
             SetField(component, "goalDescText",       wishDesc.GetComponent<TMP_Text>());
             SetField(component, "ratingRoot",             ratingRoot);
-            SetField(component, "ratingStars",            starButtons);
+            SetField(component, "ratingStarsArea",        starsAreaRect);
+            SetField(component, "ratingFillImage",        fillImg);
+            SetField(component, "ratingValueText",        ratingValueGO.GetComponent<TMP_Text>());
             SetField(component, "ratingAvgText",          ratingAvg.GetComponent<TMP_Text>());
             SetField(component, "pollOptionPrefab",       pollOptionPrefab);
             SetField(component, "devLogItemPrefab",       devLogItemPrefab);
@@ -598,6 +869,16 @@ namespace ProtoSystem.UI
             var typeBadgeLocalize = typeBadgeGO.GetComponent<LocalizeTMP>();
             if (typeBadgeLocalize) SetField(component, "typeBadgeLocalize", typeBadgeLocalize);
 
+            // Collapsed / Expanded
+            SetField(component, "collapsedRoot",        collapsedRoot);
+            SetField(component, "expandedRoot",         expandedRoot);
+            SetField(component, "expandButton",         expandBtn.GetComponent<Button>());
+            SetField(component, "collapseButton",       collapseBtn.GetComponent<Button>());
+            SetField(component, "summaryText",          summaryGO.GetComponent<TMP_Text>());
+            SetField(component, "statusText",           statusGO.GetComponent<TMP_Text>());
+            SetField(component, "collapsedCanvasGroup", collapsedCG);
+            SetField(component, "expandedCanvasGroup",  expandedCG);
+
             // Localized labels
             var sendLocalize = sendBtn.transform.Find("Text")?.GetComponent<LocalizeTMP>();
             if (sendLocalize) SetField(component, "sendButtonLocalize", sendLocalize);
@@ -607,6 +888,112 @@ namespace ProtoSystem.UI
             if (ratingLocalize) SetField(component, "ratingLabelLocalize", ratingLocalize);
 
             return SavePrefab(root, "CommunityPanelWindow");
+        }
+
+        /// <summary>Создаёт префаб элемента переписки.</summary>
+        private static GameObject ConvCreateMessageItemPrefab()
+        {
+            var item = new GameObject("ConversationMessageItem");
+            item.AddComponent<RectTransform>();
+            var itemLE = item.AddComponent<LayoutElement>();
+            itemLE.minHeight = 40;
+            itemLE.flexibleWidth = 1;
+            var vlg = item.AddComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(4, 4, 4, 4);
+            vlg.spacing = 4;
+            vlg.childControlWidth  = true;
+            vlg.childControlHeight = true;
+            vlg.childForceExpandWidth  = true;
+            vlg.childForceExpandHeight = false;
+
+            // Background
+            var bg = item.AddComponent<Image>();
+            bg.color = new Color(0.16f, 0.16f, 0.18f, 0.8f);
+
+            // ─── Player bubble ─────────────────────────────────────
+            var playerBubble = new GameObject("PlayerBubble");
+            playerBubble.transform.SetParent(item.transform, false);
+            playerBubble.AddComponent<RectTransform>();
+            var pbVLG = playerBubble.AddComponent<VerticalLayoutGroup>();
+            pbVLG.padding = new RectOffset(2, 2, 2, 2);
+            pbVLG.spacing = 2;
+            pbVLG.childControlWidth  = true;
+            pbVLG.childControlHeight = true;
+            pbVLG.childForceExpandWidth  = true;
+            pbVLG.childForceExpandHeight = false;
+
+            var msgText = CreateText("MessageText", playerBubble.transform, "Player message", 13);
+            msgText.GetComponent<TMP_Text>().color = new Color(0.9f, 0.9f, 0.9f);
+            msgText.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.TopLeft;
+
+            // Timestamp + category row
+            var metaRow = new GameObject("MetaRow");
+            metaRow.transform.SetParent(playerBubble.transform, false);
+            metaRow.AddComponent<RectTransform>();
+            var metaHLG = metaRow.AddComponent<HorizontalLayoutGroup>();
+            metaHLG.spacing = 8;
+            metaHLG.childControlWidth  = true;
+            metaHLG.childControlHeight = true;
+            metaHLG.childForceExpandWidth  = false;
+            metaHLG.childForceExpandHeight = false;
+            var metaLE = metaRow.AddComponent<LayoutElement>();
+            metaLE.preferredHeight = 14;
+
+            var timeText = CreateText("TimestampText", metaRow.transform, "01 Jan 2026, 12:00", 10);
+            timeText.GetComponent<TMP_Text>().color = new Color(0.45f, 0.45f, 0.45f);
+
+            var catText = CreateText("CategoryText", metaRow.transform, "", 10);
+            catText.GetComponent<TMP_Text>().color = new Color(0.4f, 0.4f, 0.5f);
+            catText.GetComponent<TMP_Text>().fontStyle = FontStyles.Italic;
+
+            // ─── Dev reply bubble (выровнен вправо, ширина по контенту) ──
+            // Обёртка для выравнивания вправо
+            var replyRow = new GameObject("DevReplyRow");
+            replyRow.transform.SetParent(item.transform, false);
+            replyRow.AddComponent<RectTransform>();
+            var replyRowHLG = replyRow.AddComponent<HorizontalLayoutGroup>();
+            replyRowHLG.childControlWidth = true;
+            replyRowHLG.childControlHeight = true;
+            replyRowHLG.childForceExpandWidth = false;
+            replyRowHLG.childForceExpandHeight = false;
+            replyRowHLG.childAlignment = TextAnchor.MiddleRight; // прижать вправо
+
+            var devReply = new GameObject("DevReplyBubble");
+            devReply.transform.SetParent(replyRow.transform, false);
+            devReply.AddComponent<RectTransform>();
+            var drHLG = devReply.AddComponent<HorizontalLayoutGroup>();
+            drHLG.padding = new RectOffset(8, 10, 4, 4);
+            drHLG.spacing = 6;
+            drHLG.childControlWidth  = true;
+            drHLG.childControlHeight = true;
+            drHLG.childForceExpandWidth  = false;
+            drHLG.childForceExpandHeight = false;
+            // CSF — ширина по контенту
+            var drCSF = devReply.AddComponent<ContentSizeFitter>();
+            drCSF.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            drCSF.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var replyBg = devReply.AddComponent<Image>();
+            replyBg.color = new Color(0.12f, 0.22f, 0.15f, 0.95f);
+
+            var replyArrowSprite = CPCreateReplyArrowSprite(64, Color.white, "icon_reply");
+            var replyIcon = new GameObject("ReplyIcon");
+            replyIcon.transform.SetParent(devReply.transform, false);
+            replyIcon.AddComponent<RectTransform>();
+            var replyIconImg = replyIcon.AddComponent<Image>();
+            replyIconImg.sprite = replyArrowSprite;
+            replyIconImg.color = new Color(0.4f, 0.75f, 0.5f);
+            replyIconImg.raycastTarget = false;
+            var iconLE = replyIcon.AddComponent<LayoutElement>();
+            iconLE.preferredWidth = 14;
+            iconLE.preferredHeight = 14;
+            iconLE.flexibleWidth = 0;
+
+            var replyText = CreateText("ReplyText", devReply.transform, "Dev reply", 13);
+            replyText.GetComponent<TMP_Text>().color = new Color(0.5f, 0.85f, 0.6f);
+            replyText.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.Right;
+
+            return item;
         }
 
         // Установить anchors + offsets за один вызов (offsetMin/Max в пикселях от anchor)
@@ -622,6 +1009,296 @@ namespace ProtoSystem.UI
         }
 
         // Блок-секция с тёмным фоном и LayoutElement
+        /// <summary>
+        /// Генерирует спрайт с рядом из N звёзд, сохраняет как PNG-ассет и возвращает Sprite.
+        /// </summary>
+        private static Sprite CPCreateStarRowSprite(int starCount, int starSize, Color color, string assetName = "stars")
+        {
+            int padding = 2;
+            int w = starCount * starSize + (starCount - 1) * padding;
+            int h = starSize;
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+
+            // Очистить прозрачным
+            var clear = new Color32(0, 0, 0, 0);
+            var pixels = tex.GetPixels32();
+            for (int i = 0; i < pixels.Length; i++) pixels[i] = clear;
+            tex.SetPixels32(pixels);
+
+            var col32 = (Color32)color;
+            for (int s = 0; s < starCount; s++)
+            {
+                int ox = s * (starSize + padding);
+                DrawStar(tex, ox, 0, starSize, col32);
+            }
+
+            tex.Apply();
+
+            // Сохраняем как PNG-ассет чтобы спрайт пережил сериализацию префаба
+            string outputDir = ResolveOutputPath();
+            EnsureFolder(outputDir);
+            string filename = $"{assetName}.png";
+            string assetPath = Path.Combine(outputDir, filename).Replace('\\', '/');
+
+            byte[] png = tex.EncodeToPNG();
+            Object.DestroyImmediate(tex);
+            File.WriteAllBytes(assetPath, png);
+            AssetDatabase.ImportAsset(assetPath);
+
+            var importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+            if (importer != null)
+            {
+                importer.textureType           = TextureImporterType.Sprite;
+                importer.spriteImportMode      = SpriteImportMode.Single;
+                importer.alphaIsTransparency   = true;
+                importer.mipmapEnabled         = false;
+                importer.filterMode            = FilterMode.Bilinear;
+                importer.textureCompression    = TextureImporterCompression.Uncompressed;
+                importer.SaveAndReimport();
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
+        }
+
+        /// <summary>Рисует пятиконечную звезду в текстуру.</summary>
+        private static void DrawStar(Texture2D tex, int ox, int oy, int size, Color32 col)
+        {
+            float cx = ox + size * 0.5f;
+            float cy = oy + size * 0.5f;
+            float outerR = size * 0.48f;
+            float innerR = outerR * 0.38f;
+
+            // 10 вершин: чередование outer/inner
+            var verts = new Vector2[10];
+            for (int i = 0; i < 10; i++)
+            {
+                float angle = Mathf.PI / 2f + i * Mathf.PI / 5f;
+                float r = (i % 2 == 0) ? outerR : innerR;
+                verts[i] = new Vector2(cx + r * Mathf.Cos(angle), cy + r * Mathf.Sin(angle));
+            }
+
+            // Растеризация: для каждого пикселя в bounding box проверяем принадлежность полигону
+            int x0 = ox, x1 = ox + size - 1;
+            int y0 = oy, y1 = oy + size - 1;
+            for (int py = y0; py <= y1; py++)
+            {
+                for (int px = x0; px <= x1; px++)
+                {
+                    if (PointInPolygon(verts, px + 0.5f, py + 0.5f))
+                        tex.SetPixel(px, py, col);
+                }
+            }
+        }
+
+        private static bool PointInPolygon(Vector2[] poly, float px, float py)
+        {
+            bool inside = false;
+            for (int i = 0, j = poly.Length - 1; i < poly.Length; j = i++)
+            {
+                if ((poly[i].y > py) != (poly[j].y > py) &&
+                    px < (poly[j].x - poly[i].x) * (py - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x)
+                    inside = !inside;
+            }
+            return inside;
+        }
+
+        /// <summary>Генерирует спрайт конверта (envelope icon), сохраняет как PNG-ассет.</summary>
+        private static Sprite CPCreateEnvelopeSprite(int size, Color color, string assetName = "icon_envelope")
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+
+            var clear = new Color32(0, 0, 0, 0);
+            var pixels = tex.GetPixels32();
+            for (int i = 0; i < pixels.Length; i++) pixels[i] = clear;
+            tex.SetPixels32(pixels);
+
+            var col32 = (Color32)color;
+            int margin = size / 8;
+            int left = margin, right = size - margin - 1;
+            int bottom = size / 4, top = size - size / 4;
+
+            // Draw rectangle body
+            for (int y = bottom; y <= top; y++)
+            {
+                for (int x = left; x <= right; x++)
+                {
+                    if (y == bottom || y == top || x == left || x == right)
+                        tex.SetPixel(x, y, col32);
+                }
+            }
+
+            // Draw V-shaped flap from top-left and top-right to center
+            float cx = size * 0.5f;
+            float flapBottom = (bottom + top) * 0.5f;
+            int thickness = Mathf.Max(1, size / 20);
+            for (int x = left; x <= right; x++)
+            {
+                float t = (float)(x - left) / (right - left);
+                float flapY = (t <= 0.5f)
+                    ? Mathf.Lerp(top, flapBottom, t * 2f)
+                    : Mathf.Lerp(flapBottom, top, (t - 0.5f) * 2f);
+                for (int dy = -thickness; dy <= thickness; dy++)
+                {
+                    int py = Mathf.Clamp(Mathf.RoundToInt(flapY) + dy, 0, size - 1);
+                    tex.SetPixel(x, py, col32);
+                }
+            }
+
+            tex.Apply();
+            return SaveSpriteTexture(tex, assetName);
+        }
+
+        /// <summary>Генерирует спрайт стрелки назад (chevron "<"), сохраняет как PNG-ассет.</summary>
+        private static Sprite CPCreateBackArrowSprite(int size, Color color, string assetName = "icon_back")
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+
+            var clear = new Color32(0, 0, 0, 0);
+            var pixels = tex.GetPixels32();
+            for (int i = 0; i < pixels.Length; i++) pixels[i] = clear;
+            tex.SetPixels32(pixels);
+
+            var col32 = (Color32)color;
+            int margin = size / 5;
+            float tipX = margin;
+            float midY = size * 0.5f;
+            float wingX = size - margin;
+            float topY = size - margin;
+            float botY = margin;
+            int thickness = Mathf.Max(1, size / 10);
+
+            // Top arm: from tip (left, center) to wing (right, top)
+            for (int step = 0; step <= size; step++)
+            {
+                float t = (float)step / size;
+                int px = Mathf.RoundToInt(Mathf.Lerp(tipX, wingX, t));
+                int py = Mathf.RoundToInt(Mathf.Lerp(midY, topY, t));
+                for (int dx = -thickness; dx <= thickness; dx++)
+                    for (int dy = -thickness; dy <= thickness; dy++)
+                    {
+                        int sx = Mathf.Clamp(px + dx, 0, size - 1);
+                        int sy = Mathf.Clamp(py + dy, 0, size - 1);
+                        tex.SetPixel(sx, sy, col32);
+                    }
+            }
+            // Bottom arm: from tip (left, center) to wing (right, bottom)
+            for (int step = 0; step <= size; step++)
+            {
+                float t = (float)step / size;
+                int px = Mathf.RoundToInt(Mathf.Lerp(tipX, wingX, t));
+                int py = Mathf.RoundToInt(Mathf.Lerp(midY, botY, t));
+                for (int dx = -thickness; dx <= thickness; dx++)
+                    for (int dy = -thickness; dy <= thickness; dy++)
+                    {
+                        int sx = Mathf.Clamp(px + dx, 0, size - 1);
+                        int sy = Mathf.Clamp(py + dy, 0, size - 1);
+                        tex.SetPixel(sx, sy, col32);
+                    }
+            }
+
+            tex.Apply();
+            return SaveSpriteTexture(tex, assetName);
+        }
+
+        /// <summary>Генерирует спрайт curved reply arrow (приближение к ↩), сохраняет как PNG-ассет.</summary>
+        private static Sprite CPCreateReplyArrowSprite(int size, Color color, string assetName = "icon_reply")
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+
+            var clear = new Color32(0, 0, 0, 0);
+            var pixels = tex.GetPixels32();
+            for (int i = 0; i < pixels.Length; i++) pixels[i] = clear;
+            tex.SetPixels32(pixels);
+
+            var col32 = (Color32)color;
+            int thickness = Mathf.Max(1, size / 10);
+            float cx = size * 0.5f;
+            float cy = size * 0.55f;
+            float radius = size * 0.3f;
+
+            // Draw curved part: arc from right going up and curving left (180 degrees, top half)
+            for (float angle = 0; angle <= Mathf.PI; angle += 0.01f)
+            {
+                int px = Mathf.RoundToInt(cx + radius * Mathf.Cos(angle));
+                int py = Mathf.RoundToInt(cy + radius * Mathf.Sin(angle));
+                for (int dx = -thickness; dx <= thickness; dx++)
+                    for (int dy = -thickness; dy <= thickness; dy++)
+                    {
+                        int sx = Mathf.Clamp(px + dx, 0, size - 1);
+                        int sy = Mathf.Clamp(py + dy, 0, size - 1);
+                        tex.SetPixel(sx, sy, col32);
+                    }
+            }
+
+            // Draw downward tail on the left side
+            int tailX = Mathf.RoundToInt(cx - radius);
+            int tailTop = Mathf.RoundToInt(cy);
+            int tailBottom = Mathf.RoundToInt(size * 0.2f);
+            for (int y = tailBottom; y <= tailTop; y++)
+            {
+                for (int dx = -thickness; dx <= thickness; dx++)
+                {
+                    int sx = Mathf.Clamp(tailX + dx, 0, size - 1);
+                    tex.SetPixel(sx, y, col32);
+                }
+            }
+
+            // Draw arrowhead at bottom of tail pointing down-left
+            int arrowTipY = tailBottom;
+            int arrowTipX = tailX;
+            int arrowSize = Mathf.Max(3, size / 5);
+            for (int i = 0; i <= arrowSize; i++)
+            {
+                float t = (float)i / arrowSize;
+                // left wing
+                int lx = Mathf.RoundToInt(Mathf.Lerp(arrowTipX, arrowTipX - arrowSize, t));
+                int ly = Mathf.RoundToInt(Mathf.Lerp(arrowTipY, arrowTipY + arrowSize, t));
+                // right wing
+                int rx = Mathf.RoundToInt(Mathf.Lerp(arrowTipX, arrowTipX + arrowSize, t));
+                int ry = ly;
+                for (int d = -thickness; d <= thickness; d++)
+                {
+                    tex.SetPixel(Mathf.Clamp(lx + d, 0, size - 1), Mathf.Clamp(ly, 0, size - 1), col32);
+                    tex.SetPixel(Mathf.Clamp(rx + d, 0, size - 1), Mathf.Clamp(ry, 0, size - 1), col32);
+                }
+            }
+
+            tex.Apply();
+            return SaveSpriteTexture(tex, assetName);
+        }
+
+        /// <summary>Сохраняет Texture2D как PNG-спрайт ассет и возвращает Sprite.</summary>
+        private static Sprite SaveSpriteTexture(Texture2D tex, string assetName)
+        {
+            string outputDir = ResolveOutputPath();
+            EnsureFolder(outputDir);
+            string filename = $"{assetName}.png";
+            string assetPath = Path.Combine(outputDir, filename).Replace('\\', '/');
+
+            byte[] png = tex.EncodeToPNG();
+            Object.DestroyImmediate(tex);
+            File.WriteAllBytes(assetPath, png);
+            AssetDatabase.ImportAsset(assetPath);
+
+            var importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+            if (importer != null)
+            {
+                importer.textureType           = TextureImporterType.Sprite;
+                importer.spriteImportMode      = SpriteImportMode.Single;
+                importer.alphaIsTransparency   = true;
+                importer.mipmapEnabled         = false;
+                importer.filterMode            = FilterMode.Bilinear;
+                importer.textureCompression    = TextureImporterCompression.Uncompressed;
+                importer.SaveAndReimport();
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
+        }
+
         private static GameObject CPMakeBlock(string name, Transform parent,
             float preferredHeight = -1, float flexibleHeight = -1)
         {
@@ -736,18 +1413,23 @@ namespace ProtoSystem.UI
         {
             var go = new GameObject("DevLogItem");
             var rect = go.AddComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(0, 24);
+            rect.sizeDelta = new Vector2(0, 22);
 
             var hlg = go.AddComponent<HorizontalLayoutGroup>();
-            hlg.spacing = 6;
+            hlg.spacing = 4;
+            hlg.padding = new RectOffset(0, 0, 0, 0);
             hlg.childAlignment = TextAnchor.MiddleLeft;
-            hlg.childControlWidth = false; hlg.childControlHeight = true;
+            hlg.childControlWidth = false; hlg.childControlHeight = false;
+            hlg.childForceExpandWidth = false; hlg.childForceExpandHeight = false;
 
-            // Toggle
+            // Toggle — фиксированный квадрат 16x16
             var toggleGO = new GameObject("Toggle");
             toggleGO.transform.SetParent(go.transform, false);
-            toggleGO.AddComponent<RectTransform>().sizeDelta = new Vector2(18, 18);
-            toggleGO.AddComponent<LayoutElement>().preferredWidth = 18;
+            var toggleRect = toggleGO.AddComponent<RectTransform>();
+            toggleRect.sizeDelta = new Vector2(16, 16);
+            var toggleLE = toggleGO.AddComponent<LayoutElement>();
+            toggleLE.preferredWidth = 16; toggleLE.preferredHeight = 16;
+            toggleLE.minWidth = 16; toggleLE.minHeight = 16;
             var bgImg = toggleGO.AddComponent<Image>();
             bgImg.color = new Color(0.25f, 0.25f, 0.3f, 1f);
             var checkGO = new GameObject("Checkmark");
@@ -764,12 +1446,16 @@ namespace ProtoSystem.UI
             toggle.isOn = false;
             toggle.interactable = false;
 
-            // Label
+            // Label — прижат к toggle
             var labelGO = CreateText("Label", go.transform, "Task item", 13);
-            labelGO.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineLeft;
-            labelGO.AddComponent<LayoutElement>().flexibleWidth = 1;
+            var labelTMP = labelGO.GetComponent<TMP_Text>();
+            labelTMP.alignment = TextAlignmentOptions.MidlineLeft;
+            labelTMP.margin = Vector4.zero;
+            var labelLE = labelGO.AddComponent<LayoutElement>();
+            labelLE.flexibleWidth = 1;
+            labelLE.preferredHeight = 22;
 
-            go.AddComponent<LayoutElement>().preferredHeight = 24;
+            go.AddComponent<LayoutElement>().preferredHeight = 22;
             return go;
         }
 

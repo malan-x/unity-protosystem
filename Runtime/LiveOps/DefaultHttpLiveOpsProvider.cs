@@ -107,6 +107,16 @@ namespace ProtoSystem.LiveOps
             catch { return null; }
         }
 
+        // ── Milestone ──────────────────────────────────────────────────────────
+
+        public async Task<LiveOpsMilestoneData> FetchMilestoneAsync()
+        {
+            var json = await GetAsync("/milestone");
+            if (json == null) return null;
+            try { return JsonUtility.FromJson<LiveOpsMilestoneData>(json); }
+            catch { return null; }
+        }
+
         // ── Rating ────────────────────────────────────────────────────────────
 
         public async Task<LiveOpsRatingData> FetchRatingAsync(string version)
@@ -161,14 +171,19 @@ namespace ProtoSystem.LiveOps
 
         private async Task<string> PostAsyncWithResponse(string path, string jsonBody)
         {
+            var url = $"{_baseUrl}{path}";
             var bodyBytes = Encoding.UTF8.GetBytes(jsonBody);
-            using var req = new UnityWebRequest($"{_baseUrl}{path}", "POST");
+            using var req = new UnityWebRequest(url, "POST");
             req.uploadHandler   = new UploadHandlerRaw(bodyBytes);
             req.downloadHandler = new DownloadHandlerBuffer();
             req.SetRequestHeader("Content-Type", "application/json");
             AddHeaders(req);
             req.timeout = Mathf.CeilToInt(_timeoutSeconds);
+
+            Debug.Log($"[LiveOps HTTP] POST {url}  body={jsonBody}");
             await SendAsync(req);
+            Debug.Log($"[LiveOps HTTP] ← {req.responseCode}  networkError={req.isNetworkError}  httpError={req.isHttpError}  error='{req.error}'  body='{req.downloadHandler?.text}'");
+
             if (req.isNetworkError || req.isHttpError) return null;
             return req.downloadHandler.text;
         }

@@ -3,7 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
+using System.Threading.Tasks;
 using ProtoSystem;
 using ProtoSystem.LiveOps;
 
@@ -56,6 +58,14 @@ namespace ProtoSystem.UI
         [SerializeField] private Transform  devLogItemsContainer;
         [SerializeField] private GameObject devLogItemPrefab;
 
+        [Header("DevLog Item Styles")]
+        [SerializeField] private DevLogItemStyle doneStyle = new()
+            { color = new Color(0.6f, 0.6f, 0.5f), strikethrough = true, underline = false };
+        [SerializeField] private DevLogItemStyle wipStyle = new()
+            { color = new Color(1f, 0.85f, 0.3f), strikethrough = false, underline = true };
+        [SerializeField] private DevLogItemStyle todoStyle = new()
+            { color = new Color(0.8f, 0.8f, 0.8f), strikethrough = false, underline = false };
+
         [Header("Message")]
         [SerializeField] private GameObject     messageRoot;
         [SerializeField] private TMP_InputField messageInput;
@@ -71,7 +81,9 @@ namespace ProtoSystem.UI
 
         [Header("Rating")]
         [SerializeField] private GameObject ratingRoot;
-        [SerializeField] private Button[]   ratingStars;
+        [SerializeField] private RectTransform ratingStarsArea;
+        [SerializeField] private Image      ratingFillImage;
+        [SerializeField] private TMP_Text   ratingValueText;
         [SerializeField] private TMP_Text   ratingAvgText;
 
         [Header("Type Badge & Meta")]
@@ -80,10 +92,43 @@ namespace ProtoSystem.UI
         [SerializeField] private TMP_Text   cardMetaText;
         [SerializeField] private LocalizeTMP cardMetaLocalize;
 
+        [Header("Conversation")]
+        [SerializeField] private Button     conversationButton;
+        [SerializeField] private GameObject notificationBadge;
+        [SerializeField] private TMP_Text   notificationCountText;
+        [SerializeField] private GameObject   conversationRoot;
+        [SerializeField] private Transform    conversationMessagesContainer;
+        [SerializeField] private GameObject   conversationMessageItemPrefab;
+        [SerializeField] private GameObject   conversationEmptyState;
+        [SerializeField] private Button       conversationBackButton;
+
+        [Header("Translation")]
+        [SerializeField] private TMP_Text   translationLangLabel;
+        [SerializeField] private Button     translationToggleButton;
+
         [Header("Localization (static labels)")]
         [SerializeField] private LocalizeTMP sendButtonLocalize;
         [SerializeField] private LocalizeTMP placeholderLocalize;
         [SerializeField] private LocalizeTMP ratingLabelLocalize;
+
+        [Header("Collapsed / Expanded")]
+        [SerializeField] private GameObject  collapsedRoot;
+        [SerializeField] private GameObject  expandedRoot;
+        [SerializeField] private Button      expandButton;
+        [SerializeField] private Button      collapseButton;
+        [SerializeField] private TMP_Text    summaryText;
+        [SerializeField] private TMP_Text    statusText;
+        [SerializeField] private CanvasGroup collapsedCanvasGroup;
+        [SerializeField] private CanvasGroup expandedCanvasGroup;
+
+        #endregion
+
+        #region Constants
+
+        private const string PrefKeyPanelExpanded  = "liveops_panel_expanded";
+        private const string PrefKeySeenCards      = "liveops_seen_cards";
+        private const string PrefKeyLaunchCount    = "liveops_launch_count";
+        private const float  AnimationDuration     = 0.25f;
 
         #endregion
 
@@ -92,9 +137,21 @@ namespace ProtoSystem.UI
         private List<LiveOpsPoll>         _polls         = new();
         private List<LiveOpsAnnouncement> _announcements = new();
         private LiveOpsDevLog             _devLog;
+        private LiveOpsContentOrder       _contentOrder;
 
         private List<string> _cardKeys    = new();
         private int          _currentCard;
+        private int          _userVote;
+
+        // true = показывать локализованный ответ, false = оригинал
+        private bool _showLocalizedReply = true;
+
+        // Collapsed/expanded
+        private bool _isExpanded;
+        private bool _isAnimating;
+        private bool _dataLoaded;
+        private int  _launchCount;
+        private HashSet<string> _seenCardIds = new();
 
         #endregion
 
@@ -117,17 +174,39 @@ namespace ProtoSystem.UI
             cardNextButton?.onClick.AddListener(OnNextCard);
             messageSendButton?.onClick.AddListener(OnSendMessage);
             messageInput?.onValueChanged.AddListener(OnMessageInputChanged);
+            if (messageInput != null)
+                messageInput.onSelect.AddListener(_ => TryShowVirtualKeyboard());
 
-            for (int i = 0; i < ratingStars.Length; i++)
-            {
-                int star = i + 1;
-                ratingStars[i]?.onClick.AddListener(() => OnRatingStarClicked(star));
-            }
+            conversationButton?.onClick.AddListener(OpenConversation);
+            conversationBackButton?.onClick.AddListener(CloseConversation);
+            translationToggleButton?.onClick.AddListener(CycleTranslationMode);
+
+            expandButton?.onClick.AddListener(() => SetExpanded(true));
+            collapseButton?.onClick.AddListener(() => SetExpanded(false));
+
+            SetupRatingInput();
+            UpdateRatingDisplay(0);
 
             SetVisible(cardsRoot,    false);
             SetVisible(messageRoot,  false);
             SetVisible(goalRoot,     false);
             SetVisible(ratingRoot,   false);
+            SetVisible(notificationBadge, false);
+            SetVisible(conversationRoot, false);
+
+            // Launch count & initial state
+            _launchCount = PlayerPrefs.GetInt(PrefKeyLaunchCount, 0) + 1;
+            PlayerPrefs.SetInt(PrefKeyLaunchCount, _launchCount);
+            PlayerPrefs.Save();
+
+            _isExpanded = PlayerPrefs.GetInt(PrefKeyPanelExpanded, 0) == 1;
+            LoadSeenCards();
+
+            // Показать статус загрузки
+            if (statusText) statusText.text = UIKeys.CommunityPanel.Fallback.Loading;
+
+            // Начальная видимость (без анимации)
+            ApplyExpandedState(animate: false);
         }
 
         private LiveOpsSystem      _liveOpsSystem;
@@ -135,26 +214,67 @@ namespace ProtoSystem.UI
 
         private void Start()
         {
+            Debug.Log("[CommunityPanel] Start()");
+
             if (stubConfig != null)
             {
                 ApplyStubConfig(stubConfig);
                 return;
             }
 
-            // Авто-резольв системы через менеджер
-            _liveOpsSystem = SystemInitializationManager.Instance?.GetSystem<LiveOpsSystem>();
+            var mgr = SystemInitializationManager.Instance;
+            Debug.Log($"[CommunityPanel] manager={mgr != null}, isInitialized={mgr?.IsInitialized}");
+
+            if (mgr != null)
+                _liveOpsSystem = mgr.GetSystem<LiveOpsSystem>();
+
+            Debug.Log($"[CommunityPanel] GetSystem → {(_liveOpsSystem != null ? "OK" : "NULL")}");
+
             if (_liveOpsSystem != null)
+            {
                 _liveOpsSystem.RegisterPanel(this);
+                _liveOpsSystem.OnUnreadCountChanged += UpdateNotificationBadge;
+            }
             else
-                gameObject.SetActive(false); // система не готова
+            {
+                Debug.Log("[CommunityPanel] Запускаю WaitForLiveOpsSystem корутину");
+                StartCoroutine(WaitForLiveOpsSystem());
+            }
+        }
+
+        private IEnumerator WaitForLiveOpsSystem()
+        {
+            var mgr = SystemInitializationManager.Instance;
+            if (mgr == null) yield break;
+
+            Debug.Log("[CommunityPanel] Жду IsInitialized...");
+            while (!mgr.IsInitialized)
+                yield return null;
+
+            Debug.Log("[CommunityPanel] Manager initialized, ищу LiveOpsSystem");
+            _liveOpsSystem = mgr.GetSystem<LiveOpsSystem>();
+            Debug.Log($"[CommunityPanel] GetSystem → {(_liveOpsSystem != null ? "OK" : "NULL")}");
+
+            if (_liveOpsSystem != null)
+            {
+                _liveOpsSystem.RegisterPanel(this);
+                _liveOpsSystem.OnUnreadCountChanged += UpdateNotificationBadge;
+            }
+            else
+                Debug.LogWarning("[CommunityPanel] LiveOpsSystem не найден даже после инициализации!");
         }
 
         private void OnDestroy()
         {
-            _liveOpsSystem?.UnregisterPanel(this);
+            if (_liveOpsSystem != null)
+            {
+                _liveOpsSystem.UnregisterPanel(this);
+                _liveOpsSystem.OnUnreadCountChanged -= UpdateNotificationBadge;
+            }
         }
 
         // Хот-свап stub через изменение поля в Inspector в PlayMode
+        // + ховер-превью рейтинга (отслеживание позиции мыши)
         private void Update()
         {
             if (stubConfig != _appliedStub)
@@ -163,6 +283,9 @@ namespace ProtoSystem.UI
                 if (stubConfig != null)
                     ApplyStubConfig(stubConfig);
             }
+
+            if (_ratingHovering && ratingStarsArea != null)
+                UpdateRatingDisplay(RatingFromScreenPos(Input.mousePosition));
         }
 
         /// <summary>
@@ -208,7 +331,7 @@ namespace ProtoSystem.UI
 
             // Goal
             if (stub.showGoal)
-                RefreshWishlist(stub.goal.ToMilestone());
+                RefreshGoal(stub.goal.ToMilestone());
 
             // Рейтинг
             if (stub.showRating)
@@ -225,31 +348,59 @@ namespace ProtoSystem.UI
 
             switch (data.Type)
             {
-                case LiveOpsDataType.PanelConfig when data.Data is LiveOpsPanelConfig cfg:
-                    RefreshWidgetVisibility(cfg);
-                    if (cfg.wishlistData != null) RefreshWishlist(cfg.wishlistData);
+                case LiveOpsDataType.PanelConfig:
+                    RefreshWidgetVisibility();
                     break;
 
                 case LiveOpsDataType.Polls when data.Data is List<LiveOpsPoll> polls:
                     _polls = polls;
                     RebuildCardList();
                     ShowCard(_currentCard);
+                    RefreshCardsVisibility();
+                    _dataLoaded = true;
+                    UpdateSummary();
                     break;
 
                 case LiveOpsDataType.Announcements when data.Data is List<LiveOpsAnnouncement> ann:
                     _announcements = ann;
                     RebuildCardList();
                     ShowCard(_currentCard);
+                    RefreshCardsVisibility();
+                    _dataLoaded = true;
+                    UpdateSummary();
                     break;
 
                 case LiveOpsDataType.DevLog when data.Data is LiveOpsDevLog devLog:
                     _devLog = devLog;
                     RebuildCardList();
                     ShowCard(_currentCard);
+                    RefreshCardsVisibility();
+                    _dataLoaded = true;
+                    UpdateSummary();
+                    break;
+
+                case LiveOpsDataType.ContentOrder when data.Data is LiveOpsContentOrder order:
+                    _contentOrder = order;
+                    RebuildCardList();
+                    ShowCard(_currentCard);
+                    RefreshCardsVisibility();
+                    _dataLoaded = true;
+                    UpdateSummary();
+                    break;
+
+                case LiveOpsDataType.Milestone when data.Data is LiveOpsMilestoneData milestone:
+                    RefreshGoal(milestone);
+                    SetVisible(goalRoot, true);
+                    _dataLoaded = true;
+                    UpdateSummary();
                     break;
 
                 case LiveOpsDataType.Rating when data.Data is LiveOpsRatingData rating:
                     RefreshRating(rating);
+                    // Рейтинг показываем только со 2-го запуска
+                    SetVisible(ratingRoot, _launchCount >= 2);
+                    _dataLoaded = true;
+                    UpdateSummary();
                     break;
             }
         }
@@ -258,13 +409,22 @@ namespace ProtoSystem.UI
 
         #region Widget Visibility
 
-        private void RefreshWidgetVisibility(LiveOpsPanelConfig cfg)
+        private void RefreshWidgetVisibility()
         {
             if (_liveOpsSystem == null) return;
-            SetVisible(cardsRoot,    _liveOpsSystem.IsWidgetVisible("cards"));
+            // Карточки показываем только если есть контент
+            bool cardsVisible = _liveOpsSystem.IsWidgetVisible("cards") && _cardKeys.Count > 0;
+            SetVisible(cardsRoot,    cardsVisible);
             SetVisible(messageRoot,  _liveOpsSystem.IsWidgetVisible("messages"));
-            SetVisible(goalRoot,     _liveOpsSystem.IsWidgetVisible("wishlist"));
-            SetVisible(ratingRoot,   _liveOpsSystem.IsWidgetVisible("rating"));
+            // Goal и Rating показываем только когда пришли данные
+            SetVisible(goalRoot,     _liveOpsSystem.IsWidgetVisible("goal") && _liveOpsSystem.Milestone != null);
+            SetVisible(ratingRoot,   _liveOpsSystem.IsWidgetVisible("rating") && _liveOpsSystem.Rating != null && _launchCount >= 2);
+        }
+
+        private void RefreshCardsVisibility()
+        {
+            if (_liveOpsSystem == null) return;
+            SetVisible(cardsRoot, _liveOpsSystem.IsWidgetVisible("cards") && _cardKeys.Count > 0);
         }
 
         #endregion
@@ -274,9 +434,38 @@ namespace ProtoSystem.UI
         private void RebuildCardList()
         {
             _cardKeys.Clear();
-            foreach (var poll in _polls)         _cardKeys.Add($"poll:{poll.id}");
-            foreach (var ann in _announcements)  _cardKeys.Add($"announcement:{ann.id}");
-            if (_devLog != null)                 _cardKeys.Add("devlog");
+
+            if (_contentOrder != null && _contentOrder.order.Length > 0)
+            {
+                // Порядок задан сервером — добавляем только существующий контент в указанном порядке
+                foreach (var entry in _contentOrder.order)
+                {
+                    switch (entry.type)
+                    {
+                        case "poll":
+                            if (_polls.Exists(p => p.id == entry.id))
+                                _cardKeys.Add($"poll:{entry.id}");
+                            break;
+                        case "announcement":
+                            if (_announcements.Exists(a => a.id == entry.id))
+                                _cardKeys.Add($"announcement:{entry.id}");
+                            break;
+                        case "devlog":
+                            if (_devLog != null && (_devLog.id == entry.id || string.IsNullOrEmpty(entry.id)))
+                                _cardKeys.Add("devlog");
+                            break;
+                        // "goal" обрабатывается отдельно (не карточка карусели)
+                    }
+                }
+            }
+            else
+            {
+                // Порядок не задан — fallback: polls → announcements → devlog
+                foreach (var poll in _polls)         _cardKeys.Add($"poll:{poll.id}");
+                foreach (var ann in _announcements)  _cardKeys.Add($"announcement:{ann.id}");
+                if (_devLog != null)                 _cardKeys.Add("devlog");
+            }
+
             _currentCard = Mathf.Clamp(_currentCard, 0, Mathf.Max(0, _cardKeys.Count - 1));
         }
 
@@ -309,13 +498,15 @@ namespace ProtoSystem.UI
             }
 
             UpdateCardCounter(index + 1, _cardKeys.Count);
+            MarkCardSeen(key);
             StartCoroutine(AdjustCardsRootHeightDeferred());
         }
 
         private void ShowPollCard(LiveOpsPoll poll, string lang)
         {
             SetVisible(pollCard, true);
-            if (pollQuestionText) pollQuestionText.text = poll.question.Get(lang);
+            if (pollQuestionText)
+                SetLocalized(pollQuestionText, $"liveops.poll.{poll.id}.q", poll.question.Get(lang));
 
             // Meta
             if (cardMetaText)
@@ -334,8 +525,9 @@ namespace ProtoSystem.UI
 
             bool hasVoted = System.Array.Exists(poll.options, o => o.selected);
 
-            foreach (var opt in poll.options)
+            for (int idx = 0; idx < poll.options.Length; idx++)
             {
+                var opt = poll.options[idx];
                 if (pollOptionPrefab == null) break;
                 var go  = Instantiate(pollOptionPrefab, pollOptionsContainer);
                 go.SetActive(true);
@@ -344,7 +536,11 @@ namespace ProtoSystem.UI
 
                 // Label
                 var labelT = FindChildRecursive(go.transform, "Label");
-                if (labelT) labelT.GetComponent<TMP_Text>().text = opt.label.Get(lang);
+                if (labelT)
+                {
+                    var tmp = labelT.GetComponent<TMP_Text>();
+                    if (tmp) SetLocalized(tmp, $"liveops.poll.{poll.id}.opt.{idx}", opt.label.Get(lang));
+                }
 
                 // Checkmark
                 var checkmark = FindChildRecursive(go.transform, "Checkmark");
@@ -380,10 +576,10 @@ namespace ProtoSystem.UI
 
                 var optId  = opt.id;
                 var pollId = poll.id;
-                btn?.onClick.AddListener(async () =>
+                btn?.onClick.AddListener(() =>
                 {
                     if (_liveOpsSystem != null)
-                        await _liveOpsSystem.SubmitPollAnswerAsync(pollId, new[] { optId });
+                        OptimisticPollVote(poll, optId);
                     else
                         ToggleStubPollSelection(pollId, optId, poll);
                 });
@@ -395,12 +591,22 @@ namespace ProtoSystem.UI
             SetVisible(announcementCard, true);
             SetBadge("type_news", UIKeys.CommunityPanel.Fallback.TypeNews);
             if (cardMetaText) cardMetaText.text = "";
-            if (announcementTitleText) announcementTitleText.text = ann.title.Get(lang);
-            if (announcementBodyText)  announcementBodyText.text  = ann.body.Get(lang);
+            if (announcementTitleText)
+                SetLocalized(announcementTitleText, $"liveops.ann.{ann.id}.title", ann.title.Get(lang));
+            if (announcementBodyText)
+                SetLocalized(announcementBodyText, $"liveops.ann.{ann.id}.body", ann.body.Get(lang));
             SetVisible(announcementUrlButton?.gameObject, !string.IsNullOrEmpty(ann.url));
             announcementUrlButton?.onClick.RemoveAllListeners();
             if (!string.IsNullOrEmpty(ann.url))
                 announcementUrlButton?.onClick.AddListener(() => Application.OpenURL(ann.url));
+        }
+
+        /// <summary>Привязать TMP_Text к рантайм-ключу локализации с fallback.</summary>
+        private static void SetLocalized(TMP_Text text, string locKey, string fallback)
+        {
+            if (!text.TryGetComponent<LocalizeTMP>(out var loc))
+                loc = text.gameObject.AddComponent<LocalizeTMP>();
+            loc.SetKey(locKey, fallback);
         }
 
         private void ShowDevLogCard(LiveOpsDevLog devLog, string lang)
@@ -408,21 +614,41 @@ namespace ProtoSystem.UI
             SetVisible(devLogCard, true);
             SetBadge("type_devlog", UIKeys.CommunityPanel.Fallback.TypeDevLog);
             if (cardMetaText) cardMetaText.text = "";
-            if (devLogFocusText) devLogFocusText.text = devLog.focus.Get(lang);
-            if (devLogTitleText) devLogTitleText.text = devLog.title.Get(lang);
+            if (devLogFocusText)
+                SetLocalized(devLogFocusText, "liveops.devlog.focus", devLog.focus.Get(lang));
+            if (devLogTitleText)
+                SetLocalized(devLogTitleText, "liveops.devlog.title", devLog.title.Get(lang));
 
             foreach (Transform child in devLogItemsContainer) Destroy(child.gameObject);
 
-            foreach (var item in devLog.items)
+            for (int idx = 0; idx < devLog.items.Length; idx++)
             {
+                var item = devLog.items[idx];
                 if (devLogItemPrefab == null) break;
                 var go  = Instantiate(devLogItemPrefab, devLogItemsContainer);
                 go.SetActive(true);
                 var txt = go.GetComponentInChildren<TMP_Text>();
                 var tog = go.GetComponentInChildren<Toggle>();
-                if (txt) txt.text = item.label.Get(lang);
-                if (tog) { tog.isOn = item.done; tog.interactable = false; }
+                if (txt)
+                {
+                    SetLocalized(txt, $"liveops.devlog.item.{idx}", item.name.Get(lang));
+                    ApplyDevLogItemStyle(txt, item);
+                }
+                if (tog) { tog.isOn = item.IsDone; tog.interactable = false; }
             }
+        }
+
+        private void ApplyDevLogItemStyle(TMP_Text txt, LiveOpsDevLogItem item)
+        {
+            var style = item.IsDone ? doneStyle : item.IsWip ? wipStyle : todoStyle;
+            txt.color = style.color;
+
+            var flags = txt.fontStyle;
+            if (style.strikethrough) flags |= FontStyles.Strikethrough;
+            else                     flags &= ~FontStyles.Strikethrough;
+            if (style.underline)     flags |= FontStyles.Underline;
+            else                     flags &= ~FontStyles.Underline;
+            txt.fontStyle = flags;
         }
 
         private void OnPrevCard() =>
@@ -506,9 +732,18 @@ namespace ProtoSystem.UI
             var text = messageInput.text?.Trim();
             if (string.IsNullOrEmpty(text)) return;
 
+            // category = контекст (какая карточка сейчас открыта)
+            var category = _cardKeys.Count > 0 && _currentCard < _cardKeys.Count
+                ? _cardKeys[_currentCard]
+                : "general";
+
             messageSendButton.interactable = false;
             if (_liveOpsSystem != null)
-                await _liveOpsSystem.SubmitFeedbackAsync(text, "other", "general");
+            {
+                await _liveOpsSystem.SubmitFeedbackAsync(text, category);
+                // Обновить историю сообщений после отправки
+                await _liveOpsSystem.FetchMyMessagesAsync();
+            }
             messageInput.text = "";
             messageSendButton.interactable = true;
         }
@@ -517,43 +752,497 @@ namespace ProtoSystem.UI
 
         #region Goal
 
-        private void RefreshWishlist(LiveOpsMilestoneData data)
+        private void RefreshGoal(LiveOpsMilestoneData data)
         {
             var lang = stubConfig?.language ?? _liveOpsSystem?.Language ?? "en";
-            if (goalFill)      goalFill.fillAmount    = data.Progress;
-            if (goalCountText) goalCountText.text     = $"{data.current:N0} / {data.goal:N0}";
-            if (goalDescText)  goalDescText.text      = data.description.Get(lang);
+            Debug.Log($"[CommunityPanel] RefreshGoal: {data.current}/{data.goal} Progress={data.Progress:F4}");
+            if (goalFill)
+            {
+                var rt = goalFill.rectTransform;
+                rt.anchorMin = Vector2.zero;
+                rt.anchorMax = new Vector2(data.Progress, 1f);
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+            }
+            if (goalCountText) goalCountText.text = $"{data.current:N0} / {data.goal:N0}";
+            if (goalDescText)
+            {
+                var title = data.title.Get(lang);
+                var desc  = data.description.Get(lang);
+                var text  = string.IsNullOrEmpty(title) ? desc : $"{title}\n{desc}";
+                SetLocalized(goalDescText, "liveops.goal.desc", text);
+            }
         }
 
         #endregion
 
         #region Rating
 
+        private bool _ratingHovering;
+
+        private void SetupRatingInput()
+        {
+            if (ratingStarsArea == null) return;
+
+            // Image для raycast (может уже быть)
+            if (!ratingStarsArea.TryGetComponent<Image>(out _))
+            {
+                var img = ratingStarsArea.gameObject.AddComponent<Image>();
+                img.color = Color.clear;
+            }
+
+            var trigger = ratingStarsArea.gameObject.AddComponent<EventTrigger>();
+
+            var enterEntry = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
+            enterEntry.callback.AddListener(_ => _ratingHovering = true);
+            trigger.triggers.Add(enterEntry);
+
+            var exitEntry = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
+            exitEntry.callback.AddListener(_ => { _ratingHovering = false; UpdateRatingDisplay(_userVote); });
+            trigger.triggers.Add(exitEntry);
+
+            var clickEntry = new EventTrigger.Entry { eventID = EventTriggerType.PointerClick };
+            clickEntry.callback.AddListener(e => OnRatingClick((PointerEventData)e));
+            trigger.triggers.Add(clickEntry);
+        }
+
+        private int RatingFromScreenPos(Vector2 screenPos)
+        {
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                ratingStarsArea, screenPos, null, out var local);
+            float norm = Mathf.Clamp01((local.x - ratingStarsArea.rect.xMin) / ratingStarsArea.rect.width);
+            return Mathf.Clamp(Mathf.CeilToInt(norm * 10f), 1, 10);
+        }
+
+        private async void OnRatingClick(PointerEventData e)
+        {
+            int score = RatingFromScreenPos(e.position);
+            if (score <= 0) return;
+            _userVote = score;
+            UpdateRatingDisplay(score);
+            if (_liveOpsSystem != null)
+                await _liveOpsSystem.SubmitRatingAsync(score);
+        }
+
         private void RefreshRating(LiveOpsRatingData data)
         {
+            _userVote = data.userVote;
             if (ratingAvgText) ratingAvgText.text = $"{data.avg:F1}";
-            for (int i = 0; i < ratingStars.Length; i++)
+            UpdateRatingDisplay(_userVote);
+        }
+
+        private void UpdateRatingDisplay(int value)
+        {
+            if (ratingFillImage) ratingFillImage.fillAmount = value / 10f;
+            if (ratingValueText) ratingValueText.text = value > 0 ? value.ToString() : "—";
+        }
+
+        #endregion
+
+        #region Conversation
+
+        private bool _conversationOpen;
+
+        private void UpdateNotificationBadge(int count)
+        {
+            Debug.Log($"[CommunityPanel] UpdateNotificationBadge({count})");
+            SetVisible(notificationBadge, count > 0);
+            if (notificationCountText) notificationCountText.text = count.ToString();
+        }
+
+        private const float ConversationMinHeight = 100f;
+        private const float ConversationMaxHeight = 400f;
+        private const float ConversationHeaderHeight = 38f;
+        private const float ConversationMessageHeight = 70f;
+        private const float ConversationPadding = 16f;
+
+        private void OpenConversation()
+        {
+            Debug.Log("[CommunityPanel] OpenConversation()");
+            _conversationOpen = true;
+
+            // Скрыть основной контент
+            SetVisible(cardsRoot,   false);
+            SetVisible(messageRoot, false);
+            SetVisible(goalRoot,    false);
+            SetVisible(ratingRoot,  false);
+
+            // Показать переписку
+            SetVisible(conversationRoot, true);
+
+            if (_liveOpsSystem != null)
+                _liveOpsSystem.MarkAllRepliesRead();
+
+            UpdateTranslationUI();
+            RenderConversation();
+
+            // Adaptive height based on message count
+            AdjustConversationHeight();
+        }
+
+        private void AdjustConversationHeight()
+        {
+            if (conversationRoot == null) return;
+            var le = conversationRoot.GetComponent<LayoutElement>();
+            if (le == null) return;
+
+            int messageCount = 0;
+            var items = _liveOpsSystem != null ? _liveOpsSystem.MyMessages : null;
+            if (items != null) messageCount = items.Count;
+
+            float desiredHeight = ConversationHeaderHeight
+                + messageCount * ConversationMessageHeight
+                + ConversationPadding;
+            desiredHeight = Mathf.Clamp(desiredHeight, ConversationMinHeight, ConversationMaxHeight);
+            le.preferredHeight = desiredHeight;
+
+            var rootRect = conversationRoot.GetComponent<RectTransform>();
+            if (rootRect != null)
+                LayoutRebuilder.ForceRebuildLayoutImmediate(rootRect);
+        }
+
+        private void CycleTranslationMode()
+        {
+            _showLocalizedReply = !_showLocalizedReply;
+            Debug.Log($"[CommunityPanel] CycleTranslation → _showLocalizedReply={_showLocalizedReply}, lang={(_liveOpsSystem != null ? _liveOpsSystem.Language : "null")}");
+            UpdateTranslationUI();
+            RenderConversation();
+        }
+
+        private void UpdateTranslationUI()
+        {
+            string lang = _liveOpsSystem != null ? _liveOpsSystem.Language : "??";
+
+            if (translationLangLabel != null)
+                translationLangLabel.text = (lang ?? "??").ToUpper();
+
+            if (translationToggleButton != null)
             {
-                var img = ratingStars[i]?.GetComponent<Image>();
-                if (img) img.color = i < data.userVote ? Color.yellow : Color.white;
+                var btnText = translationToggleButton.GetComponentInChildren<TMP_Text>();
+                if (btnText != null)
+                    btnText.text = _showLocalizedReply ? lang?.ToUpper() ?? "??" : "Aa";
             }
         }
 
-        private async void OnRatingStarClicked(int star)
+        /// <summary>Возвращает текст сообщения (всегда оригинал — игрок писал сам).</summary>
+        private string GetDisplayMessage(LiveOpsConversationItem item)
         {
-            for (int i = 0; i < ratingStars.Length; i++)
+            if (item == null) return "";
+            return item.message ?? "";
+        }
+
+        /// <summary>Возвращает текст ответа с учётом режима локализации.</summary>
+        private string GetDisplayReply(LiveOpsConversationItem item)
+        {
+            if (item == null) return "";
+
+            if (_showLocalizedReply && item.replyLocalized != null)
             {
-                var img = ratingStars[i]?.GetComponent<Image>();
-                if (img) img.color = i < star ? Color.yellow : Color.white;
+                string lang = _liveOpsSystem != null ? _liveOpsSystem.Language : "en";
+                string localized = item.replyLocalized.Get(lang);
+                Debug.Log($"[CommunityPanel] GetDisplayReply: lang={lang}, localized='{localized}', reply='{item.reply}', translations={item.replyLocalized.translations?.Count ?? 0}");
+                if (!string.IsNullOrEmpty(localized))
+                    return localized;
             }
-            if (ratingAvgText) ratingAvgText.text = $"{star}.0";
-            if (_liveOpsSystem != null)
-                await _liveOpsSystem.SubmitRatingAsync(star);
+            else
+            {
+                Debug.Log($"[CommunityPanel] GetDisplayReply: showLocalized={_showLocalizedReply}, replyLocalized={item.replyLocalized != null}, reply='{item.reply}'");
+            }
+
+            return item.reply ?? "";
+        }
+
+        private void CloseConversation()
+        {
+            Debug.Log("[CommunityPanel] CloseConversation()");
+            _conversationOpen = false;
+            SetVisible(conversationRoot, false);
+
+            // Восстановить основной контент
+            if (stubConfig != null)
+            {
+                ApplyStubConfig(stubConfig);
+            }
+            else
+            {
+                RefreshWidgetVisibility();
+                ShowCard(_currentCard);
+            }
+        }
+
+        private void RenderConversation()
+        {
+            if (conversationMessagesContainer == null) return;
+
+            // Удалить старые сообщения, но не emptyState (он тоже child контейнера)
+            for (int c = conversationMessagesContainer.childCount - 1; c >= 0; c--)
+            {
+                var child = conversationMessagesContainer.GetChild(c);
+                if (conversationEmptyState != null && child.gameObject == conversationEmptyState)
+                    continue;
+                Destroy(child.gameObject);
+            }
+
+            var items = _liveOpsSystem != null ? _liveOpsSystem.MyMessages : null;
+            bool empty = items == null || items.Count == 0;
+            SetVisible(conversationEmptyState, empty);
+            if (empty) return;
+
+            // От новых к старым
+            for (int i = items.Count - 1; i >= 0; i--)
+            {
+                var item = items[i];
+                if (conversationMessageItemPrefab == null) break;
+
+                var go = Instantiate(conversationMessageItemPrefab, conversationMessagesContainer);
+                go.SetActive(true);
+
+                var msgText = FindChildRecursive(go.transform, "MessageText")?.GetComponent<TMP_Text>();
+                if (msgText) msgText.text = GetDisplayMessage(item);
+
+                var timeText = FindChildRecursive(go.transform, "TimestampText")?.GetComponent<TMP_Text>();
+                if (timeText) timeText.text = FormatTimestamp(item.timestamp);
+
+                bool hasReply = !string.IsNullOrEmpty(item.reply);
+                var replyRow = FindChildRecursive(go.transform, "DevReplyRow");
+                if (replyRow) replyRow.gameObject.SetActive(hasReply);
+
+                var replyText = FindChildRecursive(go.transform, "ReplyText")?.GetComponent<TMP_Text>();
+                if (replyText) replyText.text = GetDisplayReply(item);
+
+                var catText = FindChildRecursive(go.transform, "CategoryText")?.GetComponent<TMP_Text>();
+                if (catText) catText.text = FormatCategory(item.category);
+            }
+        }
+
+        private static string FormatTimestamp(string iso)
+        {
+            if (System.DateTime.TryParse(iso, null,
+                System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+                return dt.ToLocalTime().ToString("dd MMM yyyy, HH:mm");
+            return iso ?? "";
+        }
+
+        private static string FormatCategory(string cat)
+        {
+            if (string.IsNullOrEmpty(cat) || cat == "general") return "";
+            int colon = cat.IndexOf(':');
+            return colon > 0 ? cat.Substring(0, colon) : cat;
+        }
+
+        #endregion
+
+        #region Collapsed / Expanded
+
+        private void SetExpanded(bool expanded)
+        {
+            if (_isAnimating || _isExpanded == expanded) return;
+            _isExpanded = expanded;
+            PlayerPrefs.SetInt(PrefKeyPanelExpanded, expanded ? 1 : 0);
+            PlayerPrefs.Save();
+
+            // Пометить текущие карточки как просмотренные при сворачивании
+            if (!expanded) MarkCurrentCardsAsSeen();
+
+            ApplyExpandedState(animate: true);
+        }
+
+        private void ApplyExpandedState(bool animate)
+        {
+            if (animate && gameObject.activeInHierarchy)
+            {
+                StartCoroutine(AnimateExpandCollapse(_isExpanded));
+                return;
+            }
+
+            // Мгновенное переключение
+            SetScaleVisible(collapsedRoot, !_isExpanded);
+            SetScaleVisible(expandedRoot,   _isExpanded);
+
+            UpdateSummary();
+
+            // Рейтинг только со 2-го запуска
+            if (!_isExpanded && ratingRoot)
+                ratingRoot.SetActive(_launchCount >= 2 && ratingRoot.activeSelf);
+        }
+
+        private IEnumerator AnimateExpandCollapse(bool toExpanded)
+        {
+            _isAnimating = true;
+
+            var hideGO = toExpanded ? collapsedRoot : expandedRoot;
+            var showGO = toExpanded ? expandedRoot  : collapsedRoot;
+
+            // Сначала включаем появляющийся блок со scale=0
+            if (showGO) { showGO.SetActive(true); showGO.transform.localScale = new Vector3(1f, 0f, 1f); }
+
+            float elapsed = 0f;
+            while (elapsed < AnimationDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / AnimationDuration);
+                float smooth = t * t * (3f - 2f * t); // smoothstep
+
+                // Скрываемый: scale.y 1→0
+                if (hideGO) hideGO.transform.localScale = new Vector3(1f, 1f - smooth, 1f);
+                // Появляющийся: scale.y 0→1
+                if (showGO) showGO.transform.localScale = new Vector3(1f, smooth, 1f);
+
+                yield return null;
+            }
+
+            // Финальное состояние
+            SetScaleVisible(hideGO, false);
+            SetScaleVisible(showGO, true);
+
+            // Рейтинг только со 2-го запуска
+            if (!toExpanded && ratingRoot)
+                ratingRoot.SetActive(_launchCount >= 2 && ratingRoot.activeSelf);
+
+            UpdateSummary();
+            _isAnimating = false;
+        }
+
+        /// <summary>Показать/скрыть блок через scale.y (0=скрыт, 1=виден).</summary>
+        private static void SetScaleVisible(GameObject go, bool visible)
+        {
+            if (!go) return;
+            go.SetActive(visible);
+            go.transform.localScale = visible ? Vector3.one : new Vector3(1f, 0f, 1f);
+        }
+
+        /// <summary>Обновить текст сводки: количество новых карточек.</summary>
+        private void UpdateSummary()
+        {
+            if (summaryText == null) return;
+
+            if (!_dataLoaded)
+            {
+                summaryText.text = "";
+                return;
+            }
+
+            int totalCards = _cardKeys.Count;
+            int newCards = 0;
+            foreach (var key in _cardKeys)
+            {
+                string cardId = ExtractCardId(key);
+                if (!string.IsNullOrEmpty(cardId) && !_seenCardIds.Contains(cardId))
+                    newCards++;
+            }
+
+            // Локализованный текст: "{0} новых" / "{0} new"
+            string template = Loc.IsReady
+                ? Loc.Get(UIKeys.CommunityPanel.NewCards, UIKeys.CommunityPanel.Fallback.NewCards)
+                : UIKeys.CommunityPanel.Fallback.NewCards;
+
+            if (newCards > 0)
+            {
+                summaryText.text = string.Format(template, newCards);
+                summaryText.color = new Color(1f, 0.85f, 0.3f); // яркий для новых
+            }
+            else if (totalCards > 0)
+            {
+                string allSeenText = Loc.IsReady
+                    ? Loc.Get(UIKeys.CommunityPanel.AllSeen, UIKeys.CommunityPanel.Fallback.AllSeen)
+                    : UIKeys.CommunityPanel.Fallback.AllSeen;
+                summaryText.text = allSeenText;
+                summaryText.color = new Color(0.5f, 0.5f, 0.5f); // серый — всё прочитано
+            }
+            else
+            {
+                summaryText.text = "";
+            }
+
+            // Скрыть статус загрузки после получения данных
+            if (statusText) statusText.text = "";
+        }
+
+        /// <summary>Пометить все текущие карточки как просмотренные.</summary>
+        private void MarkCurrentCardsAsSeen()
+        {
+            bool changed = false;
+            foreach (var key in _cardKeys)
+            {
+                string cardId = ExtractCardId(key);
+                if (!string.IsNullOrEmpty(cardId) && _seenCardIds.Add(cardId))
+                    changed = true;
+            }
+            if (changed) SaveSeenCards();
+        }
+
+        /// <summary>Пометить карточку как просмотренную при пролистывании.</summary>
+        private void MarkCardSeen(string cardKey)
+        {
+            string cardId = ExtractCardId(cardKey);
+            if (!string.IsNullOrEmpty(cardId) && _seenCardIds.Add(cardId))
+            {
+                SaveSeenCards();
+                UpdateSummary();
+            }
+        }
+
+        private static string ExtractCardId(string cardKey)
+        {
+            // "poll:abc123" → "abc123", "announcement:xyz" → "xyz", "devlog" → "devlog"
+            int colon = cardKey.IndexOf(':');
+            return colon >= 0 ? cardKey.Substring(colon + 1) : cardKey;
+        }
+
+        // ── Seen cards persistence ──
+
+        private void LoadSeenCards()
+        {
+            _seenCardIds.Clear();
+            var json = PlayerPrefs.GetString(PrefKeySeenCards, "");
+            if (string.IsNullOrEmpty(json) || json.Length <= 2) return;
+            json = json.Trim();
+            if (json[0] != '[') return;
+            int i = 1;
+            while (i < json.Length)
+            {
+                while (i < json.Length && (json[i] == ' ' || json[i] == ',' || json[i] == '\n')) i++;
+                if (i >= json.Length || json[i] == ']') break;
+                if (json[i] == '"')
+                {
+                    i++;
+                    int start = i;
+                    while (i < json.Length && json[i] != '"') { if (json[i] == '\\') i++; i++; }
+                    _seenCardIds.Add(json.Substring(start, i - start));
+                    if (i < json.Length) i++;
+                }
+                else i++;
+            }
+        }
+
+        private void SaveSeenCards()
+        {
+            var sb = new System.Text.StringBuilder("[");
+            bool first = true;
+            foreach (var id in _seenCardIds)
+            {
+                if (!first) sb.Append(',');
+                sb.Append('"').Append(id).Append('"');
+                first = false;
+            }
+            sb.Append(']');
+            PlayerPrefs.SetString(PrefKeySeenCards, sb.ToString());
+            PlayerPrefs.Save();
         }
 
         #endregion
 
         #region Helpers
+
+        private void TryShowVirtualKeyboard()
+        {
+            if (messageInput == null) return;
+            VirtualKeyboard.TryShow(messageInput.text, MessageMaxChars, result =>
+            {
+                if (result != null && messageInput != null)
+                    messageInput.text = result;
+            });
+        }
 
         private static void SetVisible(GameObject go, bool visible)
         {
@@ -607,27 +1296,85 @@ namespace ProtoSystem.UI
         private void ToggleStubPollSelection(string pollId, string optId, LiveOpsPoll poll)
         {
             if (poll == null) return;
-            var opt = System.Array.Find(poll.options, o => o.id == optId);
-            if (opt == null) return;
-
-            bool isSingle = poll.pollType == "single";
-            if (isSingle)
-            {
-                foreach (var o in poll.options) o.selected = false;
-                opt.selected = true;
-            }
-            else
-            {
-                opt.selected = !opt.selected;
-            }
-
-            // Simulate adding a vote
-            opt.votes++;
-            poll.votesTotal++;
+            TogglePollOption(poll, optId);
 
             var lang = stubConfig?.language ?? "en";
             ShowPollCard(poll, lang);
             StartCoroutine(AdjustCardsRootHeightDeferred());
+        }
+
+        /// <summary>
+        /// Optimistic UI: мгновенно обновляем состояние опроса и перерисовываем,
+        /// затем отправляем на сервер в фоне. При ответе сервера FetchAsync обновит реальные данные.
+        /// </summary>
+        private void OptimisticPollVote(LiveOpsPoll poll, string optId)
+        {
+            // 1. Обновить локальное состояние
+            TogglePollOption(poll, optId);
+
+            // 2. Перерисовать карточку мгновенно
+            var lang = _liveOpsSystem != null ? _liveOpsSystem.Language : "en";
+            ShowPollCard(poll, lang);
+            StartCoroutine(AdjustCardsRootHeightDeferred());
+
+            // 3. Собрать выбранные option ids
+            var selected = new List<string>();
+            foreach (var o in poll.options)
+                if (o.selected) selected.Add(o.id);
+
+            // 4. Отправить на сервер в фоне
+            _ = SubmitPollInBackground(poll.id, selected.ToArray());
+        }
+
+        private async Task SubmitPollInBackground(string pollId, string[] optionIds)
+        {
+            try
+            {
+                bool ok = await _liveOpsSystem.SubmitPollAnswerAsync(pollId, optionIds);
+                if (ok)
+                    await _liveOpsSystem.FetchAsync();
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[CommunityPanel] Poll vote failed: {ex.Message}");
+                // FetchAsync восстановит реальное состояние при следующем обновлении
+            }
+        }
+
+        /// <summary>
+        /// Переключить выбор опции с учётом single/multi режима и пересчитать голоса.
+        /// </summary>
+        private static void TogglePollOption(LiveOpsPoll poll, string optId)
+        {
+            var opt = System.Array.Find(poll.options, o => o.id == optId);
+            if (opt == null) return;
+
+            bool isSingle = poll.pollType == "single";
+            bool wasSelected = opt.selected;
+
+            if (isSingle)
+            {
+                // Снять все выделения, пересчитать голоса
+                foreach (var o in poll.options)
+                {
+                    if (o.selected) { o.votes = Mathf.Max(0, o.votes - 1); poll.votesTotal = Mathf.Max(0, poll.votesTotal - 1); }
+                    o.selected = false;
+                }
+                // Если кликнули не на уже выбранный — выбрать его
+                if (!wasSelected)
+                {
+                    opt.selected = true;
+                    opt.votes++;
+                    poll.votesTotal++;
+                }
+            }
+            else
+            {
+                // Multi: просто тогл
+                opt.selected = !opt.selected;
+                if (opt.selected) { opt.votes++; poll.votesTotal++; }
+                else              { opt.votes = Mathf.Max(0, opt.votes - 1); poll.votesTotal = Mathf.Max(0, poll.votesTotal - 1); }
+            }
         }
 
         #endregion
@@ -639,5 +1386,14 @@ namespace ProtoSystem.UI
         {
             if (text) text.text = value;
         }
+    }
+
+    /// <summary>Настройки отображения элемента DevLog по статусу.</summary>
+    [System.Serializable]
+    public struct DevLogItemStyle
+    {
+        public Color color;
+        public bool strikethrough;
+        public bool underline;
     }
 }

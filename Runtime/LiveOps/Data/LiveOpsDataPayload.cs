@@ -32,5 +32,8 @@ namespace ProtoSystem.LiveOps
         public const string DevLog        = "devlog";
         public const string Rating        = "rating";
         public const string Messages      = "messages";
+        public const string Milestone     = "milestone";
+        public const string ContentOrder  = "content_order";
+        public const string MyMessages    = "my_messages";
     }
 }

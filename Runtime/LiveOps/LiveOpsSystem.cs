@@ -60,8 +60,11 @@ namespace ProtoSystem.LiveOps
         private List<LiveOpsAnnouncement> _announcements  = new();
         private LiveOpsDevLog             _devLog;
         private LiveOpsRatingData         _rating;
+        private LiveOpsMilestoneData      _milestone;
+        private LiveOpsContentOrder       _contentOrder;
+        private List<LiveOpsConversationItem> _myMessages = new();
+        private int                       _unreadCount;
         private LiveOpsPlayerContext      _playerContext  = new(0, 0);
-
         // Panel registration
         private ProtoSystem.UI.CommunityPanelWindow _panel;
         private bool _serverAvailable;
@@ -73,6 +76,7 @@ namespace ProtoSystem.LiveOps
 
         public event Action<List<LiveOpsMessage>> OnMessagesUpdated;
         public event Action<List<LiveOpsPoll>>    OnPollsUpdated;
+        public event Action<int>                  OnUnreadCountChanged;
 
         #endregion
 
@@ -83,9 +87,13 @@ namespace ProtoSystem.LiveOps
         public IReadOnlyList<LiveOpsAnnouncement> Announcements  => _announcements;
         public LiveOpsDevLog                      DevLog         => _devLog;
         public LiveOpsRatingData                  Rating         => _rating;
+        public LiveOpsMilestoneData               Milestone      => _milestone;
         public LiveOpsPanelConfig                 PanelConfig    => _panelConfig;
+        public LiveOpsContentOrder                ContentOrder   => _contentOrder;
+        public IReadOnlyList<LiveOpsConversationItem> MyMessages => _myMessages;
+        public int                                UnreadReplyCount => _unreadCount;
         public string                             PlayerId       => _playerId;
-        public string                             Language          => config != null ? config.defaultLanguage : "en";
+        public string                             Language          => Loc.IsReady ? Loc.CurrentLanguage : (config != null ? config.defaultLanguage : "en");
         public bool                               IsServerAvailable => _serverAvailable;
 
         /// <summary>
@@ -108,7 +116,7 @@ namespace ProtoSystem.LiveOps
 
         /// <summary>
         /// Проверить, должен ли виджет панели быть виден при текущем контексте.
-        /// Ключи: "cards", "messages", "wishlist", "rating".
+        /// Ключи: "cards", "messages", "goal", "rating".
         /// </summary>
         public bool IsWidgetVisible(string widgetKey)
         {
@@ -117,7 +125,7 @@ namespace ProtoSystem.LiveOps
             {
                 "cards"    => _panelConfig.cards,
                 "messages" => _panelConfig.messages,
-                "wishlist" => _panelConfig.wishlist,
+                "goal"     => _panelConfig.goal,
                 "rating"   => _panelConfig.rating,
                 _          => null
             };
@@ -133,6 +141,17 @@ namespace ProtoSystem.LiveOps
         public void RegisterPanel(ProtoSystem.UI.CommunityPanelWindow panel)
         {
             _panel = panel;
+
+            // Если система ещё не инициализирована — просто сохраняем ссылку.
+            // InitializeAsync() сам управит панелью после завершения.
+            if (!IsInitializedDependencies)
+            {
+                Debug.Log($"[{SystemId}] RegisterPanel: ещё не инициализирована, сохраняю ссылку");
+                return;
+            }
+
+            // Система уже готова — сразу управляем видимостью
+            Debug.Log($"[{SystemId}] RegisterPanel: initialized=true, serverAvailable={_serverAvailable}, hasData={_hasData}, panelConfig={(_panelConfig != null ? "OK" : "NULL")}");
             if (!_serverAvailable)
             {
                 panel.gameObject.SetActive(false);
@@ -175,7 +194,7 @@ namespace ProtoSystem.LiveOps
         public async Task<bool> SubmitFeedbackAsync(string message, string category = "other", string tag = "general")
         {
             if (config == null || !config.enableFeedback || _provider == null) return false;
-            var feedback = new LiveOpsFeedback(_playerId, Application.version, message, category, tag);
+            var feedback = new LiveOpsFeedback(_playerId, Application.version, message, Language, category, tag);
             return await _provider.SubmitFeedbackAsync(feedback);
         }
 
@@ -203,14 +222,111 @@ namespace ProtoSystem.LiveOps
             return result;
         }
 
+        /// <summary>Загрузить переписку текущего игрока.</summary>
+        public async Task FetchMyMessagesAsync()
+        {
+            Debug.Log($"[LiveOps] FetchMyMessagesAsync: provider={(_provider != null ? "OK" : "NULL")}, playerId={_playerId}");
+            if (_provider == null) return;
+            var items = await _provider.FetchMyMessagesAsync(_playerId);
+            Debug.Log($"[LiveOps] FetchMyMessagesAsync: got {(items != null ? items.Count.ToString() : "null")} items");
+            if (items != null)
+            {
+                _myMessages = items;
+                RecalcUnread();
+                EventBus.Publish(Evt.LiveOps.DataUpdated,
+                    new LiveOpsDataPayload(LiveOpsDataType.MyMessages, _myMessages));
+
+                // Подтверждаем получение ответов со статусом "sent" → "delivered"
+                var sentIds = new List<string>();
+                foreach (var m in _myMessages)
+                    if (!string.IsNullOrEmpty(m.reply) && m.reply_status == "sent")
+                        sentIds.Add(m.id);
+
+                if (sentIds.Count > 0)
+                {
+                    Debug.Log($"[LiveOps] ConfirmReplies: {sentIds.Count} sent replies");
+                    await _provider.ConfirmRepliesAsync(sentIds.ToArray());
+                    foreach (var m in _myMessages)
+                        if (sentIds.Contains(m.id))
+                            m.reply_status = "delivered";
+                }
+
+            }
+        }
+
+        /// <summary>Пометить все ответы как прочитанные.</summary>
+        public void MarkAllRepliesRead()
+        {
+            var readSet = GetReadMessageIds();
+            foreach (var m in _myMessages)
+                if (!string.IsNullOrEmpty(m.reply))
+                    readSet.Add(m.id);
+            SaveReadMessageIds(readSet);
+            RecalcUnread();
+        }
+
         private void PushAllDataToEventBus()
         {
-            if (_panelConfig   != null) EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.PanelConfig,    _panelConfig));
+            // Публикуем PanelConfig всегда — даже null: панель использует IsWidgetVisible(),
+            // который при null возвращает true (показывать всё по умолчанию).
+            EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.PanelConfig, _panelConfig));
+            if (_contentOrder    != null) EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.ContentOrder,    _contentOrder));
             if (_polls?.Count   > 0)    EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.Polls,           _polls));
             if (_announcements?.Count > 0) EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.Announcements, _announcements));
             if (_devLog         != null) EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.DevLog,         _devLog));
             if (_rating         != null) EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.Rating,         _rating));
+            if (_milestone      != null) EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.Milestone,     _milestone));
             if (_messages?.Count > 0)   EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.Messages,       _messages));
+            if (_myMessages?.Count > 0) EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.MyMessages,     _myMessages));
+        }
+
+        /// <summary>
+        /// Регистрирует серверные переводы как рантайм-ключи в Loc для текущего языка.
+        /// Вызывается после загрузки данных и при смене языка.
+        /// </summary>
+        private void PushLocalizationKeys()
+        {
+            var lang = Language;
+            if (_milestone != null)
+            {
+                _milestone.title.RegisterInLoc("liveops.goal.title", lang);
+                _milestone.unit.RegisterInLoc("liveops.goal.unit", lang);
+
+                // Комбинированный ключ title+desc для UI
+                var title = _milestone.title.Get(lang);
+                var desc  = _milestone.description.Get(lang);
+                var combined = string.IsNullOrEmpty(title) ? desc : $"{title}\n{desc}";
+                if (!string.IsNullOrEmpty(combined))
+                    Loc.Set("liveops.goal.desc", combined);
+            }
+
+            if (_announcements != null)
+            {
+                foreach (var ann in _announcements)
+                {
+                    ann.title.RegisterInLoc($"liveops.ann.{ann.id}.title", lang);
+                    ann.body.RegisterInLoc($"liveops.ann.{ann.id}.body", lang);
+                }
+            }
+
+            if (_devLog != null)
+            {
+                _devLog.focus.RegisterInLoc("liveops.devlog.focus", lang);
+                _devLog.title.RegisterInLoc("liveops.devlog.title", lang);
+                _devLog.description.RegisterInLoc("liveops.devlog.desc", lang);
+                for (int idx = 0; idx < _devLog.items.Length; idx++)
+                    _devLog.items[idx].name.RegisterInLoc($"liveops.devlog.item.{idx}", lang);
+            }
+
+            if (_polls != null)
+            {
+                foreach (var poll in _polls)
+                {
+                    poll.question.RegisterInLoc($"liveops.poll.{poll.id}.q", lang);
+                    for (int idx = 0; idx < poll.options.Length; idx++)
+                        poll.options[idx].label.RegisterInLoc($"liveops.poll.{poll.id}.opt.{idx}", lang);
+                }
+            }
         }
 
         public async Task FetchAsync()
@@ -223,6 +339,14 @@ namespace ProtoSystem.LiveOps
             {
                 _panelConfig = panelConfig;
                 EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.PanelConfig, _panelConfig));
+            }
+
+            // Content order — порядок карточек в карусели
+            var contentOrder = await _provider.FetchContentOrderAsync();
+            if (contentOrder != null)
+            {
+                _contentOrder = contentOrder;
+                EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.ContentOrder, _contentOrder));
             }
 
             if (config.enableMessages)
@@ -277,14 +401,34 @@ namespace ProtoSystem.LiveOps
                 }
             }
 
+            if (config.enableGoal)
+            {
+                var milestone = await _provider.FetchMilestoneAsync();
+                if (milestone != null)
+                {
+                    _milestone = milestone;
+                    EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.Milestone, _milestone));
+                }
+            }
+
+            // Переписка игрока
+            if (config.enableFeedback)
+                await FetchMyMessagesAsync();
+
             _hasData = true;
+            PushLocalizationKeys();
         }
 
         #endregion
 
         #region InitializableSystemBase Implementation
 
-        protected override void InitEvents() { }
+        protected override void InitEvents()
+        {
+            AddEvent(EventBus.Localization.LanguageChanged, OnLanguageChanged);
+        }
+
+        private void OnLanguageChanged(object _) => PushLocalizationKeys();
 
         public override async Task<bool> InitializeAsync()
         {
@@ -296,15 +440,14 @@ namespace ProtoSystem.LiveOps
                 return true;
             }
 
-            // Авто-провайдер: если проект не установил свой — используем DefaultHttpLiveOpsProvider
+            // Авто-провайдер: если проект не установил свой — создаём по типу из конфига
             _provider = config.GetProvider();
             if (_provider == null && !string.IsNullOrEmpty(config.serverUrl))
             {
                 if (!_playerIdOverridden) _playerId = GetOrCreateAnonymousId();
-                _provider = new DefaultHttpLiveOpsProvider(
-                    config.serverUrl, config.projectId, _playerId, config.requestTimeoutSeconds);
+                _provider = config.CreateProvider(_playerId);
                 config.SetProvider(_provider);
-                ProtoLogger.LogInit(SystemId, "DefaultHttpLiveOpsProvider установлен автоматически.");
+                ProtoLogger.LogInit(SystemId, $"{_provider.GetType().Name} установлен автоматически.");
             }
 
             if (!_playerIdOverridden)
@@ -358,6 +501,20 @@ namespace ProtoSystem.LiveOps
                 ProtoLogger.LogWarning(SystemId, $"Fetch failed: {ex.Message}");
             }
 
+            // Если панель уже зарегистрировалась до завершения инициализации — управляем ею
+            if (_panel != null)
+            {
+                if (_serverAvailable)
+                {
+                    _panel.gameObject.SetActive(true);
+                    if (_hasData) PushAllDataToEventBus();
+                }
+                else
+                {
+                    _panel.gameObject.SetActive(false);
+                }
+            }
+
             // Подписка на открытие главного меню
             if (config.fetchOnMainMenuOpen && !string.IsNullOrEmpty(config.mainMenuWindowName))
                 EventBus.Subscribe(Evt.UI.WindowOpened, OnWindowOpened);
@@ -383,7 +540,7 @@ namespace ProtoSystem.LiveOps
 
         private void Update()
         {
-            if (config == null || config.fetchIntervalSeconds <= 0f || _provider == null) return;
+            if (config == null || config.fetchIntervalSeconds <= 0f || _provider == null || !_serverAvailable) return;
 
             _fetchTimer += Time.deltaTime;
             if (_fetchTimer >= config.fetchIntervalSeconds)
@@ -423,6 +580,12 @@ namespace ProtoSystem.LiveOps
 
         private static string GetOrCreateAnonymousId()
         {
+            // Предпочитаем стабильный ID машины — одинаковый между сессиями
+            var deviceId = UnityEngine.SystemInfo.deviceUniqueIdentifier;
+            if (!string.IsNullOrEmpty(deviceId) && deviceId != UnityEngine.SystemInfo.unsupportedIdentifier)
+                return deviceId;
+
+            // Фоллбэк: PlayerPrefs GUID если deviceUniqueIdentifier недоступен
             const string key = "proto_player_id";
             if (!PlayerPrefs.HasKey(key))
             {
@@ -430,6 +593,68 @@ namespace ProtoSystem.LiveOps
                 PlayerPrefs.Save();
             }
             return PlayerPrefs.GetString(key);
+        }
+
+        // ── Unread tracking ──────────────────────────────────────────
+
+        private void RecalcUnread()
+        {
+            var readSet = GetReadMessageIds();
+            int count = 0;
+            foreach (var m in _myMessages)
+            {
+                bool hasReply = !string.IsNullOrEmpty(m.reply);
+                bool isRead = readSet.Contains(m.id);
+                if (hasReply && !isRead)
+                    count++;
+                Debug.Log($"[LiveOps] RecalcUnread: id={m.id}, reply={hasReply}, read={isRead}");
+            }
+            _unreadCount = count;
+            Debug.Log($"[LiveOps] RecalcUnread: total unread={_unreadCount}, subscribers={OnUnreadCountChanged?.GetInvocationList()?.Length ?? 0}");
+            OnUnreadCountChanged?.Invoke(_unreadCount);
+        }
+
+        private const string ReadRepliesKey = "liveops_read_replies";
+
+        private static System.Collections.Generic.HashSet<string> GetReadMessageIds()
+        {
+            var set = new System.Collections.Generic.HashSet<string>();
+            var json = PlayerPrefs.GetString(ReadRepliesKey, "");
+            if (string.IsNullOrEmpty(json) || json.Length <= 2) return set;
+            // Ручной парсинг ["id1","id2"]
+            json = json.Trim();
+            if (json[0] != '[') return set;
+            int i = 1;
+            while (i < json.Length)
+            {
+                while (i < json.Length && (json[i] == ' ' || json[i] == ',' || json[i] == '\n')) i++;
+                if (i >= json.Length || json[i] == ']') break;
+                if (json[i] == '"')
+                {
+                    i++;
+                    int start = i;
+                    while (i < json.Length && json[i] != '"') { if (json[i] == '\\') i++; i++; }
+                    set.Add(json.Substring(start, i - start));
+                    if (i < json.Length) i++;
+                }
+                else i++;
+            }
+            return set;
+        }
+
+        private static void SaveReadMessageIds(System.Collections.Generic.HashSet<string> ids)
+        {
+            var sb = new System.Text.StringBuilder("[");
+            bool first = true;
+            foreach (var id in ids)
+            {
+                if (!first) sb.Append(',');
+                sb.Append('"').Append(id).Append('"');
+                first = false;
+            }
+            sb.Append(']');
+            PlayerPrefs.SetString(ReadRepliesKey, sb.ToString());
+            PlayerPrefs.Save();
         }
 
         #endregion

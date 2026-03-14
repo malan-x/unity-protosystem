@@ -15,15 +15,17 @@ namespace ProtoSystem.LiveOps
         /// <summary>Версия игры.</summary>
         public string gameVersion;
 
+        /// <summary>Язык клиента.</summary>
+        public string lang;
+
         /// <summary>Текст фидбека.</summary>
         public string message;
 
-        /// <summary>Категория (bug / suggestion / other).</summary>
+        /// <summary>Категория — контекст (какая новость/опрос открыт).</summary>
         public string category;
 
         /// <summary>
-        /// Тег — контекст сообщения.
-        /// Формат: "poll:{poll_id}", "general", "suggestion", "bug".
+        /// Тег — пометка (bug / idea / thanks / other).
         /// </summary>
         public string tag;
 
@@ -31,11 +33,12 @@ namespace ProtoSystem.LiveOps
         public string timestamp;
 
         public LiveOpsFeedback(string playerId, string gameVersion, string message,
-                               string category = "other", string tag = "general")
+                               string lang = "en", string category = "other", string tag = "general")
         {
             this.playerId    = playerId;
             this.gameVersion = gameVersion;
             this.message     = message;
+            this.lang        = lang;
             this.category    = category;
             this.tag         = tag;
             this.timestamp   = DateTime.UtcNow.ToString("o");

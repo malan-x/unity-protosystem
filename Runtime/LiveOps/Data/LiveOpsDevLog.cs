@@ -18,7 +18,10 @@ namespace ProtoSystem.LiveOps
     [Serializable]
     public class LiveOpsDevLogItem
     {
-        public LocalizedString label = new();
-        public bool done;
+        public LocalizedString name = new();
+        /// <summary>Статус: "done", "wip", "todo"</summary>
+        public string status = "todo";
+        public bool IsDone => status == "done";
+        public bool IsWip  => status == "wip";
     }
 }

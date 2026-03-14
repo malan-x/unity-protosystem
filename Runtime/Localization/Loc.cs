@@ -114,8 +114,16 @@ namespace ProtoSystem
         /// <summary>Проверить наличие ключа в конкретной таблице.</summary>
         public static bool Has(string table, string key) => _system != null && _system.Has(table, key);
         
+        // ──────────────────── Set (runtime keys) ────────────────────
+
+        /// <summary>Добавить/перезаписать ключ в рантайме (таблица по умолчанию).</summary>
+        public static void Set(string key, string value) => _system?.Set(key, value);
+
+        /// <summary>Добавить/перезаписать ключ в рантайме (конкретная таблица).</summary>
+        public static void Set(string table, string key, string value) => _system?.Set(table, key, value);
+
         // ──────────────────── Language ────────────────────
-        
+
         /// <summary>Сменить язык.</summary>
         public static void SetLanguage(string languageCode) => _system?.SetLanguage(languageCode);
     }
