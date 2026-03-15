@@ -12,6 +12,21 @@ using UnityEngine;
 namespace ProtoSystem.UI
 {
     /// <summary>
+    /// Реализуй этот интерфейс в проекте и зарегистрируй через SteamInitProvider.Register().
+    /// </summary>
+    public interface ISteamInitProvider
+    {
+        bool IsInitialized { get; }
+    }
+
+    public static class SteamInitProvider
+    {
+        private static ISteamInitProvider _instance;
+        public static void Register(ISteamInitProvider provider) => _instance = provider;
+        public static bool IsInitialized => _instance != null && _instance.IsInitialized;
+    }
+
+    /// <summary>
     /// Виртуальная клавиатура Steam (Game Input overlay).
     /// Работает на Steam Deck и при запуске Steam в Big Picture Mode.
     /// </summary>
@@ -24,7 +39,7 @@ namespace ProtoSystem.UI
         {
             get
             {
-                if (!SteamManager.Initialized) return false;
+                if (!SteamInitProvider.IsInitialized) return false;
 
                 // Steam Deck — всегда нужна
                 if (SteamUtils.IsSteamRunningOnSteamDeck()) return true;
@@ -38,7 +53,7 @@ namespace ProtoSystem.UI
 
         public void Show(string currentText, int maxLength, Action<string> onResult)
         {
-            if (!SteamManager.Initialized)
+            if (!SteamInitProvider.IsInitialized)
             {
                 onResult?.Invoke(null);
                 return;
@@ -87,7 +102,7 @@ namespace ProtoSystem.UI
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoRegister()
         {
-            if (!SteamManager.Initialized) return;
+            if (!SteamInitProvider.IsInitialized) return;
 
             var provider = new SteamVirtualKeyboardProvider();
             VirtualKeyboard.Register(provider);
