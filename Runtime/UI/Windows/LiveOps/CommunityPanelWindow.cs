@@ -112,14 +112,11 @@ namespace ProtoSystem.UI
         [SerializeField] private LocalizeTMP ratingLabelLocalize;
 
         [Header("Collapsed / Expanded")]
-        [SerializeField] private GameObject  collapsedRoot;
         [SerializeField] private GameObject  expandedRoot;
         [SerializeField] private Button      expandButton;
         [SerializeField] private Button      collapseButton;
         [SerializeField] private TMP_Text    summaryText;
         [SerializeField] private TMP_Text    statusText;
-        [SerializeField] private CanvasGroup collapsedCanvasGroup;
-        [SerializeField] private CanvasGroup expandedCanvasGroup;
 
         #endregion
 
@@ -128,7 +125,7 @@ namespace ProtoSystem.UI
         private const string PrefKeyPanelExpanded  = "liveops_panel_expanded";
         private const string PrefKeySeenCards      = "liveops_seen_cards";
         private const string PrefKeyLaunchCount    = "liveops_launch_count";
-        private const float  AnimationDuration     = 0.25f;
+        [SerializeField] private float  AnimationDuration     = 0.25f;
 
         #endregion
 
@@ -1047,6 +1044,8 @@ namespace ProtoSystem.UI
             ApplyExpandedState(animate: true);
         }
 
+        private float _expandedNaturalHeight = -1f;
+
         private void ApplyExpandedState(bool animate)
         {
             if (animate && gameObject.activeInHierarchy)
@@ -1056,9 +1055,14 @@ namespace ProtoSystem.UI
             }
 
             // Мгновенное переключение
-            SetScaleVisible(collapsedRoot, !_isExpanded);
-            SetScaleVisible(expandedRoot,   _isExpanded);
-
+            if (expandedRoot)
+            {
+                expandedRoot.SetActive(_isExpanded);
+                expandedRoot.transform.localScale = Vector3.one;
+                var le = expandedRoot.GetComponent<LayoutElement>();
+                if (le) le.preferredHeight = -1;
+            }
+            UpdateButtons();
             UpdateSummary();
 
             // Рейтинг только со 2-го запуска
@@ -1066,15 +1070,47 @@ namespace ProtoSystem.UI
                 ratingRoot.SetActive(_launchCount >= 2 && ratingRoot.activeSelf);
         }
 
+        /// <summary>Измерить натуральную высоту expandedRoot по его детям.</summary>
+        private float MeasureExpandedHeight()
+        {
+            var rt = expandedRoot.GetComponent<RectTransform>();
+            var le = expandedRoot.GetComponent<LayoutElement>();
+
+            // Временно убираем override чтобы VLG посчитал натуральную высоту
+            float prev = le ? le.preferredHeight : -1;
+            if (le) le.preferredHeight = -1;
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
+            float h = LayoutUtility.GetPreferredHeight(rt);
+            if (le) le.preferredHeight = prev;
+
+            return h > 0 ? h : 300f;
+        }
+
         private IEnumerator AnimateExpandCollapse(bool toExpanded)
         {
             _isAnimating = true;
+            if (!expandedRoot) { _isAnimating = false; yield break; }
 
-            var hideGO = toExpanded ? collapsedRoot : expandedRoot;
-            var showGO = toExpanded ? expandedRoot  : collapsedRoot;
+            var le = expandedRoot.GetComponent<LayoutElement>();
+            if (!le) le = expandedRoot.AddComponent<LayoutElement>();
 
-            // Сначала включаем появляющийся блок со scale=0
-            if (showGO) { showGO.SetActive(true); showGO.transform.localScale = new Vector3(1f, 0f, 1f); }
+            UpdateButtons();
+
+            if (toExpanded)
+            {
+                // Активируем со scale=1, но LE.preferredHeight=0 → VLG выделяет 0 высоты
+                expandedRoot.SetActive(true);
+                expandedRoot.transform.localScale = Vector3.one;
+                le.preferredHeight = 0;
+
+                // Измеряем натуральную высоту
+                _expandedNaturalHeight = MeasureExpandedHeight();
+                le.preferredHeight = 0;
+            }
+            else
+            {
+                _expandedNaturalHeight = MeasureExpandedHeight();
+            }
 
             float elapsed = 0f;
             while (elapsed < AnimationDuration)
@@ -1083,17 +1119,22 @@ namespace ProtoSystem.UI
                 float t = Mathf.Clamp01(elapsed / AnimationDuration);
                 float smooth = t * t * (3f - 2f * t); // smoothstep
 
-                // Скрываемый: scale.y 1→0
-                if (hideGO) hideGO.transform.localScale = new Vector3(1f, 1f - smooth, 1f);
-                // Появляющийся: scale.y 0→1
-                if (showGO) showGO.transform.localScale = new Vector3(1f, smooth, 1f);
+                float frac = toExpanded ? smooth : 1f - smooth;
+                le.preferredHeight = frac * _expandedNaturalHeight;
 
                 yield return null;
             }
 
             // Финальное состояние
-            SetScaleVisible(hideGO, false);
-            SetScaleVisible(showGO, true);
+            if (toExpanded)
+            {
+                le.preferredHeight = -1; // убрать override → натуральная высота
+            }
+            else
+            {
+                expandedRoot.SetActive(false);
+                le.preferredHeight = -1;
+            }
 
             // Рейтинг только со 2-го запуска
             if (!toExpanded && ratingRoot)
@@ -1103,12 +1144,14 @@ namespace ProtoSystem.UI
             _isAnimating = false;
         }
 
-        /// <summary>Показать/скрыть блок через scale.y (0=скрыт, 1=виден).</summary>
-        private static void SetScaleVisible(GameObject go, bool visible)
+        /// <summary>Переключить видимость элементов CollapsedRoot по состоянию.
+        /// Развёрнуто: только CollapseButton. Свёрнуто: всё кроме CollapseButton.</summary>
+        private void UpdateButtons()
         {
-            if (!go) return;
-            go.SetActive(visible);
-            go.transform.localScale = visible ? Vector3.one : new Vector3(1f, 0f, 1f);
+            if (expandButton) expandButton.gameObject.SetActive(!_isExpanded);
+            if (collapseButton) collapseButton.gameObject.SetActive(_isExpanded);
+            if (summaryText) summaryText.gameObject.SetActive(!_isExpanded);
+            if (statusText) statusText.gameObject.SetActive(!_isExpanded);
         }
 
         /// <summary>Обновить текст сводки: количество новых карточек.</summary>

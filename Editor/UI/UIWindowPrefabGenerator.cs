@@ -364,12 +364,11 @@ namespace ProtoSystem.UI
             var rootCSF = root.AddComponent<ContentSizeFitter>();
             rootCSF.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            // ═══ CollapsedRoot: компактная строка summary + expand ═══
+            // ═══ CollapsedRoot: всегда видимая строка summary + кнопки expand/collapse ═══
             var collapsedRoot = new GameObject("CollapsedRoot");
             collapsedRoot.transform.SetParent(root.transform, false);
             var collapsedRect = collapsedRoot.AddComponent<RectTransform>();
             collapsedRect.pivot = new Vector2(0.5f, 0f);
-            var collapsedCG = collapsedRoot.AddComponent<CanvasGroup>();
             var collapsedLE = collapsedRoot.AddComponent<LayoutElement>();
             collapsedLE.preferredHeight = 22;
             var collapsedHLG = collapsedRoot.AddComponent<HorizontalLayoutGroup>();
@@ -386,21 +385,16 @@ namespace ProtoSystem.UI
             statusGO.GetComponent<TMP_Text>().color = new Color(0.5f, 0.5f, 0.5f);
             statusGO.GetComponent<TMP_Text>().fontStyle = FontStyles.Italic;
             statusGO.GetComponent<RectTransform>().sizeDelta = new Vector2(90, 18);
+            AddLocalization(statusGO, UIKeys.CommunityPanel.Loading, UIKeys.CommunityPanel.Fallback.Loading);
 
-            // Summary text (количество новых карточек)
+            // Summary text (количество новых карточек, скрыт когда развёрнуто)
             var summaryGO = CreateText("SummaryText", collapsedRoot.transform, "", 10);
             summaryGO.GetComponent<TMP_Text>().fontStyle = FontStyles.Bold;
             summaryGO.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.MidlineLeft;
             summaryGO.GetComponent<RectTransform>().sizeDelta = new Vector2(80, 18);
+            AddLocalization(summaryGO, UIKeys.CommunityPanel.AllSeen, UIKeys.CommunityPanel.Fallback.AllSeen);
 
-            // Spacer (прижимает кнопку вправо)
-            var collapsedSpacer = new GameObject("Spacer");
-            collapsedSpacer.transform.SetParent(collapsedRoot.transform, false);
-            collapsedSpacer.AddComponent<RectTransform>();
-            var spacerLE = collapsedSpacer.AddComponent<LayoutElement>();
-            spacerLE.flexibleWidth = 1;
-
-            // Expand button (компактная, справа)
+            // Expand button (видна когда свёрнуто)
             var expandBtn = CreateButton("ExpandButton", collapsedRoot.transform,
                 UIKeys.CommunityPanel.Fallback.Expand, new Vector2(100, 18));
             var expandBtnText = expandBtn.transform.Find("Text")?.GetComponent<TMP_Text>();
@@ -408,12 +402,21 @@ namespace ProtoSystem.UI
             AddLocalization(expandBtn.transform.Find("Text")?.gameObject,
                 UIKeys.CommunityPanel.Expand, UIKeys.CommunityPanel.Fallback.Expand);
 
-            // ═══ ExpandedRoot: карточки, сообщения, переписка, кнопка свернуть ═══
+            // Collapse button (видна когда развёрнуто, на всю ширину, скрыта по умолчанию)
+            var collapseBtn = CreateButton("CollapseButton", collapsedRoot.transform,
+                UIKeys.CommunityPanel.Fallback.Collapse, new Vector2(456, 18));
+            var collapseBtnText = collapseBtn.transform.Find("Text")?.GetComponent<TMP_Text>();
+            if (collapseBtnText) collapseBtnText.fontSize = 10;
+            AddLocalization(collapseBtn.transform.Find("Text")?.gameObject,
+                UIKeys.CommunityPanel.Collapse, UIKeys.CommunityPanel.Fallback.Collapse);
+            collapseBtn.SetActive(false);
+
+            // ═══ ExpandedRoot: карточки, сообщения, переписка ═══
             var expandedRoot = new GameObject("ExpandedRoot");
             expandedRoot.transform.SetParent(root.transform, false);
             var expandedRect = expandedRoot.AddComponent<RectTransform>();
             expandedRect.pivot = new Vector2(0.5f, 0f);
-            var expandedCG = expandedRoot.AddComponent<CanvasGroup>();
+            expandedRoot.AddComponent<LayoutElement>(); // preferredHeight управляется из кода при анимации
             var expandedVLG = expandedRoot.AddComponent<VerticalLayoutGroup>();
             expandedVLG.spacing = 4;
             expandedVLG.childControlWidth = true;
@@ -840,14 +843,6 @@ namespace ProtoSystem.UI
             // Деактивируем convRoot ПОСЛЕ создания всех детей
             convRoot.SetActive(false);
 
-            // ─── Collapse button (внизу expandedRoot) ───
-            var collapseBtn = CreateButton("CollapseButton", expandedRoot.transform,
-                UIKeys.CommunityPanel.Fallback.Collapse, new Vector2(120, 28));
-            AddLocalization(collapseBtn.transform.Find("Text")?.gameObject,
-                UIKeys.CommunityPanel.Collapse, UIKeys.CommunityPanel.Fallback.Collapse);
-            var collapseBtnLE = collapseBtn.AddComponent<LayoutElement>();
-            collapseBtnLE.preferredHeight = 28;
-
             // expandedRoot скрыт по умолчанию (панель стартует свёрнутой)
             expandedRoot.SetActive(false);
 
@@ -870,14 +865,11 @@ namespace ProtoSystem.UI
             if (typeBadgeLocalize) SetField(component, "typeBadgeLocalize", typeBadgeLocalize);
 
             // Collapsed / Expanded
-            SetField(component, "collapsedRoot",        collapsedRoot);
             SetField(component, "expandedRoot",         expandedRoot);
             SetField(component, "expandButton",         expandBtn.GetComponent<Button>());
             SetField(component, "collapseButton",       collapseBtn.GetComponent<Button>());
             SetField(component, "summaryText",          summaryGO.GetComponent<TMP_Text>());
             SetField(component, "statusText",           statusGO.GetComponent<TMP_Text>());
-            SetField(component, "collapsedCanvasGroup", collapsedCG);
-            SetField(component, "expandedCanvasGroup",  expandedCG);
 
             // Localized labels
             var sendLocalize = sendBtn.transform.Find("Text")?.GetComponent<LocalizeTMP>();
@@ -886,6 +878,10 @@ namespace ProtoSystem.UI
             if (phLocalize) SetField(component, "placeholderLocalize", phLocalize);
             var ratingLocalize = ratingLabelGO?.GetComponent<LocalizeTMP>();
             if (ratingLocalize) SetField(component, "ratingLabelLocalize", ratingLocalize);
+
+            // ─── Порядок в VLG: ExpandedRoot → CollapsedRoot → остальное ───
+            expandedRoot.transform.SetSiblingIndex(0);
+            collapsedRoot.transform.SetSiblingIndex(1);
 
             return SavePrefab(root, "CommunityPanelWindow");
         }
