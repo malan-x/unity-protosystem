@@ -1197,8 +1197,14 @@ namespace ProtoSystem.UI
                 summaryText.text = "";
             }
 
-            // Скрыть статус загрузки после получения данных
-            if (statusText) statusText.text = "";
+            // Скрыть статус загрузки после получения данных — сбросить и ключ локализации,
+            // иначе при смене языка LocalizeTMP восстановит старый текст
+            if (statusText)
+            {
+                statusText.text = "";
+                if (statusText.TryGetComponent<LocalizeTMP>(out var loc))
+                    loc.SetKey("", "");
+            }
         }
 
         /// <summary>Пометить все текущие карточки как просмотренные.</summary>
