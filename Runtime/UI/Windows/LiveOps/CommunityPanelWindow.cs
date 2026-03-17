@@ -400,6 +400,8 @@ namespace ProtoSystem.UI
                     UpdateSummary();
                     break;
             }
+
+            NotifyLayoutChanged("data_updated");
         }
 
         #endregion
@@ -872,6 +874,7 @@ namespace ProtoSystem.UI
 
             UpdateTranslationUI();
             RenderConversation();
+            NotifyLayoutChanged("conversation_open");
 
             // Adaptive height based on message count
             AdjustConversationHeight();
@@ -965,6 +968,7 @@ namespace ProtoSystem.UI
                 RefreshWidgetVisibility();
                 ShowCard(_currentCard);
             }
+            NotifyLayoutChanged("conversation_close");
         }
 
         private void RenderConversation()
@@ -1068,6 +1072,8 @@ namespace ProtoSystem.UI
             // Рейтинг только со 2-го запуска
             if (!_isExpanded && ratingRoot)
                 ratingRoot.SetActive(_launchCount >= 2 && ratingRoot.activeSelf);
+
+            NotifyLayoutChanged(_isExpanded ? "expanded" : "collapsed");
         }
 
         /// <summary>Измерить натуральную высоту expandedRoot по его детям.</summary>
@@ -1142,6 +1148,13 @@ namespace ProtoSystem.UI
 
             UpdateSummary();
             _isAnimating = false;
+            NotifyLayoutChanged(toExpanded ? "expanded" : "collapsed");
+        }
+
+        /// <summary>Уведомить родительское окно об изменении layout (для перестройки навигации).</summary>
+        private void NotifyLayoutChanged(string reason)
+        {
+            EventBus.Publish(Evt.LiveOps.LayoutChanged, reason);
         }
 
         /// <summary>Переключить видимость элементов CollapsedRoot по состоянию.

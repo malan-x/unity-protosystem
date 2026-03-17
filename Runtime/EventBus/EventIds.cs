@@ -181,6 +181,14 @@ namespace ProtoSystem
             /// Type — константа из LiveOpsDataType ("panel_config", "polls", etc.)
             /// </summary>
             public const int DataUpdated = 11100;
+
+            /// <summary>
+            /// Layout панели изменился (expand/collapse, conversation open/close, cards populated).
+            /// Payload: string — идентификатор причины ("expanded", "collapsed", "conversation_open",
+            /// "conversation_close", "cards_populated").
+            /// Позволяет родительскому окну перестроить навигацию.
+            /// </summary>
+            public const int LayoutChanged = 11101;
         }
     }
 }
