@@ -499,6 +499,7 @@ namespace ProtoSystem.UI
             UpdateCardCounter(index + 1, _cardKeys.Count);
             MarkCardSeen(key);
             StartCoroutine(AdjustCardsRootHeightDeferred());
+            NotifyLayoutChanged("card_changed");
         }
 
         private void ShowPollCard(LiveOpsPoll poll, string lang)
