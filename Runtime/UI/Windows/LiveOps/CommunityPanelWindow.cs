@@ -837,6 +837,32 @@ namespace ProtoSystem.UI
             if (ratingValueText) ratingValueText.text = value > 0 ? value.ToString() : "—";
         }
 
+        /// <summary>
+        /// Установить оценку с клавиатуры/геймпада (1–10). Обновляет UI и отправляет на сервер.
+        /// </summary>
+        public void SubmitRatingFromInput(int score)
+        {
+            if (score <= 0 || score > 10) return;
+            _userVote = score;
+            UpdateRatingDisplay(score);
+            if (_liveOpsSystem != null)
+                _ = _liveOpsSystem.SubmitRatingAsync(score);
+        }
+
+        /// <summary>
+        /// Предпросмотр оценки без отправки (для навигации лево/право по звёздам).
+        /// </summary>
+        public void PreviewRating(int score)
+        {
+            if (score <= 0 || score > 10) return;
+            UpdateRatingDisplay(score);
+        }
+
+        /// <summary>
+        /// Текущая оценка пользователя (0 = не голосовал).
+        /// </summary>
+        public int UserVote => _userVote;
+
         #endregion
 
         #region Conversation
