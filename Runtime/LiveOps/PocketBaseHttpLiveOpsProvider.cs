@@ -43,6 +43,7 @@ namespace ProtoSystem.LiveOps
         private readonly string _projectId;
         private readonly string _playerId;
         private readonly float  _timeoutSeconds;
+        private string _playerName;
 
         public PocketBaseHttpLiveOpsProvider(
             string baseUrl,
@@ -55,6 +56,8 @@ namespace ProtoSystem.LiveOps
             _playerId       = playerId;
             _timeoutSeconds = timeoutSeconds;
         }
+
+        public void SetPlayerName(string name) => _playerName = name;
 
         // ── ILiveOpsProvider ──────────────────────────────────────────────────
 
@@ -168,7 +171,8 @@ namespace ProtoSystem.LiveOps
             else
             {
                 // POST — новый голос
-                var body = $"{{\"project_id\":\"{_projectId}\",\"poll_id\":\"{answer.pollId}\",\"player_id\":\"{answer.playerId}\",\"option_ids\":{ToJsonArray(answer.optionIds)}}}";
+                var nameField = !string.IsNullOrEmpty(_playerName) ? $",\"player_name\":\"{EscapeJson(_playerName)}\"" : "";
+                var body = $"{{\"project_id\":\"{_projectId}\",\"poll_id\":\"{answer.pollId}\",\"player_id\":\"{answer.playerId}\",\"option_ids\":{ToJsonArray(answer.optionIds)}{nameField}}}";
                 ok = await PostAsync("/api/collections/poll_votes/records", body);
             }
 
@@ -183,7 +187,8 @@ namespace ProtoSystem.LiveOps
 
         public async Task<bool> SubmitFeedbackAsync(LiveOpsFeedback feedback)
         {
-            var body = $"{{\"project_id\":\"{EscapeJson(_projectId)}\",\"player_id\":\"{EscapeJson(feedback.playerId)}\",\"lang\":\"{EscapeJson(feedback.lang)}\",\"category\":\"{EscapeJson(feedback.category)}\",\"game_version\":\"{EscapeJson(feedback.gameVersion)}\",\"message\":\"{EscapeJson(feedback.message)}\",\"tag\":\"{EscapeJson(feedback.tag)}\",\"timestamp\":\"{EscapeJson(feedback.timestamp)}\"}}";
+            var nameField = !string.IsNullOrEmpty(_playerName) ? $",\"player_name\":\"{EscapeJson(_playerName)}\"" : "";
+            var body = $"{{\"project_id\":\"{EscapeJson(_projectId)}\",\"player_id\":\"{EscapeJson(feedback.playerId)}\",\"lang\":\"{EscapeJson(feedback.lang)}\",\"category\":\"{EscapeJson(feedback.category)}\",\"game_version\":\"{EscapeJson(feedback.gameVersion)}\",\"message\":\"{EscapeJson(feedback.message)}\",\"tag\":\"{EscapeJson(feedback.tag)}\",\"timestamp\":\"{EscapeJson(feedback.timestamp)}\"{nameField}}}";
             return await PostAsync("/api/collections/messages/records", body);
         }
 
@@ -347,7 +352,9 @@ namespace ProtoSystem.LiveOps
         public async Task<LiveOpsRatingResult> SubmitRatingAsync(LiveOpsRatingSubmit submit)
         {
             // Всегда вставляем новую запись — так хранится история изменения оценок
-            var body = $"{{\"project_id\":\"{_projectId}\",\"version\":\"{submit.version}\",\"score\":{submit.score},\"player_id\":\"{submit.playerId}\"}}";
+            var nameField = !string.IsNullOrEmpty(_playerName) ? $",\"player_name\":\"{EscapeJson(_playerName)}\"" : "";
+            var body = $"{{\"project_id\":\"{_projectId}\",\"version\":\"{submit.version}\",\"score\":{submit.score},\"player_id\":\"{submit.playerId}\"{nameField}}}";
+            UnityEngine.Debug.Log($"[LiveOps PB] SubmitRating body: {body}");
             var ok = await PostAsync("/api/collections/ratings/records", body);
             if (!ok) return null;
 

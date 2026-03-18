@@ -224,12 +224,13 @@ namespace ProtoSystem.LiveOps
 
             // ── Steam Nickname ──────────────────────────────────────────
             EditorGUILayout.BeginHorizontal();
-            _debugSteamName = EditorGUILayout.TextField("Steam Nickname", _debugSteamName);
+            _debugSteamName = EditorGUILayout.TextField("Steam Name", _debugSteamName);
             GUI.enabled = !string.IsNullOrWhiteSpace(_debugSteamName);
             if (GUILayout.Button("Set", GUILayout.Width(40)))
             {
                 system.SetPlayerId(_debugSteamName);
-                Debug.Log($"[LiveOps Debug] PlayerId → {_debugSteamName}");
+                system.SetPlayerName(_debugSteamName);
+                Debug.Log($"[LiveOps Debug] PlayerId → {_debugSteamName}, PlayerName → {_debugSteamName}");
             }
             GUI.enabled = true;
             EditorGUILayout.EndHorizontal();
@@ -238,6 +239,13 @@ namespace ProtoSystem.LiveOps
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.PrefixLabel("Current ID");
             EditorGUILayout.SelectableLabel(system.PlayerId ?? "—",
+                EditorStyles.miniLabel, GUILayout.Height(EditorGUIUtility.singleLineHeight));
+            EditorGUILayout.EndHorizontal();
+
+            // Current Name
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PrefixLabel("Current Name");
+            EditorGUILayout.SelectableLabel(system.PlayerName ?? "—",
                 EditorStyles.miniLabel, GUILayout.Height(EditorGUIUtility.singleLineHeight));
             EditorGUILayout.EndHorizontal();
 
@@ -294,6 +302,7 @@ namespace ProtoSystem.LiveOps
             var provider = providerField?.GetValue(system);
             Debug.Log($"[LiveOps Debug] system._provider: {(provider == null ? "NULL" : provider.GetType().Name)}");
             Debug.Log($"[LiveOps Debug] system.PlayerId: '{system.PlayerId}'");
+            Debug.Log($"[LiveOps Debug] system.PlayerName: '{system.PlayerName}'");
             Debug.Log($"[LiveOps Debug] Application.version: '{Application.version}'");
 
             try

@@ -119,7 +119,19 @@ namespace ProtoSystem.LiveOps
             if (string.IsNullOrWhiteSpace(name)) return;
             _playerName = name;
             if (_provider is DefaultHttpLiveOpsProvider httpProv)
+            {
                 httpProv.SetPlayerName(name);
+                Debug.Log($"[LiveOps] PlayerName → '{name}' (DefaultHttp)");
+            }
+            else if (_provider is PocketBaseHttpLiveOpsProvider pbProv)
+            {
+                pbProv.SetPlayerName(name);
+                Debug.Log($"[LiveOps] PlayerName → '{name}' (PocketBase)");
+            }
+            else
+            {
+                Debug.LogWarning($"[LiveOps] PlayerName → '{name}' но провайдер = {(_provider == null ? "NULL" : _provider.GetType().Name)}");
+            }
         }
 
         /// <summary>
@@ -468,8 +480,13 @@ namespace ProtoSystem.LiveOps
                 _playerId = GetOrCreateAnonymousId();
 
             // Передаём имя игрока в провайдер (если задано)
-            if (!string.IsNullOrEmpty(_playerName) && _provider is DefaultHttpLiveOpsProvider httpProv)
-                httpProv.SetPlayerName(_playerName);
+            if (!string.IsNullOrEmpty(_playerName))
+            {
+                if (_provider is DefaultHttpLiveOpsProvider httpProv)
+                    httpProv.SetPlayerName(_playerName);
+                else if (_provider is PocketBaseHttpLiveOpsProvider pbProv)
+                    pbProv.SetPlayerName(_playerName);
+            }
 
             ProtoLogger.LogInit(SystemId, $"PlayerId: {_playerId} | Lang: {Language} | Project: {config.projectId}");
 
