@@ -32,6 +32,7 @@ namespace ProtoSystem.LiveOps
         private readonly string _projectId;
         private readonly string _playerId;
         private readonly float  _timeoutSeconds;
+        private string _playerName;
 
         public DefaultHttpLiveOpsProvider(string baseUrl, string projectId,
             string playerId = null, float timeoutSeconds = 10f)
@@ -188,12 +189,16 @@ namespace ProtoSystem.LiveOps
             return req.downloadHandler.text;
         }
 
+        public void SetPlayerName(string name) => _playerName = name;
+
         private void AddHeaders(UnityWebRequest req)
         {
             if (!string.IsNullOrEmpty(_projectId))
                 req.SetRequestHeader("X-Project-ID", _projectId);
             if (!string.IsNullOrEmpty(_playerId))
                 req.SetRequestHeader("X-Steam-ID", _playerId);
+            if (!string.IsNullOrEmpty(_playerName))
+                req.SetRequestHeader("X-Player-Name", _playerName);
         }
 
         // UnityWebRequest не имеет async/await — оборачиваем через TaskCompletionSource

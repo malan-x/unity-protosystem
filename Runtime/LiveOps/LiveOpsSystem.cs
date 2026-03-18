@@ -53,6 +53,7 @@ namespace ProtoSystem.LiveOps
         private Queue<LiveOpsEvent>       _analyticsQueue = new();
         private float                     _fetchTimer;
         private string                    _playerId;
+        private string                    _playerName;
         private bool                      _playerIdOverridden;
 
         // Community Panel
@@ -93,6 +94,7 @@ namespace ProtoSystem.LiveOps
         public IReadOnlyList<LiveOpsConversationItem> MyMessages => _myMessages;
         public int                                UnreadReplyCount => _unreadCount;
         public string                             PlayerId       => _playerId;
+        public string                             PlayerName     => _playerName;
         public string                             Language          => Loc.IsReady ? Loc.CurrentLanguage : (config != null ? config.defaultLanguage : "en");
         public bool                               IsServerAvailable => _serverAvailable;
 
@@ -106,6 +108,18 @@ namespace ProtoSystem.LiveOps
             if (string.IsNullOrWhiteSpace(id)) return;
             _playerId = id;
             _playerIdOverridden = true;
+        }
+
+        /// <summary>
+        /// Установить отображаемое имя игрока (например SteamFriends.GetPersonaName()).
+        /// Передаётся на сервер в заголовке X-Player-Name.
+        /// </summary>
+        public void SetPlayerName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return;
+            _playerName = name;
+            if (_provider is DefaultHttpLiveOpsProvider httpProv)
+                httpProv.SetPlayerName(name);
         }
 
         /// <summary>
@@ -452,6 +466,10 @@ namespace ProtoSystem.LiveOps
 
             if (!_playerIdOverridden)
                 _playerId = GetOrCreateAnonymousId();
+
+            // Передаём имя игрока в провайдер (если задано)
+            if (!string.IsNullOrEmpty(_playerName) && _provider is DefaultHttpLiveOpsProvider httpProv)
+                httpProv.SetPlayerName(_playerName);
 
             ProtoLogger.LogInit(SystemId, $"PlayerId: {_playerId} | Lang: {Language} | Project: {config.projectId}");
 
