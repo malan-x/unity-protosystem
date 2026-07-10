@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0] - 2026-07-10
+
+### Added
+- **Claude Translation Runner** — полный цикл AI-перевода одной кнопкой (вкладка "Claude" в AI Translation Window)
+  - Export выбранных таблиц/языков → headless-запуск Claude Code CLI → Import + валидация
+  - Промпт передаётся через stdin (`claude -p --permission-mode acceptEdits`), без ручного экранирования
+  - Если в проекте есть скилл `.claude/skills/localize/SKILL.md` — используется `/localize` (проектный контракт перевода)
+  - Кнопка **"Создать скилл на основе проекта"** — headless-Claude изучает доки и строки таблиц, генерирует SKILL.md с тоном игры и глоссарием
+  - Живой лог процесса, Cancel, итоговые бейджи (imported/skipped/errors)
+- **Coverage-панель** в AI Translation Window — прогресс перевода по каждой таблице и языку
+- Сводка по файлам на вкладке Import — "N/M переведено" для каждого JSON
+
+### Changed
+- **Редизайн окон локализации** (AI Translation Window, Setup Wizard) — общий стиль `LocalizationEditorStyles`:
+  шапка с акцентной полосой, карточки-секции, цветные бейджи статусов, акцентные кнопки,
+  компактная сетка языков в две колонки, лог-консоль
 ## [1.14.0] - 2026-03-06
 
 ### Added

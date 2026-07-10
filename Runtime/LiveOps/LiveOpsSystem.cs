@@ -185,7 +185,7 @@ namespace ProtoSystem.LiveOps
             }
             panel.gameObject.SetActive(true);
             if (_hasData) PushAllDataToEventBus();
-            if (config != null && config.fetchOnPanelOpen) _ = FetchAsync();
+            if (config != null && config.fetchOnPanelOpen) _ = SafeFetchAsync();
         }
 
         /// <summary>Отписать панель от системы.</summary>
@@ -195,7 +195,7 @@ namespace ProtoSystem.LiveOps
         }
 
         /// <summary>Принудительно запросить данные с сервера (например по кнопке в UI).</summary>
-        public void TriggerFetch() => _ = FetchAsync();
+        public void TriggerFetch() => _ = SafeFetchAsync();
 
         /// <summary>
         /// Отправить аналитическое событие.
@@ -561,7 +561,7 @@ namespace ProtoSystem.LiveOps
         private void OnWindowOpened(object data)
         {
             if (data is string windowName && windowName == config?.mainMenuWindowName)
-                _ = FetchAsync();
+                _ = SafeFetchAsync();
         }
 
         private void OnDestroy()
@@ -581,8 +581,7 @@ namespace ProtoSystem.LiveOps
             if (_fetchTimer >= config.fetchIntervalSeconds)
             {
                 _fetchTimer = 0f;
-                _ = FetchAsync();
-                _ = FlushAnalyticsQueueAsync();
+                _ = SafeFetchAsync();
             }
         }
 
@@ -590,10 +589,36 @@ namespace ProtoSystem.LiveOps
 
         #region Private
 
+        /// <summary>
+        /// Fetch с защитой от исключений: вызывается fire-and-forget (_ = SafeFetchAsync()),
+        /// где упавший Task иначе молча теряется вместе с ошибкой.
+        /// </summary>
+        private async Task SafeFetchAsync()
+        {
+            try
+            {
+                await FetchAsync();
+                await FlushAnalyticsQueueAsync();
+            }
+            catch (Exception ex)
+            {
+                ProtoLogger.LogWarning(SystemId, $"Fetch failed: {ex.Message}");
+            }
+        }
+
         private async Task SendEventWithFallbackAsync(LiveOpsEvent evt)
         {
-            bool sent = await _provider.SendEventAsync(evt);
-            if (!sent) EnqueueAnalytics(evt);
+            try
+            {
+                bool sent = await _provider.SendEventAsync(evt);
+                if (!sent) EnqueueAnalytics(evt);
+            }
+            catch (Exception ex)
+            {
+                // Сбой сети не должен терять событие — возвращаем его в очередь
+                ProtoLogger.LogWarning(SystemId, $"SendEvent failed: {ex.Message}");
+                EnqueueAnalytics(evt);
+            }
         }
 
         private void EnqueueAnalytics(LiveOpsEvent evt)

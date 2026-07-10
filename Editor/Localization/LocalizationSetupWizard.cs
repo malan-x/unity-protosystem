@@ -125,12 +125,11 @@ namespace ProtoSystem.Editor
         
         private void OnGUI()
         {
+            LocalizationEditorStyles.Header("🌐 ProtoLocalization Setup",
+                "Установка зависимостей, конфиг, языки и создание String Tables.");
+
             _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
-            
-            EditorGUILayout.Space(10);
-            EditorGUILayout.LabelField("🌐 ProtoLocalization Setup", EditorStyles.boldLabel);
-            EditorGUILayout.Space(5);
-            
+
             DrawDependencyStatus();
             EditorGUILayout.Space(10);
             
