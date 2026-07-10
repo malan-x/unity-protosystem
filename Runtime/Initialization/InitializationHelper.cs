@@ -49,10 +49,33 @@ namespace ProtoSystem
         /// <param name="provider">Провайдер систем</param>
         /// <param name="attributeType">Тип атрибута (Dependency или PostDependency)</param>
         /// <returns>True если все обязательные зависимости инициализированы</returns>
+        // Кеш полей по типу: рефлексия по иерархии на каждую инициализацию — дорого
+        private static readonly System.Collections.Generic.Dictionary<Type, FieldInfo[]> FieldsCache = new();
+
+        /// <summary>
+        /// Все instance-поля типа, включая приватные поля базовых классов.
+        /// GetFields не возвращает приватные поля предков — обходим иерархию вручную.
+        /// </summary>
+        public static FieldInfo[] GetAllInstanceFields(Type type)
+        {
+            if (FieldsCache.TryGetValue(type, out var cached)) return cached;
+
+            var result = new System.Collections.Generic.List<FieldInfo>();
+            for (var t = type; t != null && t != typeof(MonoBehaviour) && t != typeof(object); t = t.BaseType)
+            {
+                result.AddRange(t.GetFields(BindingFlags.Public | BindingFlags.NonPublic |
+                                            BindingFlags.Instance | BindingFlags.DeclaredOnly));
+            }
+
+            var arr = result.ToArray();
+            FieldsCache[type] = arr;
+            return arr;
+        }
+
         public bool AutoInitializeDependencies(SystemProvider provider, Type attributeType)
         {
             bool allSucceeded = true;
-            var fields = component.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+            var fields = GetAllInstanceFields(component.GetType());
 
             foreach (var field in fields)
             {
@@ -148,6 +171,17 @@ namespace ProtoSystem
 
                 // Сначала инициализируем критические зависимости
                 InitializeDependencies(provider);
+
+                // Fail-fast: без обязательных зависимостей InitializeAsync не запускаем —
+                // иначе вместо внятной ошибки получим NRE в недрах системы
+                if (!IsInitializedDependencies)
+                {
+                    ChangeStatus(InitializationStatus.Failed);
+                    LogError($"{system.DisplayName}: обязательные зависимости не инициализированы " +
+                             "(см. ошибки выше) — инициализация системы отменена");
+                    return false;
+                }
+
                 ReportProgress(0.2f);
 
                 // Затем саму систему
@@ -180,6 +214,14 @@ namespace ProtoSystem
         /// </summary>
         public bool InitializePostDependenciesSync(SystemProvider provider)
         {
+            // Идемпотентность: повторный прогон post-фазы (например, после частичного
+            // провала других систем) не должен переинжектить уже успешные системы
+            if (IsInitializedPostDependencies)
+            {
+                LogInit($"Post-зависимости {system.DisplayName} уже инициализированы — пропуск");
+                return true;
+            }
+
             try
             {
                 LogInit($"Начало инициализации post-зависимостей {system.DisplayName}");
@@ -224,7 +266,7 @@ namespace ProtoSystem
         public DependencyInfo[] GetDependencies()
         {
             var dependencies = new System.Collections.Generic.List<DependencyInfo>();
-            var fields = component.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+            var fields = GetAllInstanceFields(component.GetType());
 
             foreach (var field in fields)
             {

@@ -150,13 +150,18 @@ namespace ProtoSystem
         /// </summary>
         private void AnalyzeFieldDependencies(Type systemType, SystemEntry entry, string methodContext, bool includePostDependencies = true)
         {
-            var fields = systemType.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+            // Все поля по иерархии — приватные поля базовых классов GetFields не возвращает
+            var fields = InitializationHelper.GetAllInstanceFields(systemType);
 
             foreach (var field in fields)
             {
                 // Ищем поля типа InitializableSystemBase или его наследников
                 if (typeof(IInitializableSystem).IsAssignableFrom(field.FieldType))
                 {
+                    // Слишком общие типы дали бы ребро на каждую систему
+                    if (IsTooGeneralDependencyType(field.FieldType))
+                        continue;
+
                     // Проверяем атрибуты поля
                     var dependencyAttr = field.GetCustomAttribute<DependencyAttribute>();
                     var postDependencyAttr = field.GetCustomAttribute<PostDependencyAttribute>();
@@ -176,9 +181,24 @@ namespace ProtoSystem
 
                     if (shouldInclude)
                     {
-                        // Находим соответствующую запись в системах
-                        var dependentSystem = systems.FirstOrDefault(s => s.SystemType == field.FieldType);
-                        if (dependentSystem != null && !entry.detectedDependencies.Contains(dependentSystem.systemName))
+                        // Кандидаты по совместимости типов, а не по точному совпадению —
+                        // иначе поле, объявленное как интерфейс/базовый класс,
+                        // не попадает в граф, хотя рантайм-инжект его заполнит
+                        var candidates = systems
+                            .Where(s => s.SystemType != null && field.FieldType.IsAssignableFrom(s.SystemType))
+                            .ToList();
+
+                        if (candidates.Count == 0) continue;
+
+                        if (candidates.Count > 1)
+                        {
+                            ProtoLogger.LogWarning(LOG_ID,
+                                $"Неоднозначная зависимость {entry.systemName}.{field.Name} ({field.FieldType.Name}): " +
+                                $"подходят {string.Join(", ", candidates.Select(c => c.systemName))} — взята первая по списку");
+                        }
+
+                        var dependentSystem = candidates[0];
+                        if (!entry.detectedDependencies.Contains(dependentSystem.systemName))
                         {
                             entry.detectedDependencies.Add(dependentSystem.systemName);
 
@@ -188,6 +208,19 @@ namespace ProtoSystem
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Типы, слишком общие для построения ребра зависимости.
+        /// </summary>
+        private static bool IsTooGeneralDependencyType(Type t)
+        {
+            return t == typeof(object)
+                || t == typeof(MonoBehaviour)
+                || t == typeof(Behaviour)
+                || t == typeof(Component)
+                || t == typeof(IInitializableSystem)
+                || t == typeof(InitializableSystemBase);
         }
 
         /// <summary>
@@ -376,6 +409,29 @@ namespace ProtoSystem
                 errors.Add($"Циклическая зависимость в системе {entry.systemName}: {entry.cyclicDependencyInfo}");
             }
 
+            // Проверяем уникальность SystemId (по нему ключуются прогресс и логи)
+            var idGroups = systems
+                .Where(s => s.enabled)
+                .Select(s => new { s.systemName, id = GetSystemIdForEntry(s) })
+                .Where(x => !string.IsNullOrEmpty(x.id))
+                .GroupBy(x => x.id)
+                .Where(g => g.Count() > 1);
+            foreach (var group in idGroups)
+            {
+                errors.Add($"Дублированный SystemId '{group.Key}': {string.Join(", ", group.Select(x => x.systemName))}");
+            }
+
+            // Зависимость на выключенную систему: инъекция вернёт null
+            var disabledNames = new HashSet<string>(systems.Where(s => !s.enabled).Select(s => s.systemName));
+            foreach (var entry in systems.Where(s => s.enabled))
+            {
+                foreach (var dep in entry.detectedDependencies)
+                {
+                    if (disabledNames.Contains(dep))
+                        errors.Add($"Система {entry.systemName} зависит от выключенной {dep} — зависимость не будет заинжектена");
+                }
+            }
+
             return errors.Count == 0;
         }
 
@@ -409,6 +465,14 @@ namespace ProtoSystem
             {
                 // Анализируем зависимости перед сортировкой
                 AnalyzeDependencies();
+
+                // Выключенные системы: не инициализируются, не регистрируются в провайдере —
+                // GetSystem<T>() и инъекции вернут null. Фиксируем это в логе явно.
+                foreach (var disabled in systems.Where(s => !s.enabled))
+                {
+                    LogMessage($"Система {disabled.systemName} выключена — пропущена " +
+                               "(инициализация, GetSystem и инъекции недоступны)");
+                }
 
                 // Получаем системы в правильном порядке
                 var orderedSystems = GetSystemsInInitializationOrder();
@@ -478,6 +542,14 @@ namespace ProtoSystem
                 currentSystemName = kvp.Key;
                 var systemInstance = kvp.Value;
 
+                // Упавшие/затаймаученные системы пропускаем — они не в провайдере,
+                // и инжектить в них post-зависимости бессмысленно
+                if (systemInstance.Status != InitializationStatus.Completed)
+                {
+                    LogMessage($"Post-зависимости {kvp.Key} пропущены (статус: {systemInstance.Status})");
+                    continue;
+                }
+
                 LogMessage($"Инициализация post-зависимостей для системы: {kvp.Key}");
 
                 try
@@ -521,7 +593,11 @@ namespace ProtoSystem
                     }
 
                     systemInstances[entry.systemName] = systemInstance;
-                    systemProgress[entry.systemName] = 0f;
+
+                    // Прогресс ключуется по SystemId — именно его присылает OnProgressChanged
+                    if (systemProgress.ContainsKey(systemInstance.SystemId))
+                        LogError($"Дублированный SystemId '{systemInstance.SystemId}' (система {entry.systemName}) — прогресс и настройки логов будут смешаны");
+                    systemProgress[systemInstance.SystemId] = 0f;
 
                     // Регистрируем per-system настройки логирования
                     RegisterSystemLogSettings(entry, systemInstance);
@@ -699,9 +775,6 @@ namespace ProtoSystem
 
                 LogMessage($"Инициализация системы: {entry.systemName}");
 
-                // Регистрируем систему в провайдере перед инициализацией
-                systemProvider.RegisterSystem(systemInstance);
-
                 // Используем timeout для предотвращения зависания
                 var timeoutTask = Task.Delay(TimeSpan.FromSeconds(maxInitializationTimeoutSeconds));
                 var initTask = systemInstance.FullInitializeAsync(systemProvider);
@@ -713,6 +786,20 @@ namespace ProtoSystem
                 {
                     LogError($"Timeout инициализации системы {entry.systemName}");
                     allSucceeded = false;
+
+                    // Задача не отменяется (в контракте нет CancellationToken) и продолжает
+                    // жить. Отписываемся от её событий, а поздний результат игнорируем.
+                    systemInstance.OnProgressChanged -= OnSystemProgressChanged;
+                    systemInstance.OnStatusChanged -= OnSystemStatusChanged;
+
+                    string lateName = entry.systemName;
+                    _ = initTask.ContinueWith(t =>
+                    {
+                        if (t.Status == TaskStatus.RanToCompletion && t.Result)
+                            ProtoLogger.LogWarning(LOG_ID,
+                                $"Система {lateName} доинициализировалась после таймаута — " +
+                                "результат проигнорирован, в провайдере она не зарегистрирована");
+                    }, TaskScheduler.Default);
                 }
                 else
                 {
@@ -723,9 +810,11 @@ namespace ProtoSystem
                     }
                 }
 
-                // Включаем систему после успешной инициализации
+                // Регистрируем в провайдере и включаем ТОЛЬКО успешно инициализированные
+                // системы: GetSystem<T>() и инъекции не должны выдавать сырые/упавшие системы.
                 if (systemSuccess)
                 {
+                    systemProvider.RegisterSystem(systemInstance);
                     systemInstance.enabled = true;
                 }
 

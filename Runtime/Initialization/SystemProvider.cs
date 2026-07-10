@@ -110,11 +110,18 @@ namespace ProtoSystem
             }
 
             // Если не найдено по точному типу, ищем среди зарегистрированных систем
-            var foundSystem = systems.Values.FirstOrDefault(s => s is T);
-            if (foundSystem != null)
+            var matches = systems.Values.OfType<T>().Distinct().ToList();
+            if (matches.Count > 0)
             {
+                if (matches.Count > 1)
+                {
+                    ProtoLogger.LogWarning("SystemProvider",
+                        $"Несколько систем подходят под {requestedType.Name}: " +
+                        $"{string.Join(", ", matches.Select(m => (m as IInitializableSystem)?.SystemId ?? m.GetType().Name))} — возвращена первая. " +
+                        "Запрашивайте более конкретный тип.");
+                }
                 if (isDebug) ProtoLogger.LogDep("SystemProvider", $"Found system {requestedType.Name} by instance check");
-                return foundSystem as T;
+                return matches[0];
             }
 
             if (isDebug) ProtoLogger.LogError("SystemProvider", $"System of type {requestedType.Name} not found! Available systems: {string.Join(", ", systems.Keys.Select(k => k.Name))}");

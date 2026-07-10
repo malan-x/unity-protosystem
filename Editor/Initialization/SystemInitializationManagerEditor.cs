@@ -34,6 +34,9 @@ namespace ProtoSystem
         // Имена систем, встречающиеся в списке больше одного раза
         private readonly HashSet<string> duplicateNames = new HashSet<string>();
 
+        // Имена выключенных систем (для подсветки зависящих от них)
+        private readonly HashSet<string> disabledNames = new HashSet<string>();
+
         // Фильтр списка систем (по имени и типу)
         private string searchFilter = "";
 
@@ -461,12 +464,15 @@ namespace ProtoSystem
         private void RefreshDuplicateNames(SystemInitializationManager manager)
         {
             duplicateNames.Clear();
+            disabledNames.Clear();
             var seen = new HashSet<string>();
             foreach (var s in manager.Systems)
             {
                 if (string.IsNullOrEmpty(s.systemName)) continue;
                 if (!seen.Add(s.systemName))
                     duplicateNames.Add(s.systemName);
+                if (!s.enabled)
+                    disabledNames.Add(s.systemName);
             }
         }
 
@@ -941,21 +947,29 @@ namespace ProtoSystem
 
             // Проблемы
             var problemsCount = manager.Systems.Count(s => s.hasCyclicDependency);
+            var depsOnDisabledCount = manager.Systems.Count(s =>
+                s.enabled && s.detectedDependencies.Any(d => disabledNames.Contains(d)));
+
             EditorGUILayout.BeginVertical("Box", GUILayout.Width(150));
             EditorGUILayout.LabelField("⚠️ Проблемы", EditorStyles.centeredGreyMiniLabel);
+
+            var oldProblemColor = GUI.color;
             if (problemsCount > 0)
             {
-                var oldColor = GUI.color;
                 GUI.color = Color.red;
                 EditorGUILayout.LabelField($"Циклы: {problemsCount}", EditorStyles.miniLabel);
-                GUI.color = oldColor;
             }
-            else
+            if (depsOnDisabledCount > 0)
+            {
+                GUI.color = new Color(1f, 0.55f, 0.7f);
+                EditorGUILayout.LabelField($"⛔ Зависят от выключенных: {depsOnDisabledCount}", EditorStyles.miniLabel);
+            }
+            if (problemsCount == 0 && depsOnDisabledCount == 0)
             {
                 GUI.color = Color.green;
                 EditorGUILayout.LabelField("Проблем нет ✅", EditorStyles.miniLabel);
-                GUI.color = Color.white;
             }
+            GUI.color = oldProblemColor;
             EditorGUILayout.EndVertical();
 
             // Порядок инициализации
@@ -1623,10 +1637,26 @@ namespace ProtoSystem
             bool hasCyclicDependency = element.FindPropertyRelative("hasCyclicDependency").boolValue;
             bool isDuplicate = duplicateNames.Contains(systemName);
 
-            // Цвет фона
+            // Зависимости на выключенные системы → розовая подсветка
+            var dependencies = element.FindPropertyRelative("detectedDependencies");
+            bool depsOnDisabled = false;
+            if (enabled)
+            {
+                for (int d = 0; d < dependencies.arraySize; d++)
+                {
+                    if (disabledNames.Contains(dependencies.GetArrayElementAtIndex(d).stringValue))
+                    {
+                        depsOnDisabled = true;
+                        break;
+                    }
+                }
+            }
+
+            // Цвет фона (приоритет: цикл > дубль > зависимость на выключенную > обычный)
             Color bgColor = enabled ? (hasCyclicDependency ? Color.red : Color.green) : Color.gray;
+            if (depsOnDisabled) bgColor = new Color(1f, 0.35f, 0.6f);
             if (isDuplicate) bgColor = new Color(1f, 0.6f, 0.1f);
-            bgColor.a = isDuplicate ? 0.18f : 0.1f;
+            bgColor.a = (isDuplicate || depsOnDisabled) ? 0.18f : 0.1f;
 
             Rect bgRect = new Rect(rect.x - 2, rect.y - 1, rect.width + 4, rect.height + 2);
             EditorGUI.DrawRect(bgRect, bgColor);
@@ -1650,6 +1680,7 @@ namespace ProtoSystem
 
             // Иконка статуса
             string statusIcon = enabled ? (hasCyclicDependency ? "❌" : "✅") : "⭕";
+            if (depsOnDisabled) statusIcon = "⛔";
             if (isDuplicate) statusIcon = "⚠️";
             Rect iconRect = new Rect(mainRect.x, mainRect.y, 25, 18);
             EditorGUI.LabelField(iconRect, statusIcon);
@@ -1693,8 +1724,7 @@ namespace ProtoSystem
 
             currentY += 22;
 
-            // Зависимости
-            var dependencies = element.FindPropertyRelative("detectedDependencies");
+            // Зависимости (выключенные помечаются ⛔ и красятся розовым)
             if (dependencies.arraySize > 0)
             {
                 Rect depsRect = new Rect(rect.x + 50, currentY, rect.width - 55, 18);
@@ -1702,9 +1732,16 @@ namespace ProtoSystem
                 for (int i = 0; i < dependencies.arraySize; i++)
                 {
                     if (i > 0) depsText += ", ";
-                    depsText += dependencies.GetArrayElementAtIndex(i).stringValue;
+                    string depName = dependencies.GetArrayElementAtIndex(i).stringValue;
+                    depsText += disabledNames.Contains(depName) ? $"⛔{depName}" : depName;
                 }
-                EditorGUI.LabelField(depsRect, depsText, EditorStyles.miniLabel);
+
+                var oldDepColor = GUI.color;
+                if (depsOnDisabled) GUI.color = new Color(1f, 0.55f, 0.7f);
+                EditorGUI.LabelField(depsRect, new GUIContent(depsText, depsOnDisabled
+                        ? "⛔ — система выключена, зависимость не будет заинжектена"
+                        : null), EditorStyles.miniLabel);
+                GUI.color = oldDepColor;
                 currentY += 20;
             }
 

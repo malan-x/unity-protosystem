@@ -140,6 +140,7 @@ namespace ProtoSystem
             initHelper?.ReportProgress(progress);
         }
 
+        [Obsolete("Мёртвый код: проверка внутри никогда не срабатывает осмысленно. Используйте [Dependency]-атрибуты или provider.GetSystem<T>() с проверкой на null.")]
         protected bool SetSystem(SystemProvider provider, IInitializableSystem system)
         {
             if (system == null)
