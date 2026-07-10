@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEditor;
 using UnityEditorInternal;
+using PStyles = ProtoSystem.Editor.ProtoEditorStyles;
 
 namespace ProtoSystem
 {
@@ -29,6 +30,12 @@ namespace ProtoSystem
         // Режим отображения списка систем
         private enum SystemsViewMode { Normal, LogSettings }
         private SystemsViewMode viewMode = SystemsViewMode.Normal;
+
+        // Имена систем, встречающиеся в списке больше одного раза
+        private readonly HashSet<string> duplicateNames = new HashSet<string>();
+
+        // Фильтр списка систем (по имени и типу)
+        private string searchFilter = "";
 
         private void OnEnable()
         {
@@ -84,22 +91,22 @@ namespace ProtoSystem
             serializedObject.Update();
             SystemInitializationManager manager = target as SystemInitializationManager;
 
+            RefreshDuplicateNames(manager);
+
             // Заголовок
-            EditorGUILayout.Space(10);
-            GUILayout.BeginVertical(boxStyle);
-            EditorGUILayout.LabelField("⚙️ Менеджер Инициализации Систем", headerStyle);
-            EditorGUILayout.Space(5);
+            EditorGUILayout.Space(4);
+            PStyles.Header("⚙️ Менеджер Инициализации Систем",
+                $"Систем: {manager.Systems.Count}, включено: {manager.Systems.Count(s => s.enabled)}");
 
             // Статус инициализации
             if (Application.isPlaying)
             {
+                GUILayout.BeginVertical(boxStyle);
                 DrawRuntimeStatus(manager);
-                EditorGUILayout.Space(5);
+                GUILayout.EndVertical();
             }
 
-            GUILayout.EndVertical();
-
-            EditorGUILayout.Space(10);
+            EditorGUILayout.Space(5);
 
             // Настройки
             GUILayout.BeginVertical(boxStyle);
@@ -168,7 +175,8 @@ namespace ProtoSystem
 
             // Прогресс
             float progress = serializedObject.FindProperty("overallProgress").floatValue;
-            EditorGUILayout.LabelField($"Общий прогресс: {(progress * 100):F1}%");
+            var progressRect = EditorGUILayout.GetControlRect(false, 16);
+            EditorGUI.ProgressBar(progressRect, progress, $"Общий прогресс: {(progress * 100):F0}%");
 
             // Текущая система
             string currentSystem = serializedObject.FindProperty("currentSystemName").stringValue;
@@ -202,11 +210,17 @@ namespace ProtoSystem
         {
             EditorGUILayout.LabelField("⚙️ Настройки", EditorStyles.boldLabel);
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("autoStartInitialization"),
-                new GUIContent("🚀 Автозапуск", "Автоматически запускать инициализацию при старте"));
+            // Поля рисуем вручную (без PropertyField), чтобы не дублировался
+            // [Header("Настройки инициализации")] из рантайм-класса.
+            var autoStart = serializedObject.FindProperty("autoStartInitialization");
+            autoStart.boolValue = EditorGUILayout.Toggle(
+                new GUIContent("🚀 Автозапуск", "Автоматически запускать инициализацию при старте"),
+                autoStart.boolValue);
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("maxInitializationTimeoutSeconds"),
-                new GUIContent("⏱️ Таймаут (сек)", "Максимальное время инициализации одной системы"));
+            var timeout = serializedObject.FindProperty("maxInitializationTimeoutSeconds");
+            timeout.floatValue = EditorGUILayout.FloatField(
+                new GUIContent("⏱️ Таймаут (сек)", "Максимальное время инициализации одной системы"),
+                timeout.floatValue);
         }
         
         /// <summary>
@@ -441,27 +455,86 @@ namespace ProtoSystem
             }
         }
 
+        /// <summary>
+        /// Пересчитывает список дублированных имён систем.
+        /// </summary>
+        private void RefreshDuplicateNames(SystemInitializationManager manager)
+        {
+            duplicateNames.Clear();
+            var seen = new HashSet<string>();
+            foreach (var s in manager.Systems)
+            {
+                if (string.IsNullOrEmpty(s.systemName)) continue;
+                if (!seen.Add(s.systemName))
+                    duplicateNames.Add(s.systemName);
+            }
+        }
+
+        /// <summary>
+        /// Удаляет дубли систем из списка, оставляя первую запись с каждым именем.
+        /// </summary>
+        private void RemoveDuplicateSystems()
+        {
+            var seen = new HashSet<string>();
+            for (int i = 0; i < systemsProperty.arraySize; i++)
+            {
+                string name = systemsProperty.GetArrayElementAtIndex(i)
+                    .FindPropertyRelative("systemName").stringValue;
+                if (string.IsNullOrEmpty(name)) continue;
+                if (!seen.Add(name))
+                {
+                    systemsProperty.DeleteArrayElementAtIndex(i);
+                    i--;
+                }
+            }
+            serializedObject.ApplyModifiedProperties();
+            EditorUtility.SetDirty(target);
+        }
+
         private void DrawSystemsSection(SystemInitializationManager manager)
         {
+            // Дубли систем — предупреждение и кнопка очистки
+            if (duplicateNames.Count > 0)
+            {
+                EditorGUILayout.HelpBox(
+                    $"⚠ Дублированные имена систем: {string.Join(", ", duplicateNames)}.\n" +
+                    "Учитывается только первая запись с каждым именем — остальные игнорируются.",
+                    MessageType.Warning);
+                if (GUILayout.Button("🧹 Удалить дубли (оставить первые)"))
+                {
+                    RemoveDuplicateSystems();
+                    return; // список изменился — перерисуем в следующем кадре
+                }
+                EditorGUILayout.Space(5);
+            }
+
             // Заголовок с переключателем режимов
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField($"🔧 Системы ({manager.Systems.Count})", EditorStyles.boldLabel);
 
             GUILayout.FlexibleSpace();
-            
-            // Переключатель режимов
-            var normalStyle = viewMode == SystemsViewMode.Normal ? EditorStyles.toolbarButton : EditorStyles.toolbarButton;
-            var logStyle = viewMode == SystemsViewMode.LogSettings ? EditorStyles.toolbarButton : EditorStyles.toolbarButton;
-            
-            if (GUILayout.Toggle(viewMode == SystemsViewMode.Normal, "📋 Обычный", "ToolbarButton", GUILayout.Width(80)))
+
+            if (GUILayout.Toggle(viewMode == SystemsViewMode.Normal, "📋 Список", "ToolbarButton", GUILayout.Width(72)))
             {
                 viewMode = SystemsViewMode.Normal;
             }
-            if (GUILayout.Toggle(viewMode == SystemsViewMode.LogSettings, "📝 Логи", "ToolbarButton", GUILayout.Width(60)))
+            if (GUILayout.Toggle(viewMode == SystemsViewMode.LogSettings, "📝 Логи", "ToolbarButton", GUILayout.Width(58)))
             {
                 viewMode = SystemsViewMode.LogSettings;
             }
 
+            EditorGUILayout.EndHorizontal();
+
+            // Фильтр по имени/типу
+            EditorGUILayout.BeginHorizontal();
+            searchFilter = EditorGUILayout.TextField(
+                new GUIContent("🔍 Фильтр", "Поиск по имени и типу системы"), searchFilter);
+            if (!string.IsNullOrEmpty(searchFilter) &&
+                GUILayout.Button("✕", GUILayout.Width(22)))
+            {
+                searchFilter = "";
+                GUI.FocusControl(null);
+            }
             EditorGUILayout.EndHorizontal();
 
             // В режиме логов — показываем tri-state кнопки для массового управления
@@ -489,16 +562,65 @@ namespace ProtoSystem
                 }
                 
                 GUILayout.FlexibleSpace();
-                
-                if (GUILayout.Button("⚙️ Настройки метрик", GUILayout.Width(130)))
+
+                if (GUILayout.Button(new GUIContent("⚙️ Пороги", "Настройки порогов метрик (LOC/KB/методы)"),
+                        GUILayout.Width(80)))
                 {
                     SystemMetricsSettingsWindow.ShowWindow();
                 }
-                
+
                 EditorGUILayout.EndHorizontal();
             }
 
-            systemsList.DoLayoutList();
+            if (string.IsNullOrEmpty(searchFilter))
+            {
+                systemsList.DoLayoutList();
+            }
+            else
+            {
+                DrawFilteredSystemsList();
+            }
+        }
+
+        /// <summary>
+        /// Плоский список систем под активным фильтром.
+        /// Перетаскивание в этом режиме недоступно — только просмотр/редактирование.
+        /// </summary>
+        private void DrawFilteredSystemsList()
+        {
+            string filter = searchFilter.Trim().ToLowerInvariant();
+            int shown = 0;
+
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+            for (int i = 0; i < systemsProperty.arraySize; i++)
+            {
+                var element = systemsProperty.GetArrayElementAtIndex(i);
+                string name = element.FindPropertyRelative("systemName").stringValue ?? "";
+
+                var existingObj = element.FindPropertyRelative("existingSystemObject").objectReferenceValue;
+                string typeName = existingObj != null
+                    ? existingObj.GetType().Name
+                    : element.FindPropertyRelative("systemTypeName").stringValue ?? "";
+
+                if (!name.ToLowerInvariant().Contains(filter) &&
+                    !typeName.ToLowerInvariant().Contains(filter))
+                    continue;
+
+                var rect = EditorGUILayout.GetControlRect(false, GetElementHeight(i));
+                DrawElement(rect, i, false, false);
+                shown++;
+            }
+
+            if (shown == 0)
+                EditorGUILayout.LabelField($"Ничего не найдено по «{searchFilter}»",
+                    EditorStyles.centeredGreyMiniLabel);
+
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.LabelField(
+                $"Показано {shown} из {systemsProperty.arraySize} · перетаскивание недоступно при фильтре",
+                EditorStyles.centeredGreyMiniLabel);
         }
         
         /// <summary>
@@ -1499,10 +1621,12 @@ namespace ProtoSystem
             string systemName = element.FindPropertyRelative("systemName").stringValue;
             bool useExisting = element.FindPropertyRelative("useExistingObject").boolValue;
             bool hasCyclicDependency = element.FindPropertyRelative("hasCyclicDependency").boolValue;
+            bool isDuplicate = duplicateNames.Contains(systemName);
 
             // Цвет фона
             Color bgColor = enabled ? (hasCyclicDependency ? Color.red : Color.green) : Color.gray;
-            bgColor.a = 0.1f;
+            if (isDuplicate) bgColor = new Color(1f, 0.6f, 0.1f);
+            bgColor.a = isDuplicate ? 0.18f : 0.1f;
 
             Rect bgRect = new Rect(rect.x - 2, rect.y - 1, rect.width + 4, rect.height + 2);
             EditorGUI.DrawRect(bgRect, bgColor);
@@ -1526,6 +1650,7 @@ namespace ProtoSystem
 
             // Иконка статуса
             string statusIcon = enabled ? (hasCyclicDependency ? "❌" : "✅") : "⭕";
+            if (isDuplicate) statusIcon = "⚠️";
             Rect iconRect = new Rect(mainRect.x, mainRect.y, 25, 18);
             EditorGUI.LabelField(iconRect, statusIcon);
 
@@ -1534,13 +1659,15 @@ namespace ProtoSystem
             element.FindPropertyRelative("enabled").boolValue = EditorGUI.Toggle(enabledRect, enabled);
 
             // Имя системы
-            Rect nameRect = new Rect(mainRect.x + 50, mainRect.y, mainRect.width - 180, 18);
+            Rect nameRect = new Rect(mainRect.x + 50, mainRect.y, mainRect.width - 145, 18);
             EditorGUI.LabelField(nameRect, systemName, EditorStyles.boldLabel);
 
-            // Тип источника
-            string sourceType = useExisting ? "📦 Существующий объект" : "🔨 Создать новый";
-            Rect sourceRect = new Rect(mainRect.x + mainRect.width - 160, mainRect.y, 125, 18);
-            EditorGUI.LabelField(sourceRect, sourceType, EditorStyles.miniLabel);
+            // Тип источника — коротко, полное описание в tooltip
+            var sourceContent = useExisting
+                ? new GUIContent("📦 Объект", "Используется существующий объект в сцене")
+                : new GUIContent("🔨 Создать", "Объект будет создан при инициализации");
+            Rect sourceRect = new Rect(mainRect.x + mainRect.width - 90, mainRect.y, 85, 18);
+            EditorGUI.LabelField(sourceRect, sourceContent, EditorStyles.miniLabel);
 
             currentY += 20;
 

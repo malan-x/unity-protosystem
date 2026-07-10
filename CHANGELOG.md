@@ -16,11 +16,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Живой лог процесса, Cancel, итоговые бейджи (imported/skipped/errors)
 - **Coverage-панель** в AI Translation Window — прогресс перевода по каждой таблице и языку
 - Сводка по файлам на вкладке Import — "N/M переведено" для каждого JSON
+- **LiveOps `verboseLogging`** — флаг в LiveOpsConfig: подробные логи (HTTP, парсинг, unread) только при включённом флаге, через `LiveOpsLog.Info`; ошибки/предупреждения — всегда
+- **Documentation~/LiveOps_ServerContract.md** — контракт клиент↔сервер: хуки PocketBase, endpoints, коллекции, правила изменения
+
+### Fixed
+- **SystemInitializationManager: инспектор ломался при дубле системы** — `ToDictionary(systemName)` кидал ArgumentException в `GetSystemsInInitializationOrder`/`DetectCyclicDependencies`; заменено на дубле-терпимый словарь (первая запись выигрывает)
+- Инспектор SIM: предупреждение о дублях имён с кнопкой «Удалить дубли», подсветка дублированных записей, прогресс-бар инициализации, шапка в общем стиле, строка фильтра систем по имени/типу, устранены дубль заголовка настроек и обрезающиеся подписи
 
 ### Changed
-- **Редизайн окон локализации** (AI Translation Window, Setup Wizard) — общий стиль `LocalizationEditorStyles`:
+- **Редизайн окон локализации** (AI Translation Window, Setup Wizard) — общий стиль `ProtoEditorStyles` (Editor/Common):
   шапка с акцентной полосой, карточки-секции, цветные бейджи статусов, акцентные кнопки,
   компактная сетка языков в две колонки, лог-консоль
+
 ## [1.14.0] - 2026-03-06
 
 ### Added

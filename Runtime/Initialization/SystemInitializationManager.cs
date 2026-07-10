@@ -195,7 +195,7 @@ namespace ProtoSystem
         /// </summary>
         private void DetectCyclicDependencies()
         {
-            var systemDict = systems.ToDictionary(s => s.systemName, s => s);
+            var systemDict = BuildSystemDict(systems);
 
             foreach (var entry in systems)
             {
@@ -211,6 +211,23 @@ namespace ProtoSystem
                     entry.cyclicDependencyInfo = string.Join(" -> ", path);
                 }
             }
+        }
+
+        /// <summary>
+        /// Строит словарь имя → система, терпимый к дублям имён.
+        /// ToDictionary на дубле кидает ArgumentException и ломает инспектор/инициализацию —
+        /// вместо этого берём первую запись, дубль подсвечивает Validate().
+        /// </summary>
+        private static Dictionary<string, SystemEntry> BuildSystemDict(IEnumerable<SystemEntry> entries)
+        {
+            var dict = new Dictionary<string, SystemEntry>();
+            foreach (var entry in entries)
+            {
+                if (string.IsNullOrEmpty(entry.systemName)) continue;
+                if (!dict.ContainsKey(entry.systemName))
+                    dict.Add(entry.systemName, entry);
+            }
+            return dict;
         }
 
         /// <summary>
@@ -287,7 +304,7 @@ namespace ProtoSystem
         public List<SystemEntry> GetSystemsInInitializationOrder()
         {
             var result = new List<SystemEntry>();
-            var systemDict = systems.Where(s => s.enabled).ToDictionary(s => s.systemName, s => s);
+            var systemDict = BuildSystemDict(systems.Where(s => s.enabled));
             var visited = new HashSet<string>();
 
             // Топологическая сортировка с сохранением порядка из списка

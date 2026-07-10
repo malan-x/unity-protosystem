@@ -135,15 +135,15 @@ namespace ProtoSystem.Editor
         {
             if (!_initialized) Initialize();
 
-            LocalizationEditorStyles.Header("🌐 AI Translation",
+            ProtoEditorStyles.Header("🌐 AI Translation",
                 "Экспорт строк для перевода, импорт результата и полный цикл через Claude Code.");
 
             // Табы
             EditorGUILayout.BeginHorizontal();
-            if (LocalizationEditorStyles.Tab("📤 Export", _currentTab == Tab.Export)) _currentTab = Tab.Export;
-            if (LocalizationEditorStyles.Tab("📥 Import", _currentTab == Tab.Import)) _currentTab = Tab.Import;
-            if (LocalizationEditorStyles.Tab("✅ Validate", _currentTab == Tab.Validate)) _currentTab = Tab.Validate;
-            if (LocalizationEditorStyles.Tab("🤖 Claude", _currentTab == Tab.Claude)) _currentTab = Tab.Claude;
+            if (ProtoEditorStyles.Tab("📤 Export", _currentTab == Tab.Export)) _currentTab = Tab.Export;
+            if (ProtoEditorStyles.Tab("📥 Import", _currentTab == Tab.Import)) _currentTab = Tab.Import;
+            if (ProtoEditorStyles.Tab("✅ Validate", _currentTab == Tab.Validate)) _currentTab = Tab.Validate;
+            if (ProtoEditorStyles.Tab("🤖 Claude", _currentTab == Tab.Claude)) _currentTab = Tab.Claude;
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.Space(4);
@@ -187,7 +187,7 @@ namespace ProtoSystem.Editor
 
         private void DrawCoverage()
         {
-            LocalizationEditorStyles.BeginCard();
+            ProtoEditorStyles.BeginCard();
             EditorGUILayout.BeginHorizontal();
             _coverageFoldout = EditorGUILayout.Foldout(_coverageFoldout,
                 "Покрытие переводов", true, EditorStyles.foldoutHeader);
@@ -207,14 +207,14 @@ namespace ProtoSystem.Editor
                         EditorGUILayout.Space(2);
                         EditorGUILayout.LabelField(currentTable, EditorStyles.miniBoldLabel);
                     }
-                    LocalizationEditorStyles.CoverageBar(row.lang, row.done, row.total);
+                    ProtoEditorStyles.CoverageBar(row.lang, row.done, row.total);
                 }
 
                 if (_coverage.Count == 0)
                     EditorGUILayout.LabelField("Нет данных — создайте String Tables.",
                         EditorStyles.miniLabel);
             }
-            LocalizationEditorStyles.EndCard();
+            ProtoEditorStyles.EndCard();
         }
 
         private void ComputeCoverage()
@@ -272,7 +272,7 @@ namespace ProtoSystem.Editor
 
         private void DrawExportTab()
         {
-            LocalizationEditorStyles.BeginCard("Что экспортируем");
+            ProtoEditorStyles.BeginCard("Что экспортируем");
 
             // Таблица
             int tableIdx = System.Array.IndexOf(_tableNames, _exportTable);
@@ -287,21 +287,21 @@ namespace ProtoSystem.Editor
             EditorGUILayout.Space(3);
             DrawTargetLanguages();
 
-            LocalizationEditorStyles.EndCard();
+            ProtoEditorStyles.EndCard();
 
-            LocalizationEditorStyles.BeginCard("Параметры");
+            ProtoEditorStyles.BeginCard("Параметры");
             _onlyMissing = EditorGUILayout.Toggle(
                 new GUIContent("Only Missing", "Экспортировать только строки без перевода"), _onlyMissing);
             DrawFolderField("Export Folder", ref _exportPath);
-            LocalizationEditorStyles.EndCard();
+            ProtoEditorStyles.EndCard();
 
             bool anyTarget = AnyTargetSelected();
             if (!anyTarget)
                 EditorGUILayout.HelpBox("Выберите хотя бы один целевой язык.", MessageType.Warning);
 
             EditorGUILayout.Space(4);
-            if (LocalizationEditorStyles.AccentButton("📤 Export to JSON",
-                    LocalizationEditorStyles.Accent, anyTarget))
+            if (ProtoEditorStyles.AccentButton("📤 Export to JSON",
+                    ProtoEditorStyles.Accent, anyTarget))
                 DoExport();
         }
 
@@ -370,7 +370,7 @@ namespace ProtoSystem.Editor
 
         private void DrawImportTab()
         {
-            LocalizationEditorStyles.BeginCard("Файлы переводов");
+            ProtoEditorStyles.BeginCard("Файлы переводов");
 
             EditorGUILayout.BeginHorizontal();
             EditorGUI.BeginChangeCheck();
@@ -425,23 +425,23 @@ namespace ProtoSystem.Editor
                 }
             }
 
-            LocalizationEditorStyles.EndCard();
+            ProtoEditorStyles.EndCard();
 
-            LocalizationEditorStyles.BeginCard("Параметры");
+            ProtoEditorStyles.BeginCard("Параметры");
             _overwriteExisting = EditorGUILayout.Toggle(
                 new GUIContent("Overwrite Existing", "Перезаписывать уже существующие переводы"),
                 _overwriteExisting);
-            LocalizationEditorStyles.EndCard();
+            ProtoEditorStyles.EndCard();
 
             bool anySelected = _importFileToggles.Any(t => t);
 
             EditorGUILayout.Space(4);
             EditorGUILayout.BeginHorizontal();
-            if (LocalizationEditorStyles.AccentButton("✅ Validate First",
-                    LocalizationEditorStyles.Warn, anySelected))
+            if (ProtoEditorStyles.AccentButton("✅ Validate First",
+                    ProtoEditorStyles.Warn, anySelected))
                 DoValidateSelected();
-            if (LocalizationEditorStyles.AccentButton("📥 Import",
-                    LocalizationEditorStyles.Accent, anySelected))
+            if (ProtoEditorStyles.AccentButton("📥 Import",
+                    ProtoEditorStyles.Accent, anySelected))
                 DoImport();
             EditorGUILayout.EndHorizontal();
         }
@@ -450,7 +450,7 @@ namespace ProtoSystem.Editor
 
         private void DrawValidateTab()
         {
-            LocalizationEditorStyles.BeginCard("Проверка файла переводов");
+            ProtoEditorStyles.BeginCard("Проверка файла переводов");
 
             EditorGUILayout.BeginHorizontal();
             _validatePath = EditorGUILayout.TextField("JSON File", _validatePath);
@@ -467,30 +467,30 @@ namespace ProtoSystem.Editor
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.Space(4);
-            if (LocalizationEditorStyles.AccentButton("Validate", LocalizationEditorStyles.Accent))
+            if (ProtoEditorStyles.AccentButton("Validate", ProtoEditorStyles.Accent))
                 _validationResults = LocalizationValidator.Validate(_validatePath, _metadata);
 
-            LocalizationEditorStyles.EndCard();
+            ProtoEditorStyles.EndCard();
 
             if (_validationResults == null) return;
 
             int errors = _validationResults.Count(r => r.type == ValidationResult.ValidationType.Error);
             int warnings = _validationResults.Count(r => r.type == ValidationResult.ValidationType.Warning);
 
-            LocalizationEditorStyles.BeginCard("Результаты");
+            ProtoEditorStyles.BeginCard("Результаты");
 
             EditorGUILayout.BeginHorizontal();
             if (_validationResults.Count == 0)
             {
-                LocalizationEditorStyles.DrawBadge("✓ OK", LocalizationEditorStyles.Ok, 60);
+                ProtoEditorStyles.DrawBadge("✓ OK", ProtoEditorStyles.Ok, 60);
                 EditorGUILayout.LabelField("Все проверки пройдены", EditorStyles.miniLabel);
             }
             else
             {
                 if (errors > 0)
-                    LocalizationEditorStyles.DrawBadge($"{errors} err", LocalizationEditorStyles.Error);
+                    ProtoEditorStyles.DrawBadge($"{errors} err", ProtoEditorStyles.Error);
                 if (warnings > 0)
-                    LocalizationEditorStyles.DrawBadge($"{warnings} warn", LocalizationEditorStyles.Warn);
+                    ProtoEditorStyles.DrawBadge($"{warnings} warn", ProtoEditorStyles.Warn);
             }
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
@@ -501,30 +501,30 @@ namespace ProtoSystem.Editor
             {
                 EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
                 var color = r.type == ValidationResult.ValidationType.Error
-                    ? LocalizationEditorStyles.Error : LocalizationEditorStyles.Warn;
-                LocalizationEditorStyles.DrawBadge(
+                    ? ProtoEditorStyles.Error : ProtoEditorStyles.Warn;
+                ProtoEditorStyles.DrawBadge(
                     r.type == ValidationResult.ValidationType.Error ? "err" : "warn", color, 40);
                 EditorGUILayout.LabelField(r.key, EditorStyles.miniBoldLabel, GUILayout.Width(180));
                 EditorGUILayout.LabelField(r.message, EditorStyles.miniLabel);
                 EditorGUILayout.EndHorizontal();
             }
 
-            LocalizationEditorStyles.EndCard();
+            ProtoEditorStyles.EndCard();
         }
 
         // ──────────────── Claude Tab ────────────────
 
         private void DrawClaudeTab()
         {
-            LocalizationEditorStyles.BeginCard("Полный цикл: Export → Claude → Import");
+            ProtoEditorStyles.BeginCard("Полный цикл: Export → Claude → Import");
             EditorGUILayout.LabelField(
                 "Экспортирует недостающие переводы, запускает Claude Code (headless)\n" +
                 "и импортирует результат в String Tables с валидацией.",
                 EditorStyles.miniLabel);
-            LocalizationEditorStyles.EndCard();
+            ProtoEditorStyles.EndCard();
 
             // Таблицы + языки
-            LocalizationEditorStyles.BeginCard("Объём перевода");
+            ProtoEditorStyles.BeginCard("Объём перевода");
 
             EditorGUILayout.LabelField("Tables", EditorStyles.boldLabel);
             if (_claudeTableToggles == null || _claudeTableToggles.Length != _tableNames.Length)
@@ -544,17 +544,17 @@ namespace ProtoSystem.Editor
                 _sourceLanguageIdx, _languageNames);
             DrawTargetLanguages();
 
-            LocalizationEditorStyles.EndCard();
+            ProtoEditorStyles.EndCard();
 
             // Параметры
-            LocalizationEditorStyles.BeginCard("Параметры");
+            ProtoEditorStyles.BeginCard("Параметры");
             _onlyMissing = EditorGUILayout.Toggle(
                 new GUIContent("Only Missing", "Переводить только строки без перевода"), _onlyMissing);
             _overwriteExisting = EditorGUILayout.Toggle(
                 new GUIContent("Overwrite Existing", "Перезаписывать существующие переводы при импорте"),
                 _overwriteExisting);
             DrawFolderField("Export Folder", ref _exportPath);
-            LocalizationEditorStyles.EndCard();
+            ProtoEditorStyles.EndCard();
 
             // Проектный скилл
             DrawSkillCard();
@@ -567,13 +567,13 @@ namespace ProtoSystem.Editor
             if (ClaudeTranslationRunner.IsRunning)
             {
                 EditorGUILayout.HelpBox($"⏳ {ClaudeTranslationRunner.Status}", MessageType.Info);
-                if (LocalizationEditorStyles.AccentButton("✖ Cancel", LocalizationEditorStyles.Error))
+                if (ProtoEditorStyles.AccentButton("✖ Cancel", ProtoEditorStyles.Error))
                     ClaudeTranslationRunner.Cancel();
             }
             else
             {
-                if (LocalizationEditorStyles.AccentButton("🤖 Translate via Claude",
-                        LocalizationEditorStyles.Claude, anyTable && anyLang))
+                if (ProtoEditorStyles.AccentButton("🤖 Translate via Claude",
+                        ProtoEditorStyles.Claude, anyTable && anyLang))
                     RunClaudeCycle();
 
                 DrawClaudeSummary();
@@ -586,19 +586,19 @@ namespace ProtoSystem.Editor
                 EditorGUILayout.Space(4);
                 EditorGUILayout.LabelField("Log", EditorStyles.miniBoldLabel);
                 var tail = log.Skip(Mathf.Max(0, log.Count - 15));
-                EditorGUILayout.LabelField(string.Join("\n", tail), LocalizationEditorStyles.LogBox);
+                EditorGUILayout.LabelField(string.Join("\n", tail), ProtoEditorStyles.LogBox);
             }
         }
 
         private void DrawSkillCard()
         {
-            LocalizationEditorStyles.BeginCard("Скилл проекта");
+            ProtoEditorStyles.BeginCard("Скилл проекта");
 
             bool skillExists = ClaudeTranslationRunner.SkillExists;
 
             EditorGUILayout.BeginHorizontal();
-            LocalizationEditorStyles.DrawBadge(skillExists ? "✓" : "—",
-                skillExists ? LocalizationEditorStyles.Ok : LocalizationEditorStyles.Warn, 24);
+            ProtoEditorStyles.DrawBadge(skillExists ? "✓" : "—",
+                skillExists ? ProtoEditorStyles.Ok : ProtoEditorStyles.Warn, 24);
             EditorGUILayout.LabelField(skillExists
                     ? ClaudeTranslationRunner.SkillPath
                     : "Скилл /localize не найден — будет использован встроенный промпт.",
@@ -624,7 +624,7 @@ namespace ProtoSystem.Editor
                 EditorGUILayout.EndHorizontal();
             }
 
-            LocalizationEditorStyles.EndCard();
+            ProtoEditorStyles.EndCard();
         }
 
         private void DrawClaudeSummary()
@@ -637,15 +637,15 @@ namespace ProtoSystem.Editor
             EditorGUILayout.BeginHorizontal();
             if (summary != null)
             {
-                LocalizationEditorStyles.DrawBadge($"+{summary.imported}", LocalizationEditorStyles.Ok);
+                ProtoEditorStyles.DrawBadge($"+{summary.imported}", ProtoEditorStyles.Ok);
                 if (summary.skipped > 0)
-                    LocalizationEditorStyles.DrawBadge($"skip {summary.skipped}", LocalizationEditorStyles.AccentDim);
+                    ProtoEditorStyles.DrawBadge($"skip {summary.skipped}", ProtoEditorStyles.AccentDim);
                 if (summary.errors > 0 || summary.validationErrors > 0)
-                    LocalizationEditorStyles.DrawBadge(
-                        $"err {summary.errors + summary.validationErrors}", LocalizationEditorStyles.Error);
+                    ProtoEditorStyles.DrawBadge(
+                        $"err {summary.errors + summary.validationErrors}", ProtoEditorStyles.Error);
                 if (summary.validationWarnings > 0)
-                    LocalizationEditorStyles.DrawBadge(
-                        $"warn {summary.validationWarnings}", LocalizationEditorStyles.Warn);
+                    ProtoEditorStyles.DrawBadge(
+                        $"warn {summary.validationWarnings}", ProtoEditorStyles.Warn);
                 GUILayout.Space(6);
             }
             EditorGUILayout.LabelField(ClaudeTranslationRunner.Status, EditorStyles.miniLabel);

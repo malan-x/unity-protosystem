@@ -1,14 +1,14 @@
-// Packages/com.protosystem.core/Editor/Localization/LocalizationEditorStyles.cs
+// Packages/com.protosystem.core/Editor/Localization/ProtoEditorStyles.cs
 using UnityEngine;
 using UnityEditor;
 
 namespace ProtoSystem.Editor
 {
     /// <summary>
-    /// Общие стили для окон локализации (Setup Wizard, AI Translation).
+    /// Общие стили для editor-окон ProtoSystem (Setup Wizard, AI Translation, инспекторы и т.д.).
     /// Учитывают Pro/Light скин редактора.
     /// </summary>
-    public static class LocalizationEditorStyles
+    public static class ProtoEditorStyles
     {
         // ── Палитра ──
         public static readonly Color Accent    = new(0.26f, 0.54f, 0.96f);

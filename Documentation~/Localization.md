@@ -325,74 +325,38 @@ credits.section.thanks
 
 ### Формат экспорта
 
+По файлу на пару таблица×язык: `<Table>_<src>_to_<tgt>.json` (пишет `LocalizationExporter`):
+
 ```json
 {
-  "meta": {
-    "project": "Last Convoy",
-    "source_language": "ru",
-    "target_language": "en",
-    "table": "UI",
-    "exported_at": "2026-02-09T12:00:00Z",
-    "total_strings": 42,
-    "instructions": "Переведите все строки source → translated. Сохраняйте TMP rich text теги (<color>, <size>, <b>). Учитывайте max_length. Контекст описывает где используется строка."
-  },
-  "strings": [
+  "sourceLanguage": "ru",
+  "targetLanguage": "de",
+  "table": "UI",
+  "exported": "2026-03-17T14:00:57Z",
+  "projectName": "Last Convoy",
+  "instructions": "Translate from ru to de. Preserve {{variables}} in curly braces exactly as-is. Respect maxLength if > 0. Fill 'translation' field for each entry. Keep the same key.",
+  "entries": [
     {
-      "key": "menu.new_campaign",
-      "source": "НОВАЯ КАМПАНИЯ",
-      "translated": "",
-      "context": "Главная кнопка в главном меню. Запускает новую игру. Заглавные буквы.",
-      "max_length": 20,
-      "tags": ["menu", "button"]
-    },
-    {
-      "key": "menu.settings",
-      "source": "НАСТРОЙКИ",
-      "translated": "",
-      "context": "Кнопка меню. Открывает экран настроек.",
-      "max_length": 15,
-      "tags": ["menu", "button"]
-    },
-    {
-      "key": "game.kill.message",
-      "source": "Вы убили {enemy} x{count}",
-      "translated": "",
-      "context": "Сообщение при убийстве врага. {enemy} — имя врага, {count} — количество. Smart String.",
-      "max_length": 40,
-      "tags": ["game", "notification"],
-      "variables": ["enemy", "count"]
-    },
-    {
-      "key": "credits.quote.convoy",
-      "source": "«Последний конвой — не просто поезд.\nЭто всё, что осталось от цивилизации.»",
-      "translated": "",
-      "context": "Цитата в титрах. Атмосферная, поэтичная. Сохранить \\n для переноса строки.",
-      "max_length": 100,
-      "tags": ["credits", "quote"]
+      "key": "lc.community.cat_announcement",
+      "source": "новость",
+      "context": "",
+      "maxLength": 0,
+      "tags": [],
+      "pluralForm": "",
+      "translation": ""
     }
   ]
 }
 ```
+
+`context`, `maxLength`, `tags`, `pluralForm` берутся из `StringMetadataDatabase` (если назначена).
 
 ### Формат импорта
 
-Тот же JSON с заполненными `translated`:
-
-```json
-{
-  "strings": [
-    {
-      "key": "menu.new_campaign",
-      "translated": "NEW CAMPAIGN"
-    },
-    {
-      "key": "game.kill.message",
-      "translated": "You killed {enemy} x{count}"
-    }
-  ]
-}
-```
-
+Тот же файл с заполненными полями `translation` — кладётся в папку `Import/`.
+`LocalizationImporter` записывает значения в StringTable целевого языка:
+пустые `translation` пропускаются, существующие переводы не перезаписываются
+без флага **Overwrite Existing**.
 ### AI Translation Window (Editor)
 
 Окно `ProtoSystem → Localization → AI Translation`. Четыре вкладки (на скетче открыта Claude):
@@ -587,21 +551,25 @@ com.protosystem.core/
 │       ├── Loc.cs                       # Статический helper
 │       ├── LocalizationConfig.cs        # Конфигурация
 │       ├── LocalizationEvents.cs        # События EventBus
-│       ├── ProtoStringMetadata.cs       # Метаданные для AI
-│       └── Components/
-│           ├── LocalizeTMP.cs           # Компонент для TMP_Text
-│           ├── LocalizeImage.cs         # Компонент для Image
-│           └── LocalizeSound.cs         # Компонент для Sound
+│       ├── StringMetadata.cs            # Метаданные для AI (context/maxLength/tags)
+│       ├── PluralRules.cs               # Плюральные формы (CLDR)
+│       ├── UILocalizationKeys.cs        # Ключи встроенного UI
+│       ├── LocalizeTMP.cs               # Компонент для TMP_Text
+│       └── LocalizeTMPSwitch.cs         # Переключатель вариантов TMP
 ├── Editor/
+│   ├── Common/
+│   │   └── ProtoEditorStyles.cs         # Общие стили editor-окон ProtoSystem
 │   └── Localization/
-│       ├── AITranslationWindow.cs       # Окно AI экспорта/импорта
-│       ├── AITranslationExporter.cs     # Логика экспорта JSON
-│       ├── AITranslationImporter.cs     # Логика импорта + валидация
+│       ├── AITranslationWindow.cs       # Окно AI Translation (+вкладка Claude)
+│       ├── LocalizationExporter.cs      # Exporter + Importer + Validator
+│       ├── LocalizationExportData.cs    # JSON-модели экспорта/импорта
+│       ├── ClaudeTranslationRunner.cs   # Полный цикл через Claude Code CLI
 │       ├── LocalizationSetupWizard.cs   # Wizard первоначальной настройки
-│       ├── StringScanner.cs             # Поиск нелокализованных строк
-│       └── LocalizeTMPEditor.cs         # Кастомный инспектор
+│       ├── LocalizationConfigEditor.cs  # Инспектор конфига
+│       └── LocalizeTMPEditor.cs         # Кастомный инспектор LocalizeTMP
 └── Documentation~/
-    └── Localization.md                  # Этот документ
+    ├── Localization.md                  # Этот документ
+    └── LiveOps_ServerContract.md        # Контракт LiveOps клиент↔сервер
 ```
 
 ### В проекте Last Convoy
@@ -629,39 +597,17 @@ Assets/LastConvoy/
 
 ---
 
-## Roadmap реализации
+## Статус реализации
 
-### Фаза 1: Ядро (MVP)
+Ядро (LocalizationSystem, Loc, LocalizeTMP, Setup Wizard), AI Translation
+(экспорт/импорт/валидация, метаданные) и интеграции (Settings, шрифты) — реализованы.
 
-- [ ] Добавить com.unity.localization в зависимости пакета
-- [ ] `LocalizationSystem` — инициализация, определение языка
-- [ ] `Loc` — статический helper (Get, Has, SetLanguage, Ref)
-- [ ] `LocalizationConfig` — ScriptableObject
-- [ ] `LocalizationEvents` — события в EventBus (добавить в EventType enum)
-- [ ] `LocalizeTMP` — компонент автолокализации TMP_Text
-- [ ] `LocalizationSetupWizard` — создание конфига, Locale, первых таблиц
-
-### Фаза 2: AI Translation
-
-- [ ] `ProtoStringMetadata` — метаданные (context, max_length, tags)
-- [ ] `AITranslationExporter` — экспорт в JSON
-- [ ] `AITranslationImporter` — импорт из JSON + валидация
-- [ ] `AITranslationWindow` — Editor окно
-
-### Фаза 3: Интеграции
-
-- [ ] CreditsData — поддержка локализации через ключи
-- [ ] SettingsSystem — сохранение языка
-- [ ] SoundSystem — Asset Table для озвучки
-- [ ] `LocalizeImage`, `LocalizeSound` — компоненты
-- [ ] Поддержка шрифтов по языку (CJK)
-
-### Фаза 4: Инструменты
-
-- [ ] `StringScanner` — поиск нелокализованных строк в проекте
-- [ ] `LocalizeTMPEditor` — предпросмотр всех языков в инспекторе
-- [ ] Batch-операции: добавить ключ → все таблицы сразу
-- [ ] Статистика покрытия переводов
+Инструменты:
+- [x] `LocalizeTMPEditor` — кастомный инспектор компонента
+- [x] Статистика покрытия переводов — панель Coverage в AI Translation Window
+- [x] Полный AI-цикл одной кнопкой — `ClaudeTranslationRunner` (вкладка Claude)
+- [ ] `StringScanner` — поиск нелокализованных строк (не реализован)
+- [ ] Batch-операции «ключ во все таблицы сразу» (не реализованы)
 
 ---
 
@@ -709,13 +655,17 @@ titleText.text = Loc.Get("menu.play");
 
 ### 4. AI-перевод
 
+Одной кнопкой (нужен Claude Code CLI):
 ```
-ProtoSystem → Localization → AI Translation
-  → Выбрать: ru → en, таблицы: UI, Game, Credits
-  → Экспорт JSON
-  → Отдать Claude
-  → Импорт JSON
-  → Валидация ✓
+ProtoSystem → Localization → AI Translation → вкладка Claude
+  → Выбрать таблицы и языки → 🤖 Translate via Claude
+  → Export → перевод → Import + валидация — автоматически
+```
+
+Или вручную:
+```
+Вкладка Export → JSON → отдать AI → заполненный JSON в Import/
+  → вкладка Import → валидация ✓
 ```
 
 ### 5. Проверка

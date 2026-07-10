@@ -248,18 +248,18 @@ namespace ProtoSystem.LiveOps
                 return null;
             }
 
-            Debug.Log($"[PocketBaseProvider] FetchMilestone: {items.Count} записей, ищем project_id='{_projectId}'");
+            LiveOpsLog.Info($"[PocketBaseProvider] FetchMilestone: {items.Count} записей, ищем project_id='{_projectId}'");
 
             foreach (var r in items)
             {
-                Debug.Log($"[PB DEBUG] goal record: id='{r.id}' project_id='{r.project_id}' title='{r.title}' desc='{r.description}' unit='{r.unit}' current={r.current} goal={r.target}");
+                LiveOpsLog.Info($"[PB DEBUG] goal record: id='{r.id}' project_id='{r.project_id}' title='{r.title}' desc='{r.description}' unit='{r.unit}' current={r.current} goal={r.target}");
                 if (r.project_id != _projectId)
                 {
-                    Debug.Log($"[PocketBaseProvider] FetchMilestone: пропуск записи project_id='{r.project_id}'");
+                    LiveOpsLog.Info($"[PocketBaseProvider] FetchMilestone: пропуск записи project_id='{r.project_id}'");
                     continue;
                 }
                 var desc = MakeLocalized(r.description, r.description_ru, r.description_en);
-                Debug.Log($"[PocketBaseProvider] FetchMilestone: найдена цель '{desc.Get("en")}' {r.current}/{r.target}");
+                LiveOpsLog.Info($"[PocketBaseProvider] FetchMilestone: найдена цель '{desc.Get("en")}' {r.current}/{r.target}");
                 return new LiveOpsMilestoneData
                 {
                     title       = MakeLocalized(r.title),
@@ -294,9 +294,9 @@ namespace ProtoSystem.LiveOps
         {
             // Безопасный хук — не открывает коллекцию на чтение
             var url = $"{_baseUrl}/api/messages/my?player_id={UnityWebRequest.EscapeURL(playerId)}&project_id={UnityWebRequest.EscapeURL(_projectId)}";
-            Debug.Log($"[PB] FetchMyMessages GET {url}");
+            LiveOpsLog.Info($"[PB] FetchMyMessages GET {url}");
             var json = await GetAsync(url);
-            Debug.Log($"[PB] FetchMyMessages response: {(json != null ? json.Substring(0, System.Math.Min(json.Length, 500)) : "NULL")}");
+            LiveOpsLog.Info($"[PB] FetchMyMessages response: {(json != null ? json.Substring(0, System.Math.Min(json.Length, 500)) : "NULL")}");
             if (json == null) return null;
 
             json = FlattenNestedJsonObjects(json);
@@ -354,7 +354,7 @@ namespace ProtoSystem.LiveOps
             // Всегда вставляем новую запись — так хранится история изменения оценок
             var nameField = !string.IsNullOrEmpty(_playerName) ? $",\"player_name\":\"{EscapeJson(_playerName)}\"" : "";
             var body = $"{{\"project_id\":\"{_projectId}\",\"version\":\"{submit.version}\",\"score\":{submit.score},\"player_id\":\"{submit.playerId}\"{nameField}}}";
-            UnityEngine.Debug.Log($"[LiveOps PB] SubmitRating body: {body}");
+            LiveOpsLog.Info($"[LiveOps PB] SubmitRating body: {body}");
             var ok = await PostAsync("/api/collections/ratings/records", body);
             if (!ok) return null;
 
@@ -378,14 +378,14 @@ namespace ProtoSystem.LiveOps
             var json = await GetAsync(url);
             if (json == null) return null;
 
-            Debug.Log($"[PB DEBUG] {collection} RAW ({json.Length} chars):\n{json}");
+            LiveOpsLog.Info($"[PB DEBUG] {collection} RAW ({json.Length} chars):\n{json}");
 
             // JsonUtility не может десериализовать вложенные JSON-объекты в string поля.
             // PocketBase json-поля возвращаются как объекты: "title":{"ru":"...","en":"..."}.
             // Конвертируем их в escaped-строки: "title":"{\"ru\":\"...\",\"en\":\"...\"}".
             json = FlattenNestedJsonObjects(json);
 
-            Debug.Log($"[PB DEBUG] {collection} FLATTENED ({json.Length} chars):\n{json}");
+            LiveOpsLog.Info($"[PB DEBUG] {collection} FLATTENED ({json.Length} chars):\n{json}");
 
             try
             {
@@ -395,7 +395,7 @@ namespace ProtoSystem.LiveOps
                 else if (wrapper.items == null)
                     Debug.LogWarning($"[PB DEBUG] {collection}: wrapper.items is null");
                 else
-                    Debug.Log($"[PB DEBUG] {collection}: parsed {wrapper.items.Length} items");
+                    LiveOpsLog.Info($"[PB DEBUG] {collection}: parsed {wrapper.items.Length} items");
                 return wrapper?.items != null ? new List<T>(wrapper.items) : null;
             }
             catch (Exception ex)
@@ -570,9 +570,9 @@ namespace ProtoSystem.LiveOps
             req.downloadHandler = new DownloadHandlerBuffer();
             req.SetRequestHeader("Content-Type", "application/json");
             req.timeout = Mathf.CeilToInt(_timeoutSeconds);
-            Debug.Log($"[PB] POST {url}  body={jsonBody}");
+            LiveOpsLog.Info($"[PB] POST {url}  body={jsonBody}");
             await SendAsync(req);
-            Debug.Log($"[PB] POST ← {req.responseCode}  error='{req.error}'  response='{req.downloadHandler?.text}'");
+            LiveOpsLog.Info($"[PB] POST ← {req.responseCode}  error='{req.error}'  response='{req.downloadHandler?.text}'");
             if (req.isNetworkError || req.isHttpError) return false;
             return true;
         }
@@ -586,9 +586,9 @@ namespace ProtoSystem.LiveOps
             req.downloadHandler = new DownloadHandlerBuffer();
             req.SetRequestHeader("Content-Type", "application/json");
             req.timeout = Mathf.CeilToInt(_timeoutSeconds);
-            Debug.Log($"[PB] PATCH {url}  body={jsonBody}");  // PATCH log
+            LiveOpsLog.Info($"[PB] PATCH {url}  body={jsonBody}");  // PATCH log
             await SendAsync(req);
-            Debug.Log($"[PB] PATCH ← {req.responseCode}  networkError={req.isNetworkError}  httpError={req.isHttpError}  error='{req.error}'  body='{req.downloadHandler?.text}'");
+            LiveOpsLog.Info($"[PB] PATCH ← {req.responseCode}  networkError={req.isNetworkError}  httpError={req.isHttpError}  error='{req.error}'  body='{req.downloadHandler?.text}'");
             if (req.isNetworkError || req.isHttpError) return false;
             return true;
         }

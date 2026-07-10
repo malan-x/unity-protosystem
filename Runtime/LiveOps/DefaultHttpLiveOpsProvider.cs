@@ -181,9 +181,9 @@ namespace ProtoSystem.LiveOps
             AddHeaders(req);
             req.timeout = Mathf.CeilToInt(_timeoutSeconds);
 
-            Debug.Log($"[LiveOps HTTP] POST {url}  body={jsonBody}");
+            LiveOpsLog.Info($"[LiveOps HTTP] POST {url}  body={jsonBody}");
             await SendAsync(req);
-            Debug.Log($"[LiveOps HTTP] ← {req.responseCode}  networkError={req.isNetworkError}  httpError={req.isHttpError}  error='{req.error}'  body='{req.downloadHandler?.text}'");
+            LiveOpsLog.Info($"[LiveOps HTTP] ← {req.responseCode}  networkError={req.isNetworkError}  httpError={req.isHttpError}  error='{req.error}'  body='{req.downloadHandler?.text}'");
 
             if (req.isNetworkError || req.isHttpError) return null;
             return req.downloadHandler.text;

@@ -47,6 +47,11 @@ namespace ProtoSystem.LiveOps
         [Tooltip("Показывать прогресс-бар цели (milestone).")]
         public bool enableGoal = true;
 
+        [Header("Debug")]
+        [Tooltip("Подробные отладочные логи (HTTP-запросы, парсинг ответов, unread-счётчики). " +
+                 "Ошибки и предупреждения логируются всегда.")]
+        public bool verboseLogging = false;
+
         [Header("Behaviour")]
         [Tooltip("Интервал периодического обновления (секунды). 0 — отключить периодику.")]
         public float fetchIntervalSeconds = 300f;

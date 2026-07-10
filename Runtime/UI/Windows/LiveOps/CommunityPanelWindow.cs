@@ -213,7 +213,7 @@ namespace ProtoSystem.UI
 
         private void Start()
         {
-            Debug.Log("[CommunityPanel] Start()");
+            LiveOpsLog.Info("[CommunityPanel] Start()");
 
             if (stubConfig != null)
             {
@@ -222,12 +222,12 @@ namespace ProtoSystem.UI
             }
 
             var mgr = SystemInitializationManager.Instance;
-            Debug.Log($"[CommunityPanel] manager={mgr != null}, isInitialized={mgr?.IsInitialized}");
+            LiveOpsLog.Info($"[CommunityPanel] manager={mgr != null}, isInitialized={mgr?.IsInitialized}");
 
             if (mgr != null)
                 _liveOpsSystem = mgr.GetSystem<LiveOpsSystem>();
 
-            Debug.Log($"[CommunityPanel] GetSystem → {(_liveOpsSystem != null ? "OK" : "NULL")}");
+            LiveOpsLog.Info($"[CommunityPanel] GetSystem → {(_liveOpsSystem != null ? "OK" : "NULL")}");
 
             if (_liveOpsSystem != null)
             {
@@ -236,7 +236,7 @@ namespace ProtoSystem.UI
             }
             else
             {
-                Debug.Log("[CommunityPanel] Запускаю WaitForLiveOpsSystem корутину");
+                LiveOpsLog.Info("[CommunityPanel] Запускаю WaitForLiveOpsSystem корутину");
                 StartCoroutine(WaitForLiveOpsSystem());
             }
         }
@@ -246,13 +246,13 @@ namespace ProtoSystem.UI
             var mgr = SystemInitializationManager.Instance;
             if (mgr == null) yield break;
 
-            Debug.Log("[CommunityPanel] Жду IsInitialized...");
+            LiveOpsLog.Info("[CommunityPanel] Жду IsInitialized...");
             while (!mgr.IsInitialized)
                 yield return null;
 
-            Debug.Log("[CommunityPanel] Manager initialized, ищу LiveOpsSystem");
+            LiveOpsLog.Info("[CommunityPanel] Manager initialized, ищу LiveOpsSystem");
             _liveOpsSystem = mgr.GetSystem<LiveOpsSystem>();
-            Debug.Log($"[CommunityPanel] GetSystem → {(_liveOpsSystem != null ? "OK" : "NULL")}");
+            LiveOpsLog.Info($"[CommunityPanel] GetSystem → {(_liveOpsSystem != null ? "OK" : "NULL")}");
 
             if (_liveOpsSystem != null)
             {
@@ -757,7 +757,7 @@ namespace ProtoSystem.UI
         private void RefreshGoal(LiveOpsMilestoneData data)
         {
             var lang = stubConfig?.language ?? _liveOpsSystem?.Language ?? "en";
-            Debug.Log($"[CommunityPanel] RefreshGoal: {data.current}/{data.goal} Progress={data.Progress:F4}");
+            LiveOpsLog.Info($"[CommunityPanel] RefreshGoal: {data.current}/{data.goal} Progress={data.Progress:F4}");
             if (goalFill)
             {
                 var rt = goalFill.rectTransform;
@@ -847,7 +847,7 @@ namespace ProtoSystem.UI
 
         private void UpdateNotificationBadge(int count)
         {
-            Debug.Log($"[CommunityPanel] UpdateNotificationBadge({count})");
+            LiveOpsLog.Info($"[CommunityPanel] UpdateNotificationBadge({count})");
             SetVisible(notificationBadge, count > 0);
             if (notificationCountText) notificationCountText.text = count.ToString();
         }
@@ -860,7 +860,7 @@ namespace ProtoSystem.UI
 
         private void OpenConversation()
         {
-            Debug.Log("[CommunityPanel] OpenConversation()");
+            LiveOpsLog.Info("[CommunityPanel] OpenConversation()");
             _conversationOpen = true;
 
             // Скрыть основной контент
@@ -907,7 +907,7 @@ namespace ProtoSystem.UI
         private void CycleTranslationMode()
         {
             _showLocalizedReply = !_showLocalizedReply;
-            Debug.Log($"[CommunityPanel] CycleTranslation → _showLocalizedReply={_showLocalizedReply}, lang={(_liveOpsSystem != null ? _liveOpsSystem.Language : "null")}");
+            LiveOpsLog.Info($"[CommunityPanel] CycleTranslation → _showLocalizedReply={_showLocalizedReply}, lang={(_liveOpsSystem != null ? _liveOpsSystem.Language : "null")}");
             UpdateTranslationUI();
             RenderConversation();
         }
@@ -943,13 +943,13 @@ namespace ProtoSystem.UI
             {
                 string lang = _liveOpsSystem != null ? _liveOpsSystem.Language : "en";
                 string localized = item.replyLocalized.Get(lang);
-                Debug.Log($"[CommunityPanel] GetDisplayReply: lang={lang}, localized='{localized}', reply='{item.reply}', translations={item.replyLocalized.translations?.Count ?? 0}");
+                LiveOpsLog.Info($"[CommunityPanel] GetDisplayReply: lang={lang}, localized='{localized}', reply='{item.reply}', translations={item.replyLocalized.translations?.Count ?? 0}");
                 if (!string.IsNullOrEmpty(localized))
                     return localized;
             }
             else
             {
-                Debug.Log($"[CommunityPanel] GetDisplayReply: showLocalized={_showLocalizedReply}, replyLocalized={item.replyLocalized != null}, reply='{item.reply}'");
+                LiveOpsLog.Info($"[CommunityPanel] GetDisplayReply: showLocalized={_showLocalizedReply}, replyLocalized={item.replyLocalized != null}, reply='{item.reply}'");
             }
 
             return item.reply ?? "";
@@ -957,7 +957,7 @@ namespace ProtoSystem.UI
 
         private void CloseConversation()
         {
-            Debug.Log("[CommunityPanel] CloseConversation()");
+            LiveOpsLog.Info("[CommunityPanel] CloseConversation()");
             _conversationOpen = false;
             SetVisible(conversationRoot, false);
 

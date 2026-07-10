@@ -121,12 +121,12 @@ namespace ProtoSystem.LiveOps
             if (_provider is DefaultHttpLiveOpsProvider httpProv)
             {
                 httpProv.SetPlayerName(name);
-                Debug.Log($"[LiveOps] PlayerName → '{name}' (DefaultHttp)");
+                LiveOpsLog.Info($"[LiveOps] PlayerName → '{name}' (DefaultHttp)");
             }
             else if (_provider is PocketBaseHttpLiveOpsProvider pbProv)
             {
                 pbProv.SetPlayerName(name);
-                Debug.Log($"[LiveOps] PlayerName → '{name}' (PocketBase)");
+                LiveOpsLog.Info($"[LiveOps] PlayerName → '{name}' (PocketBase)");
             }
             else
             {
@@ -172,12 +172,12 @@ namespace ProtoSystem.LiveOps
             // InitializeAsync() сам управит панелью после завершения.
             if (!IsInitializedDependencies)
             {
-                Debug.Log($"[{SystemId}] RegisterPanel: ещё не инициализирована, сохраняю ссылку");
+                LiveOpsLog.Info($"[{SystemId}] RegisterPanel: ещё не инициализирована, сохраняю ссылку");
                 return;
             }
 
             // Система уже готова — сразу управляем видимостью
-            Debug.Log($"[{SystemId}] RegisterPanel: initialized=true, serverAvailable={_serverAvailable}, hasData={_hasData}, panelConfig={(_panelConfig != null ? "OK" : "NULL")}");
+            LiveOpsLog.Info($"[{SystemId}] RegisterPanel: initialized=true, serverAvailable={_serverAvailable}, hasData={_hasData}, panelConfig={(_panelConfig != null ? "OK" : "NULL")}");
             if (!_serverAvailable)
             {
                 panel.gameObject.SetActive(false);
@@ -251,10 +251,10 @@ namespace ProtoSystem.LiveOps
         /// <summary>Загрузить переписку текущего игрока.</summary>
         public async Task FetchMyMessagesAsync()
         {
-            Debug.Log($"[LiveOps] FetchMyMessagesAsync: provider={(_provider != null ? "OK" : "NULL")}, playerId={_playerId}");
+            LiveOpsLog.Info($"[LiveOps] FetchMyMessagesAsync: provider={(_provider != null ? "OK" : "NULL")}, playerId={_playerId}");
             if (_provider == null) return;
             var items = await _provider.FetchMyMessagesAsync(_playerId);
-            Debug.Log($"[LiveOps] FetchMyMessagesAsync: got {(items != null ? items.Count.ToString() : "null")} items");
+            LiveOpsLog.Info($"[LiveOps] FetchMyMessagesAsync: got {(items != null ? items.Count.ToString() : "null")} items");
             if (items != null)
             {
                 _myMessages = items;
@@ -270,7 +270,7 @@ namespace ProtoSystem.LiveOps
 
                 if (sentIds.Count > 0)
                 {
-                    Debug.Log($"[LiveOps] ConfirmReplies: {sentIds.Count} sent replies");
+                    LiveOpsLog.Info($"[LiveOps] ConfirmReplies: {sentIds.Count} sent replies");
                     await _provider.ConfirmRepliesAsync(sentIds.ToArray());
                     foreach (var m in _myMessages)
                         if (sentIds.Contains(m.id))
@@ -465,6 +465,8 @@ namespace ProtoSystem.LiveOps
                 ProtoLogger.LogWarning(SystemId, "LiveOpsConfig не назначен — система отключена.");
                 return true;
             }
+
+            LiveOpsLog.Verbose = config.verboseLogging;
 
             // Авто-провайдер: если проект не установил свой — создаём по типу из конфига
             _provider = config.GetProvider();
@@ -667,10 +669,10 @@ namespace ProtoSystem.LiveOps
                 bool isRead = readSet.Contains(m.id);
                 if (hasReply && !isRead)
                     count++;
-                Debug.Log($"[LiveOps] RecalcUnread: id={m.id}, reply={hasReply}, read={isRead}");
+                LiveOpsLog.Info($"[LiveOps] RecalcUnread: id={m.id}, reply={hasReply}, read={isRead}");
             }
             _unreadCount = count;
-            Debug.Log($"[LiveOps] RecalcUnread: total unread={_unreadCount}, subscribers={OnUnreadCountChanged?.GetInvocationList()?.Length ?? 0}");
+            LiveOpsLog.Info($"[LiveOps] RecalcUnread: total unread={_unreadCount}, subscribers={OnUnreadCountChanged?.GetInvocationList()?.Length ?? 0}");
             OnUnreadCountChanged?.Invoke(_unreadCount);
         }
 
