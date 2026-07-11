@@ -50,6 +50,20 @@ namespace ProtoSystem.UI
     }
 
     /// <summary>
+    /// Предпочитаемый бэкенд окна, когда в конфиге зарегистрированы ДВА префаба
+    /// одного WindowId (uGUI и UI Toolkit). Позволяет переключать реализацию
+    /// одним селектором, не удаляя префабы из списка.
+    /// </summary>
+    public enum UIBackendPreference
+    {
+        /// <summary>При дубликатах использовать uGUI-префаб (UIWindowBase без UIDocument)</summary>
+        UGUI,
+
+        /// <summary>При дубликатах использовать UI Toolkit-префаб (UIToolkitWindowBase)</summary>
+        UIToolkit
+    }
+
+    /// <summary>
     /// Анимация перехода
     /// </summary>
     public enum TransitionAnimation

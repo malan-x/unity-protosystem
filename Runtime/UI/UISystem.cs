@@ -295,27 +295,61 @@ namespace ProtoSystem.UI
                 LogWarning($"{nullPrefabs} prefabs are NULL! Open UISystemConfig and click 'Scan & Add Prefabs'");
             }
 
-            // Сканируем prefab'ы
+            // Собираем кандидатов: один WindowId может иметь ДВА префаба (uGUI и UI Toolkit),
+            // выбор — по config.preferredBackend
+            var candidateOrder = new List<string>();
+            var candidates = new Dictionary<string, List<(GameObject prefab, UIWindowBase component)>>();
+
             foreach (var prefab in config.windowPrefabs)
             {
                 if (prefab == null) continue;
 
-                var windowComponent = prefab.GetComponent<UIWindowBase>();
-                if (windowComponent == null)
+                var component = prefab.GetComponent<UIWindowBase>();
+                if (component == null)
                 {
                     LogWarning($"Prefab '{prefab.name}' has no UIWindowBase component");
                     continue;
                 }
 
-                // Получаем атрибуты
-                var type = windowComponent.GetType();
-                var windowAttr = (UIWindowAttribute)Attribute.GetCustomAttribute(type, typeof(UIWindowAttribute));
-
-                if (windowAttr == null)
+                var attr = (UIWindowAttribute)Attribute.GetCustomAttribute(component.GetType(), typeof(UIWindowAttribute));
+                if (attr == null)
                 {
-                    LogWarning($"{type.Name} has no [UIWindow] attribute");
+                    LogWarning($"{component.GetType().Name} has no [UIWindow] attribute");
                     continue;
                 }
+
+                if (!candidates.TryGetValue(attr.WindowId, out var list))
+                {
+                    list = new List<(GameObject, UIWindowBase)>();
+                    candidates[attr.WindowId] = list;
+                    candidateOrder.Add(attr.WindowId);
+                }
+                list.Add((prefab, component));
+            }
+
+            foreach (var windowId in candidateOrder)
+            {
+                var list = candidates[windowId];
+                var (prefab, windowComponent) = list[0];
+
+                if (list.Count > 1)
+                {
+                    bool preferToolkit = config.preferredBackend == UIBackendPreference.UIToolkit;
+                    foreach (var candidate in list)
+                    {
+                        bool isToolkit = candidate.component is UIToolkitWindowBase;
+                        if (isToolkit == preferToolkit)
+                        {
+                            (prefab, windowComponent) = candidate;
+                            break;
+                        }
+                    }
+                    LogInit($"Window '{windowId}': {list.Count} prefabs, chose '{prefab.name}' (preferredBackend={config.preferredBackend})");
+                }
+
+                // Получаем атрибуты выбранного класса
+                var type = windowComponent.GetType();
+                var windowAttr = (UIWindowAttribute)Attribute.GetCustomAttribute(type, typeof(UIWindowAttribute));
 
                 LogInit($"Adding window '{windowAttr.WindowId}' from prefab '{prefab.name}'");
 

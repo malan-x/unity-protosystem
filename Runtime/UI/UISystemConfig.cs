@@ -25,6 +25,10 @@ namespace ProtoSystem.UI
                  "PanelSettings — он имеет приоритет.")]
         public UnityEngine.UIElements.PanelSettings panelSettings;
 
+        [Tooltip("Если в списке есть ДВА префаба одного окна (uGUI и UI Toolkit) — какой " +
+                 "использовать. Переключение бэкенда одним селектором, префабы не удаляются.")]
+        public UIBackendPreference preferredBackend = UIBackendPreference.UGUI;
+
         [Header("Animation Defaults")]
         [Tooltip("Длительность анимации по умолчанию")]
         public float defaultAnimationDuration = 0.25f;

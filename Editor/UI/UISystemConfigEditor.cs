@@ -16,6 +16,28 @@ namespace ProtoSystem.UI
     {
         private string _prefabFolderPath;
 
+        /// <summary>WindowId, у которых в списке больше одного префаба (uGUI + UI Toolkit)</summary>
+        private static System.Collections.Generic.List<string> FindDuplicatedWindowIds(UISystemConfig config)
+        {
+            var counts = new System.Collections.Generic.Dictionary<string, int>();
+            foreach (var prefab in config.windowPrefabs)
+            {
+                if (prefab == null) continue;
+                var component = prefab.GetComponent<UIWindowBase>();
+                if (component == null) continue;
+                var attr = (UIWindowAttribute)System.Attribute.GetCustomAttribute(
+                    component.GetType(), typeof(UIWindowAttribute));
+                if (attr == null) continue;
+                counts.TryGetValue(attr.WindowId, out int n);
+                counts[attr.WindowId] = n + 1;
+            }
+
+            var result = new System.Collections.Generic.List<string>();
+            foreach (var kvp in counts)
+                if (kvp.Value > 1) result.Add(kvp.Key);
+            return result;
+        }
+
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
@@ -62,6 +84,23 @@ namespace ProtoSystem.UI
             if (labelCount == 0)
             {
                 EditorGUILayout.HelpBox("Add labels to auto-scan (e.g. UIWindow, KM_UIWindow)", MessageType.Info);
+            }
+
+            EditorGUILayout.Space(5);
+
+            // UI Backend: выбор между uGUI/UI Toolkit при дубликатах WindowId
+            EditorGUILayout.LabelField("UI Backend", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("preferredBackend"),
+                new GUIContent("Preferred Backend",
+                    "Если у окна в списке два префаба (uGUI и UI Toolkit) — какой использовать"));
+
+            // Подсказка: какие окна имеют оба варианта
+            var duplicated = FindDuplicatedWindowIds(config);
+            if (duplicated.Count > 0)
+            {
+                EditorGUILayout.HelpBox(
+                    $"Окна с двумя бэкендами: {string.Join(", ", duplicated)} — используется {config.preferredBackend}.",
+                    MessageType.Info);
             }
 
             EditorGUILayout.Space(10);

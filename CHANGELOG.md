@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.0] - 2026-07-11
+
+### Added
+- **UISystemConfig.preferredBackend (uGUI / UIToolkit)** — в конфиге могут быть
+  зарегистрированы ОБА префаба одного окна; какой использовать, выбирает селектор.
+  Переключение бэкенда одним полем, инспектор показывает окна с двумя вариантами
+- Генератор toolkit-окон ставит префабам метку из UISystemConfig.windowPrefabLabels
+  (раньше — хардкод "UIWindow")
 ## [1.17.3] - 2026-07-11
 
 ### Added

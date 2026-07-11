@@ -252,6 +252,12 @@ namespace ProtoSystem.UI
                 UnityEditor.SessionState.EraseString(PendingPrefabsKey);
                 int created = 0;
 
+                // Метка для авто-скана — первая из UISystemConfig.windowPrefabLabels
+                var cfg = FindConfig();
+                string prefabLabel = (cfg != null && cfg.windowPrefabLabels != null && cfg.windowPrefabLabels.Count > 0)
+                    ? cfg.windowPrefabLabels[0]
+                    : "UIWindow";
+
                 foreach (var entry in pending.Split(';'))
                 {
                     var parts = entry.Split('|');
@@ -288,7 +294,7 @@ namespace ProtoSystem.UI
 
                     if (prefab != null)
                     {
-                        AssetDatabase.SetLabels(prefab, new[] { "UIWindow" });
+                        AssetDatabase.SetLabels(prefab, new[] { prefabLabel });
                         created++;
                     }
                 }
