@@ -562,7 +562,15 @@ namespace ProtoSystem.LiveOps
 
         private void OnWindowOpened(object data)
         {
-            if (data is string windowName && windowName == config?.mainMenuWindowName)
+            // Навигатор публикует WindowEventData; string — на случай ручных публикаций
+            string windowName = data switch
+            {
+                ProtoSystem.UI.WindowEventData wed => wed.WindowId,
+                string s => s,
+                _ => null
+            };
+
+            if (!string.IsNullOrEmpty(windowName) && windowName == config?.mainMenuWindowName)
                 _ = SafeFetchAsync();
         }
 

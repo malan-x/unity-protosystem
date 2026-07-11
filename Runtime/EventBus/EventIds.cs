@@ -10,12 +10,16 @@ namespace ProtoSystem
     public static class Evt
     {
         /// <summary>
-        /// События UI системы (10000-10099)
+        /// События UI системы.
+        /// WindowOpened/WindowClosed — алиасы реально публикуемых навигатором
+        /// EventBus.UI.* (10200+). Раньше здесь были собственные id 10001/10002,
+        /// которые навигатор НЕ публиковал — подписчики Evt.UI.WindowOpened молча
+        /// не получали событий (payload — WindowEventData).
         /// </summary>
         public static class UI
         {
-            public const int WindowOpened = 10001;
-            public const int WindowClosed = 10002;
+            public const int WindowOpened = EventBus.UI.WindowOpened;   // 10200
+            public const int WindowClosed = EventBus.UI.WindowClosed;   // 10201
             public const int WindowShown = 10003;
             public const int WindowHidden = 10004;
             public const int NavigationBack = 10005;

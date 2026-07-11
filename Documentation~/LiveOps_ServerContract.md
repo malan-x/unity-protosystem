@@ -23,6 +23,13 @@
 Деплой: `deploy.ps1` (Windows) / `deploy.sh` — scp файлов + `systemctl restart liveops`.
 Reverse proxy — nginx (порты 80/443), домен `api.twohuyakproduction.com`.
 
+⚠ **Права:** сервис работает под `www-data`, файлы заливаются под `deploy`.
+Каталог `/opt/liveops/localization/` должен быть доступен `www-data` на запись
+(hook создаёт в нём подпапки проектов), иначе `/api/localization/upload` отвечает 500.
+Правильное состояние: `chown -R www-data:www-data /opt/liveops/localization`
+(сейчас временно решено через `chmod o+w` — у deploy нет root-sudo).
+У `deploy` sudo ограничен `systemctl restart liveops`.
+
 ## JS-хуки (pb_hooks) и их зоны ответственности
 
 | Файл | Что делает |

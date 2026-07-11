@@ -50,7 +50,12 @@ namespace ProtoSystem.UI
         /// <summary>
         /// Навигация по триггеру (использует граф переходов)
         /// </summary>
-        public NavigationResult Navigate(string trigger)
+        public NavigationResult Navigate(string trigger) => Navigate(trigger, null);
+
+        /// <summary>
+        /// Навигация по триггеру с полезной нагрузкой — окно получит её в OnPayload() до Show.
+        /// </summary>
+        public NavigationResult Navigate(string trigger, object payload)
         {
             if (string.IsNullOrEmpty(trigger))
                 return Fail(NavigationResult.TriggerNotFound, null, null, trigger);
@@ -81,16 +86,22 @@ namespace ProtoSystem.UI
             if (transition == null)
                 return Fail(NavigationResult.TriggerNotFound, fromId, null, trigger);
 
-            return OpenWindow(transition.toWindowId, transition.animation, fromId, trigger);
+            return OpenWindow(transition.toWindowId, transition.animation, fromId, trigger, payload);
         }
 
         /// <summary>
         /// Открыть окно напрямую по ID
         /// </summary>
         public NavigationResult Open(string windowId, TransitionAnimation animation = TransitionAnimation.Fade)
+            => Open(windowId, animation, null);
+
+        /// <summary>
+        /// Открыть окно по ID с полезной нагрузкой — окно получит её в OnPayload() до Show.
+        /// </summary>
+        public NavigationResult Open(string windowId, TransitionAnimation animation, object payload)
         {
             string fromId = CurrentModal?.WindowId ?? CurrentWindow?.WindowId ?? "";
-            return OpenWindow(windowId, animation, fromId, null);
+            return OpenWindow(windowId, animation, fromId, null, payload);
         }
 
         /// <summary>
@@ -155,10 +166,12 @@ namespace ProtoSystem.UI
             {
                 _factory.Release(closing);
             });
+            PublishWindowClosed(closing);
 
             // Показываем предыдущее (оно могло быть скрыто)
             CurrentWindow = opening;
             opening.Show(); // Show вместо Focus - окно могло быть скрыто
+            PublishWindowFocused(opening);
 
             PublishEvent(new NavigationEventData
             {
@@ -250,13 +263,50 @@ namespace ProtoSystem.UI
             }
 
             window.Hide(() => _factory.Release(window));
+            PublishWindowClosed(window);
+        }
+
+        /// <summary>
+        /// Закрыть окна до указанного: сначала все модальные, затем Normal-окна сверху стека,
+        /// пока верхним не станет windowId. Заменяет ручное разматывание циклом Back().
+        /// </summary>
+        public NavigationResult BackTo(string windowId)
+        {
+            if (string.IsNullOrEmpty(windowId))
+                return NavigationResult.WindowNotFound;
+
+            // Целевое окно должно быть в стеке
+            bool found = false;
+            foreach (var w in _windowStack)
+            {
+                if (w.WindowId == windowId) { found = true; break; }
+            }
+            if (!found)
+                return NavigationResult.WindowNotFound;
+
+            // Закрываем все модальные
+            while (_modalStack.Count > 0)
+                CloseTopModal();
+
+            // Разматываем стек до целевого окна
+            int safety = 64;
+            while (_windowStack.Count > 1 && _windowStack.Peek().WindowId != windowId && safety-- > 0)
+            {
+                var result = Back();
+                if (result != NavigationResult.Success)
+                    return result;
+            }
+
+            return _windowStack.Count > 0 && _windowStack.Peek().WindowId == windowId
+                ? NavigationResult.Success
+                : NavigationResult.WindowNotFound;
         }
 
         #endregion
 
         #region Internal
 
-        private NavigationResult OpenWindow(string windowId, TransitionAnimation animation, string fromId, string trigger)
+        private NavigationResult OpenWindow(string windowId, TransitionAnimation animation, string fromId, string trigger, object payload = null)
         {
             // Получаем определение окна
             var definition = _graph?.GetWindow(windowId);
@@ -289,6 +339,10 @@ namespace ProtoSystem.UI
             var window = _factory.Create(definition);
             if (window == null)
                 return Fail(NavigationResult.WindowNotFound, fromId, windowId, trigger);
+
+            // Доставляем полезную нагрузку до Show (окно использует её в OnShow/OnBuildUI)
+            if (payload != null)
+                window.DeliverPayload(payload);
 
             // Обрабатываем в зависимости от типа
             switch (definition.type)
@@ -409,7 +463,7 @@ namespace ProtoSystem.UI
             // Level 1+ окна должны быть непрозрачными (чтобы не накладывались на другие)
             if (definition.level > 0)
             {
-                ApplyOpaqueBackground(window);
+                window.ApplyOpaqueBackground();
             }
 
             // Добавляем в стек
@@ -420,32 +474,9 @@ namespace ProtoSystem.UI
             window.Show();
         }
 
-        /// <summary>
-        /// Делает фон окна непрозрачным (для окон level 1+)
-        /// </summary>
-        private void ApplyOpaqueBackground(UIWindowBase window)
-        {
-            // Проверяем UITwoColorImage (приоритет)
-            var twoColor = window.GetComponent<UITwoColorImage>();
-            if (twoColor != null)
-            {
-                var fill = twoColor.FillColor;
-                fill.a = 1f;
-                twoColor.FillColor = fill;
-                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Info, $"Made '{window.WindowId}' opaque via UITwoColorImage");
-                return;
-            }
-
-            // Fallback на обычный Image
-            var image = window.GetComponent<UnityEngine.UI.Image>();
-            if (image != null)
-            {
-                var color = image.color;
-                color.a = 1f;
-                image.color = color;
-                ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Info, $"Made '{window.WindowId}' opaque via Image.color");
-            }
-        }
+        // Непрозрачность фона Level 1+ окон реализуется самим окном:
+        // UIWindowBase.ApplyOpaqueBackground (uGUI: UITwoColorImage/Image,
+        // UIToolkitWindowBase: USS-класс window-opaque + backgroundColor).
 
         /// <summary>
         /// Закрывает все Normal окна с уровнем >= указанного.
@@ -505,6 +536,7 @@ namespace ProtoSystem.UI
                 }
 
                 w.Hide(() => _factory.Release(w));
+                PublishWindowClosed(w);
             }
 
             // Обновляем CurrentWindow
@@ -518,10 +550,12 @@ namespace ProtoSystem.UI
             if (_modalStack.Count > 0)
             {
                 _modalStack.Peek().Blur();
+                PublishWindowBlurred(_modalStack.Peek());
             }
             else if (CurrentWindow != null)
             {
                 CurrentWindow.Blur();
+                PublishWindowBlurred(CurrentWindow);
             }
 
             // Добавляем в стек модальных
@@ -595,6 +629,7 @@ namespace ProtoSystem.UI
             {
                 _overlays.Remove(windowId);
                 overlay.Hide(() => _factory.Release(overlay));
+                PublishWindowClosed(overlay);
                 return NavigationResult.Success;
             }
 
@@ -649,15 +684,18 @@ namespace ProtoSystem.UI
             {
                 _factory.Release(closing);
             });
+            PublishWindowClosed(closing);
 
             // Фокусируем следующее модальное или основное окно
             if (_modalStack.Count > 0)
             {
                 _modalStack.Peek().Focus();
+                PublishWindowFocused(_modalStack.Peek());
             }
             else if (CurrentWindow != null)
             {
                 CurrentWindow.Focus();
+                PublishWindowFocused(CurrentWindow);
             }
 
             PublishEvent(new NavigationEventData
@@ -685,6 +723,31 @@ namespace ProtoSystem.UI
             
             EventBus.Publish(EventBus.UI.NavigationFailed, data);
             return result;
+        }
+
+        private static WindowEventData MakeWindowData(UIWindowBase window) => new WindowEventData
+        {
+            WindowId = window.WindowId,
+            Type = window.WindowType,
+            Layer = window.Layer
+        };
+
+        private static void PublishWindowClosed(UIWindowBase window)
+        {
+            if (window == null) return;
+            EventBus.Publish(EventBus.UI.WindowClosed, MakeWindowData(window));
+        }
+
+        private static void PublishWindowFocused(UIWindowBase window)
+        {
+            if (window == null) return;
+            EventBus.Publish(EventBus.UI.WindowFocused, MakeWindowData(window));
+        }
+
+        private static void PublishWindowBlurred(UIWindowBase window)
+        {
+            if (window == null) return;
+            EventBus.Publish(EventBus.UI.WindowBlurred, MakeWindowData(window));
         }
 
         private void PublishEvent(NavigationEventData data, WindowDefinition definition = null)

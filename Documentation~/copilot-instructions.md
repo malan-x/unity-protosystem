@@ -8,7 +8,7 @@ ProtoSystem is a Unity framework with:
 - **EventBus**: Global event dispatcher (`EventBus.Publish/Subscribe`)
 - **System Initialization**: Attribute-driven DI with `[Dependency]` and `[PostDependency]`
 - **Base Classes**: `InitializableSystemBase`, `NetworkInitializableSystem`, `MonoEventBus`
-- **UISystem**: Graph-based navigation between UI windows (see `Documentation~/UISystem.md`)
+- **UISystem**: Graph-based navigation between UI windows; two window backends — uGUI (`UIWindowBase`) and UI Toolkit (`UIToolkitWindowBase`, UXML texts are loc keys with `#` prefix) (see `Documentation~/UISystem.md`)
 
 ## Architecture Rules
 

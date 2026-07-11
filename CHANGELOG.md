@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0] - 2026-07-11
+
+### Added
+- **UI Toolkit как второй бэкенд окон UISystem** — окна на UXML/USS полноправно живут
+  в общем графе/стеке с uGUI-окнами (модалки, Level, пауза, курсор, события)
+  - `UIToolkitWindowBase` — база: Show/Hide через display+opacity, Blur/Focus через
+    pickingMode + USS-класс `window-blurred`, `OnBuildUI(root)` (контракт пересоздания
+    дерева после пула), `ApplyOpaqueBackground` через `window-opaque`
+  - **Локализация**: конвенция `#лок.ключ` в текстах/tooltip UXML (`ToolkitLocalization`),
+    перелокализация по LanguageChanged, USS-класс `lang-{code}` на корне для шрифтов,
+    `Localization.SetKey()` для динамики
+  - **Геймпад/Steam Deck**: `defaultFocusName` (стартовый фокус), память фокуса при
+    Blur/Focus, Cancel (Esc/B) → `OnBackPressed()`, видимый `:focus` в генерируемом USS
+  - **Единая сортировка**: фабрика назначает UIDocument'ам PanelSettings по WindowLayer
+    (клоны шаблона `UISystemConfig.panelSettings`, sortingOrder = (int)layer — одна
+    шкала с Canvas-слоями), внутри слоя — порядок по sortingOrder документа
+  - **Wizard + генератор**: ProtoSystem → UI → UI Toolkit Setup & Generator — шаг 1
+    устанавливает PanelSettings, шаг 2 генерирует базовые окна (MainMenu, PauseMenu,
+    Settings, Loading, GameOver, Credits, GameHUD) в проект: C# (те же WindowId и
+    переходы, что у uGUI), UXML с лок-ключами, общий ProtoWindow.uss; существующие
+    файлы не перезаписываются
+- **Payload навигации**: `UISystem.Open(id, payload)` / `Navigate(trigger, payload)` →
+  `OnPayload(object)` в окне до Show (замена статических _pending-сеттеров)
+- **`UISystem.BackTo(windowId)`** — закрыть модалки и окна до указанного
+- Навигатор публикует `WindowClosed` / `WindowFocused` / `WindowBlurred` (раньше были
+  объявлены, но не публиковались)
+
+### Fixed
+- **`Evt.UI.WindowOpened` (10001) никогда не публиковался** — навигатор шлёт
+  `EventBus.UI.WindowOpened` (10200); подписчики Evt.UI (в т.ч. LiveOps
+  fetchOnMainMenuOpen) молча не получали событий. Теперь Evt.UI.WindowOpened/Closed —
+  алиасы 10200/10201, обработчик LiveOps понимает WindowEventData
+- `UIWindowBase` больше не требует CanvasGroup жёстко ([RequireComponent] снят,
+  обращения null-tolerant) — для uGUI-окон поведение не меняется
+## [1.16.3] - 2026-07-10
+
+### Fixed
+- **CommunityPanel: описание DevLog-карточки не отображалось** — у окна не было поля
+  `devLogDescriptionText`, сервер присылал description, но в префабе навсегда оставалась
+  заглушка генератора («Описание обновления...»). Добавлено поле + вывод с локализацией;
+  при пустом описании текст скрывается. Требуется перегенерация панели или ручная
+  привязка Description TMP в префабе.
 ## [1.16.0] - 2026-07-10
 
 ### Breaking behaviour (инициализация систем)

@@ -293,6 +293,61 @@ public class MyDialog : UIWindowBase
 }
 ```
 
+### Создание окна на UI Toolkit
+
+UISystem поддерживает два бэкенда окон: uGUI (UIWindowBase) и UI Toolkit
+(UIToolkitWindowBase). Оба живут в одном графе/стеке, регистрируйте в
+UISystemConfig ЛИБО uGUI-, ЛИБО toolkit-префаб для каждого WindowId.
+
+Toolkit-окно = класс + UXML (+USS) + префаб (GameObject → UIDocument с UXML →
+компонент окна). PanelSettings на префабе можно НЕ задавать — UIWindowFactory
+назначит его по WindowLayer (шаблон из UISystemConfig.panelSettings,
+sortingOrder = (int)layer — единая шкала с Canvas-слоями uGUI).
+
+```csharp
+[UIWindow("base", WindowType.Normal, WindowLayer.Windows, Level = 1, PauseGame = true)]
+public class BaseWindow : UIToolkitWindowBase
+{
+    // ВСЁ динамическое — строго в OnBuildUI: UIDocument пересоздаёт дерево
+    // при каждом Show из пула, колбэки из Awake не переживут пересоздание.
+    protected override void OnBuildUI(VisualElement root)
+    {
+        root.Q<Button>("close-button")?.RegisterCallback<ClickEvent>(_ => Close());
+
+        // Динамический локализованный текст — через Localization.SetKey:
+        var counter = root.Q<Label>("counter");
+        if (counter != null) Localization.SetKey(counter, "ui.base.counter");
+    }
+
+    // Параметры окна (вместо статических сеттеров): UISystem.Open("base", payload)
+    protected override void OnPayload(object payload) { /* сохранить до OnBuildUI */ }
+}
+```
+
+**КОНВЕНЦИЯ ЛОКАЛИЗАЦИИ (обязательно для новых окон):** все тексты в UXML
+пишутся как лок-ключ с префиксом `#`:
+
+```xml
+<ui:Label text="#ui.base.title" />
+<ui:Button name="close-button" text="#ui.common.back" tooltip="#ui.common.back_hint" />
+```
+
+База сама заменит их на `Loc.Get("ui.base.title")` и перелокализует при смене
+языка. Ключи добавляются в String Tables как обычно (AI Translation работает
+для них без изменений). НЕ хардкодьте строки в UXML и не используйте
+LocalizeTMP — его в toolkit нет. Для смены шрифтов по языку корень получает
+USS-класс `lang-{code}` (например `.lang-ja .window-title { -unity-font-definition: ... }`).
+
+**Геймпад/Steam Deck:** задайте `defaultFocusName` (имя элемента в UXML) —
+он получит фокус при открытии; при Blur/Focus (модалка поверх) фокус
+запоминается/восстанавливается, ввод глушится через pickingMode; Cancel
+(Esc/геймпад B) вызывает OnBackPressed(). В USS обязателен видимый стиль
+`:focus` для кнопок. Прочее (пауза, курсор, Level, переходы) — как у uGUI.
+
+Генерация базовых окон: **ProtoSystem → UI → UI Toolkit Setup & Generator**
+(шаг 1 — установка PanelSettings, шаг 2 — генерация окон в проект;
+UXML/USS дальше правятся руками, перегенерация не перезаписывает файлы).
+
 ### IUISceneInitializer
 
 Для добавления переходов и окон при запуске сцены:

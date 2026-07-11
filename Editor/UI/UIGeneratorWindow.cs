@@ -155,8 +155,19 @@ namespace ProtoSystem.UI
         private void OnGUI()
         {
             scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
-            
+
             DrawHeader();
+
+            // Этот генератор строит окна на uGUI. Для окон на UI Toolkit — отдельный wizard.
+            EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
+            EditorGUILayout.LabelField("Здесь генерируются окна на uGUI. Нужны окна на UI Toolkit (UXML/USS)?",
+                EditorStyles.miniLabel);
+            if (GUILayout.Button("🧩 UI Toolkit Generator", GUILayout.Width(160)))
+            {
+                UIToolkitWindowGenerator.ShowWindow();
+            }
+            EditorGUILayout.EndHorizontal();
+
             EditorGUILayout.Space(10);
             
             DrawModeSelection();

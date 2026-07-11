@@ -18,6 +18,13 @@ namespace ProtoSystem.UI
         [Tooltip("Метки (labels) для автоматического поиска prefab'ов окон. Prefab'ы с любой из этих меток будут добавлены.")]
         public List<string> windowPrefabLabels = new List<string> { "UIWindow", "KM_UIWindow" };
 
+        [Header("UI Toolkit")]
+        [Tooltip("Шаблон PanelSettings для окон на UI Toolkit (тема, масштабирование). " +
+                 "Фабрика клонирует его на каждый WindowLayer с sortingOrder = (int)layer, " +
+                 "синхронно с Canvas-слоями uGUI. Если у UIDocument префаба задан свой " +
+                 "PanelSettings — он имеет приоритет.")]
+        public UnityEngine.UIElements.PanelSettings panelSettings;
+
         [Header("Animation Defaults")]
         [Tooltip("Длительность анимации по умолчанию")]
         public float defaultAnimationDuration = 0.25f;

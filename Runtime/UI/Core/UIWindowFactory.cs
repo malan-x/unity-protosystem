@@ -1,11 +1,12 @@
 // Packages/com.protosystem.core/Runtime/UI/Core/UIWindowFactory.cs
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace ProtoSystem.UI
 {
     /// <summary>
-    /// Фабрика для создания и пулинга UI окон
+    /// Фабрика для создания и пулинга UI окон (uGUI и UI Toolkit)
     /// </summary>
     public class UIWindowFactory
     {
@@ -14,6 +15,10 @@ namespace ProtoSystem.UI
         private readonly Dictionary<WindowLayer, Transform> _layers = new();
         private readonly Dictionary<string, Queue<UIWindowBase>> _pool = new();
         private readonly Dictionary<string, WindowDefinition> _definitions = new();
+
+        // UI Toolkit: PanelSettings на слой (клоны шаблона из конфига) + счётчик порядка в слое
+        private readonly Dictionary<WindowLayer, PanelSettings> _panelSettingsByLayer = new();
+        private readonly Dictionary<WindowLayer, int> _panelTopOrder = new();
 
         public UIWindowFactory(Transform root, UISystemConfig config = null)
         {
@@ -103,10 +108,10 @@ namespace ProtoSystem.UI
 
             // Помещаем в правильный слой
             window.transform.SetParent(GetLayer(definition.layer), false);
-            
+
             // Новое окно всегда сверху в своём слое
             window.transform.SetAsLastSibling();
-            
+
             // Только сбрасываем scale, НЕ трогаем anchors/offsets из prefab'а
             var rect = window.GetComponent<RectTransform>();
             if (rect != null)
@@ -114,7 +119,52 @@ namespace ProtoSystem.UI
                 rect.localScale = Vector3.one;
             }
 
+            // UI Toolkit: настраиваем панель окна (сортировка в единой шкале с Canvas-слоями)
+            ConfigureToolkitDocument(window, definition);
+
             return window;
+        }
+
+        /// <summary>
+        /// Для окон с UIDocument: назначает PanelSettings слоя (если у префаба нет своих)
+        /// и поднимает документ наверх внутри слоя. PanelSettings.sortingOrder = (int)WindowLayer —
+        /// та же шкала, что у Canvas-слоёв, поэтому uGUI- и toolkit-окна сортируются согласованно.
+        /// </summary>
+        private void ConfigureToolkitDocument(UIWindowBase window, WindowDefinition definition)
+        {
+            var doc = window.GetComponent<UIDocument>();
+            if (doc == null) return;
+
+            if (doc.panelSettings == null)
+            {
+                var panel = GetOrCreatePanelSettings(definition.layer);
+                if (panel != null)
+                    doc.panelSettings = panel;
+                else
+                    ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Errors,
+                        $"Окно '{definition.id}' (UI Toolkit) без PanelSettings: назначьте PanelSettings " +
+                        "в UISystemConfig.panelSettings (шаблон) или на UIDocument префаба.");
+            }
+
+            // «SetAsLastSibling» для toolkit: внутри панели документы сортируются по sortingOrder
+            _panelTopOrder.TryGetValue(definition.layer, out int top);
+            _panelTopOrder[definition.layer] = ++top;
+            doc.sortingOrder = top;
+        }
+
+        private PanelSettings GetOrCreatePanelSettings(WindowLayer layer)
+        {
+            if (_panelSettingsByLayer.TryGetValue(layer, out var cached) && cached != null)
+                return cached;
+
+            var template = _config != null ? _config.panelSettings : null;
+            if (template == null) return null;
+
+            var instance = Object.Instantiate(template);
+            instance.name = $"PanelSettings_{layer}";
+            instance.sortingOrder = (int)layer;
+            _panelSettingsByLayer[layer] = instance;
+            return instance;
         }
 
         /// <summary>

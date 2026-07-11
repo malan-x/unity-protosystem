@@ -55,6 +55,7 @@ namespace ProtoSystem.UI
         [SerializeField] private GameObject devLogCard;
         [SerializeField] private TMP_Text   devLogFocusText;
         [SerializeField] private TMP_Text   devLogTitleText;
+        [SerializeField] private TMP_Text   devLogDescriptionText;
         [SerializeField] private Transform  devLogItemsContainer;
         [SerializeField] private GameObject devLogItemPrefab;
 
@@ -620,6 +621,14 @@ namespace ProtoSystem.UI
                 SetLocalized(devLogFocusText, "liveops.devlog.focus", devLog.focus.Get(lang));
             if (devLogTitleText)
                 SetLocalized(devLogTitleText, "liveops.devlog.title", devLog.title.Get(lang));
+
+            if (devLogDescriptionText)
+            {
+                string desc = devLog.description?.Get(lang);
+                SetVisible(devLogDescriptionText.gameObject, !string.IsNullOrEmpty(desc));
+                if (!string.IsNullOrEmpty(desc))
+                    SetLocalized(devLogDescriptionText, "liveops.devlog.description", desc);
+            }
 
             foreach (Transform child in devLogItemsContainer) Destroy(child.gameObject);
 

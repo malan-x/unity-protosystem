@@ -9,8 +9,11 @@ namespace ProtoSystem.UI
     /// <summary>
     /// Базовый класс для всех UI окон.
     /// Наследники должны иметь атрибут [UIWindow].
+    ///
+    /// Для окон на uGUI требуется CanvasGroup (добавляется генератором).
+    /// Для окон на UI Toolkit используйте наследника UIToolkitWindowBase —
+    /// CanvasGroup/RectTransform ему не нужны, все обращения null-tolerant.
     /// </summary>
-    [RequireComponent(typeof(CanvasGroup))]
     public abstract class UIWindowBase : MonoBehaviour
     {
         [Header("Animation")]
@@ -28,6 +31,9 @@ namespace ProtoSystem.UI
 
         // Состояние
         public WindowState State { get; private set; } = WindowState.Hidden;
+
+        /// <summary>Смена состояния окна (для наследников, реализующих свой Show/Hide)</summary>
+        protected void SetState(WindowState state) => State = state;
         
         /// <summary>Окно открыто (Visible или Blurred)</summary>
         public bool IsOpen => State == WindowState.Visible || State == WindowState.Blurred;
@@ -115,26 +121,64 @@ namespace ProtoSystem.UI
         /// <summary>
         /// Окно потеряло фокус (открылось другое поверх)
         /// </summary>
-        internal void Blur()
+        internal virtual void Blur()
         {
             if (State != WindowState.Visible) return;
-            
+
             State = WindowState.Blurred;
-            canvasGroup.interactable = false;
+            if (canvasGroup) canvasGroup.interactable = false;
             OnBlur();
         }
 
         /// <summary>
         /// Окно вернуло фокус
         /// </summary>
-        internal void Focus()
+        internal virtual void Focus()
         {
             if (State != WindowState.Blurred) return;
-            
+
             State = WindowState.Visible;
-            canvasGroup.interactable = true;
+            if (canvasGroup) canvasGroup.interactable = true;
             OnFocus();
         }
+
+        /// <summary>
+        /// Сделать фон окна непрозрачным (вызывается навигатором для Normal-окон Level 1+,
+        /// чтобы нижние окна не просвечивали). uGUI-реализация красит UITwoColorImage/Image;
+        /// UIToolkitWindowBase переопределяет под USS.
+        /// </summary>
+        public virtual void ApplyOpaqueBackground()
+        {
+            // Проверяем UITwoColorImage (приоритет)
+            var twoColor = GetComponent<UITwoColorImage>();
+            if (twoColor != null)
+            {
+                var fill = twoColor.FillColor;
+                fill.a = 1f;
+                twoColor.FillColor = fill;
+                return;
+            }
+
+            // Fallback на обычный Image
+            var image = GetComponent<UnityEngine.UI.Image>();
+            if (image != null)
+            {
+                var color = image.color;
+                color.a = 1f;
+                image.color = color;
+            }
+        }
+
+        /// <summary>
+        /// Доставка полезной нагрузки окну (вызывается навигатором до Show).
+        /// </summary>
+        internal void DeliverPayload(object payload) => OnPayload(payload);
+
+        /// <summary>
+        /// Переопределите для приёма параметров, переданных в UISystem.Open/Navigate.
+        /// Вызывается до Show — сохраните данные и используйте в OnShow/OnBuildUI.
+        /// </summary>
+        protected virtual void OnPayload(object payload) { }
 
         #endregion
 
@@ -148,9 +192,12 @@ namespace ProtoSystem.UI
             yield return PlayAnimation(showAnimation, false);
 
             State = WindowState.Visible;
-            canvasGroup.interactable = true;
-            canvasGroup.blocksRaycasts = true;
-            
+            if (canvasGroup)
+            {
+                canvasGroup.interactable = true;
+                canvasGroup.blocksRaycasts = true;
+            }
+
             OnShow();
             onComplete?.Invoke();
             _animationCoroutine = null;
@@ -159,13 +206,13 @@ namespace ProtoSystem.UI
         private IEnumerator HideRoutine(Action onComplete)
         {
             State = WindowState.Hiding;
-            canvasGroup.interactable = false;
+            if (canvasGroup) canvasGroup.interactable = false;
             OnBeforeHide();
 
             yield return PlayAnimation(hideAnimation, true);
 
             State = WindowState.Hidden;
-            canvasGroup.blocksRaycasts = false;
+            if (canvasGroup) canvasGroup.blocksRaycasts = false;
             gameObject.SetActive(false);
             
             OnHide();
@@ -175,7 +222,9 @@ namespace ProtoSystem.UI
 
         private IEnumerator PlayAnimation(TransitionAnimation anim, bool reverse)
         {
-            if (anim == TransitionAnimation.None || animationDuration <= 0)
+            // Без CanvasGroup/RectTransform (не-uGUI окно) анимировать нечего
+            if (anim == TransitionAnimation.None || animationDuration <= 0 ||
+                canvasGroup == null || rectTransform == null)
             {
                 SetVisibility(!reverse);
                 yield break;
@@ -241,9 +290,12 @@ namespace ProtoSystem.UI
 
         private void SetVisibility(bool visible)
         {
-            canvasGroup.alpha = visible ? 1f : 0f;
-            canvasGroup.interactable = visible;
-            canvasGroup.blocksRaycasts = visible;
+            if (canvasGroup)
+            {
+                canvasGroup.alpha = visible ? 1f : 0f;
+                canvasGroup.interactable = visible;
+                canvasGroup.blocksRaycasts = visible;
+            }
             transform.localScale = Vector3.one;
         }
 

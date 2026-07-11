@@ -113,13 +113,25 @@ namespace ProtoSystem.UI
         public static NavigationResult Navigate(string trigger)
             => Instance?._navigator?.Navigate(trigger) ?? NavigationResult.WindowNotFound;
 
+        /// <summary>Навигация по триггеру с payload — окно получит его в OnPayload() до Show</summary>
+        public static NavigationResult Navigate(string trigger, object payload)
+            => Instance?._navigator?.Navigate(trigger, payload) ?? NavigationResult.WindowNotFound;
+
         /// <summary>Открыть окно напрямую по ID</summary>
         public static NavigationResult Open(string windowId, TransitionAnimation animation = TransitionAnimation.Fade)
             => Instance?._navigator?.Open(windowId, animation) ?? NavigationResult.WindowNotFound;
 
+        /// <summary>Открыть окно по ID с payload — окно получит его в OnPayload() до Show</summary>
+        public static NavigationResult Open(string windowId, object payload, TransitionAnimation animation = TransitionAnimation.Fade)
+            => Instance?._navigator?.Open(windowId, animation, payload) ?? NavigationResult.WindowNotFound;
+
         /// <summary>Вернуться назад</summary>
         public static NavigationResult Back()
             => Instance?._navigator?.Back() ?? NavigationResult.StackEmpty;
+
+        /// <summary>Закрыть модалки и окна сверху стека, пока верхним не станет windowId</summary>
+        public static NavigationResult BackTo(string windowId)
+            => Instance?._navigator?.BackTo(windowId) ?? NavigationResult.WindowNotFound;
 
         /// <summary>Сбросить навигацию к начальному окну</summary>
         public static void Reset()

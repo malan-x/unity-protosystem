@@ -249,6 +249,43 @@ public class MyWindow : UIWindowBase
 2. Назначить ссылки в инспекторе
 3. Префаб находится автоматически если в нём есть UIWindowBase компонент
 
+## Окна на UI Toolkit
+
+Второй бэкенд окон — `UIToolkitWindowBase` (UXML/USS + UIDocument). Полноценный
+участник UISystem: тот же граф, стек, модалки, Level, пауза, курсор, события.
+Оба типа окон можно смешивать в одном проекте; для каждого WindowId регистрируйте
+в UISystemConfig один префаб — uGUI или toolkit.
+
+**Установка:** `ProtoSystem → UI → UI Toolkit Setup & Generator` → шаг 1 создаёт
+шаблон PanelSettings и прописывает его в `UISystemConfig.panelSettings`. Фабрика
+клонирует шаблон на каждый WindowLayer с `sortingOrder = (int)layer` — единая
+шкала сортировки с Canvas-слоями uGUI, порядок «модалка поверх HUD» гарантирован
+для любых сочетаний бэкендов.
+
+**Окно:** класс + UXML + префаб (GameObject → UIDocument → компонент). PanelSettings
+на UIDocument можно не задавать. Ключевые отличия от uGUI:
+
+- Контент строится в `OnBuildUI(root)` — вызывается при каждом Show на актуальном
+  дереве (UIDocument пересоздаёт rootVisualElement после пула). Никаких подписок
+  на элементы в Awake.
+- Show/Hide — display + fade по `style.opacity` (CanvasGroup не нужен).
+- Blur/Focus — pickingMode + USS-класс `window-blurred`; для Level 1+ навигатор
+  вызывает `ApplyOpaqueBackground()` → класс `window-opaque`.
+- **Локализация**: тексты и tooltip в UXML — лок-ключи с префиксом `#`
+  (`text="#ui.menu.play"`). База заменяет на `Loc.Get(...)` и перелокализует по
+  смене языка; корень получает USS-класс `lang-{code}` (шрифты по языкам).
+  Динамические тексты — `Localization.SetKey(label, "key")`.
+- **Геймпад/Steam Deck**: `defaultFocusName` — стартовый фокус; память фокуса при
+  Blur/Focus; Cancel (Esc/B) → `OnBackPressed()`. Стиль `:focus` в USS обязателен.
+- **Payload**: `UISystem.Open("id", payload)` / `Navigate("trigger", payload)` →
+  `OnPayload(object)` до Show (вместо статических сеттеров).
+
+Генератор (шаг 2) создаёт базовые окна (MainMenu, PauseMenu, Settings, Loading,
+GameOver, Credits, GameHUD) прямо в проект: C#-классы с теми же WindowId и
+переходами, что у uGUI-версий, UXML с лок-ключами и общий `ProtoWindow.uss`
+(включая видимый `:focus`). Существующие файлы не перезаписываются — UXML/USS
+правятся руками без перегенерации.
+
 ## Навигация
 
 ### Открытие окна по триггеру
