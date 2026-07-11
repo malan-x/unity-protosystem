@@ -660,13 +660,37 @@ namespace ProtoSystem
                 Directory.CreateDirectory(dir);
         }
 
+        /// <summary>
+        /// Суффикс «_ИмяОкна» для имени файла — активное окно UISystem (модалка приоритетнее).
+        /// Позволяет находить скриншот нужного окна по имени файла (миграции UI, багрепорты).
+        /// </summary>
+        private static string GetActiveWindowSuffix()
+        {
+            try
+            {
+                var ui = ProtoSystem.UI.UISystem.Instance;
+                var window = ui != null ? (ui.Navigator?.CurrentModal ?? ui.CurrentWindow) : null;
+                if (window == null || string.IsNullOrEmpty(window.WindowId)) return "";
+
+                var safe = new System.Text.StringBuilder(window.WindowId.Length);
+                foreach (char ch in window.WindowId)
+                    if (char.IsLetterOrDigit(ch) || ch == '-' || ch == '_') safe.Append(ch);
+
+                return safe.Length > 0 ? $"_{safe}" : "";
+            }
+            catch
+            {
+                return ""; // скриншот важнее имени — никогда не падаем из-за суффикса
+            }
+        }
+
         private string SaveTexture(Texture2D tex, string eventLabel = null)
         {
             EnsureDirectory();
             string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
             string ext = config.format == ScreenshotFormat.PNG ? "png" : "jpg";
             string prefix = string.IsNullOrEmpty(eventLabel) ? "screenshot" : $"event_{eventLabel}";
-            string filename = $"{prefix}_{timestamp}.{ext}";
+            string filename = $"{prefix}{GetActiveWindowSuffix()}_{timestamp}.{ext}";
             string path = Path.Combine(GetScreenshotDirectory(), filename);
 
             byte[] data;
