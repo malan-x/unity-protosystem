@@ -352,10 +352,10 @@ $@"<ui:UXML xmlns:ui=""UnityEngine.UIElements"">
     [UITransition(""settings"", ""Settings"")]
     [UITransition(""credits"", ""Credits"")]",
                 bindings =
-@"            root.Q<Button>(""play-button"")?.RegisterCallback<ClickEvent>(_ => Navigate(""play""));
-            root.Q<Button>(""settings-button"")?.RegisterCallback<ClickEvent>(_ => Navigate(""settings""));
-            root.Q<Button>(""credits-button"")?.RegisterCallback<ClickEvent>(_ => Navigate(""credits""));
-            root.Q<Button>(""quit-button"")?.RegisterCallback<ClickEvent>(_ => Quit());
+@"            OnClick(root, ""play-button"", () => Navigate(""play""));
+            OnClick(root, ""settings-button"", () => Navigate(""settings""));
+            OnClick(root, ""credits-button"", () => Navigate(""credits""));
+            OnClick(root, ""quit-button"", Quit);
 
             var version = root.Q<Label>(""version"");
             if (version != null) version.text = $""v{Application.version}"";",
@@ -388,9 +388,9 @@ $@"<ui:UXML xmlns:ui=""UnityEngine.UIElements"">
     [UITransition(""settings"", ""Settings"")]
     [UITransition(""mainmenu"", ""MainMenu"")]",
                 bindings =
-@"            root.Q<Button>(""resume-button"")?.RegisterCallback<ClickEvent>(_ => Close());
-            root.Q<Button>(""settings-button"")?.RegisterCallback<ClickEvent>(_ => Navigate(""settings""));
-            root.Q<Button>(""mainmenu-button"")?.RegisterCallback<ClickEvent>(_ => Navigate(""mainmenu""));",
+@"            OnClick(root, ""resume-button"", Close);
+            OnClick(root, ""settings-button"", () => Navigate(""settings""));
+            OnClick(root, ""mainmenu-button"", () => Navigate(""mainmenu""));",
                 extra = "",
                 defaultFocus = "resume-button",
                 uxml = Uxml("pausemenu",
@@ -407,7 +407,7 @@ $@"<ui:UXML xmlns:ui=""UnityEngine.UIElements"">
                 attrs =
 @"    [UIWindow(""Settings"", WindowType.Normal, WindowLayer.Windows, Level = 1, PauseGame = true, CursorMode = WindowCursorMode.Visible)]",
                 bindings =
-@"            root.Q<Button>(""back-button"")?.RegisterCallback<ClickEvent>(_ => Close());
+@"            OnClick(root, ""back-button"", Close);
             // TODO: постройте контролы настроек в ""settings-content"" (SettingsSystem)",
                 extra = "",
                 defaultFocus = "back-button",
@@ -452,8 +452,8 @@ $@"<ui:UXML xmlns:ui=""UnityEngine.UIElements"">
     [UITransition(""mainmenu"", ""MainMenu"")]
     [UITransition(""restart"", ""GameHUD"")]",
                 bindings =
-@"            root.Q<Button>(""restart-button"")?.RegisterCallback<ClickEvent>(_ => Navigate(""restart""));
-            root.Q<Button>(""mainmenu-button"")?.RegisterCallback<ClickEvent>(_ => Navigate(""mainmenu""));",
+@"            OnClick(root, ""restart-button"", () => Navigate(""restart""));
+            OnClick(root, ""mainmenu-button"", () => Navigate(""mainmenu""));",
                 extra = "",
                 defaultFocus = "restart-button",
                 uxml = Uxml("gameover",
@@ -469,7 +469,7 @@ $@"<ui:UXML xmlns:ui=""UnityEngine.UIElements"">
                 attrs =
 @"    [UIWindow(""Credits"", WindowType.Normal, WindowLayer.Windows, Level = 1)]",
                 bindings =
-@"            root.Q<Button>(""back-button"")?.RegisterCallback<ClickEvent>(_ => Close());",
+@"            OnClick(root, ""back-button"", Close);",
                 extra = "",
                 defaultFocus = "back-button",
                 uxml = Uxml("credits",
@@ -486,7 +486,7 @@ $@"<ui:UXML xmlns:ui=""UnityEngine.UIElements"">
 @"    [UIWindow(""GameHUD"", WindowType.Normal, WindowLayer.HUD, Level = 0, ShowInGraph = false)]
     [UITransition(""pause"", ""PauseMenu"")]",
                 bindings =
-@"            root.Q<Button>(""pause-button"")?.RegisterCallback<ClickEvent>(_ => Navigate(""pause""));
+@"            OnClick(root, ""pause-button"", () => Navigate(""pause""));
             // TODO: постройте HUD в ""hud-root""",
                 extra =
 @"

@@ -312,7 +312,9 @@ public class BaseWindow : UIToolkitWindowBase
     // при каждом Show из пула, колбэки из Awake не переживут пересоздание.
     protected override void OnBuildUI(VisualElement root)
     {
-        root.Q<Button>("close-button")?.RegisterCallback<ClickEvent>(_ => Close());
+        // ВСЕГДА OnClick/Button.clicked, НЕ RegisterCallback<ClickEvent>:
+        // ClickEvent шлёт только указатель, геймпадный Submit его не вызывает
+        OnClick(root, "close-button", Close);
 
         // Динамический локализованный текст — через Localization.SetKey:
         var counter = root.Q<Label>("counter");
@@ -343,6 +345,13 @@ USS-класс `lang-{code}` (например `.lang-ja .window-title { -unity-
 запоминается/восстанавливается, ввод глушится через pickingMode; Cancel
 (Esc/геймпад B) вызывает OnBackPressed(). В USS обязателен видимый стиль
 `:focus` для кнопок. Прочее (пауза, курсор, Level, переходы) — как у uGUI.
+
+**Ввод (в т.ч. Rewired):** в сцене должен быть EventSystem с input-модулем
+(RewiredStandaloneInputModule / StandaloneInputModule / InputSystemUIInputModule) —
+toolkit-панели получают Move/Submit/Cancel через PanelEventHandler, и база сама
+выбирает его в EventSystem при показе окна (иначе геймпад «не видит» панель).
+Кнопки подписывайте только через `OnClick(root, "name", action)` или
+`Button.clicked` — `RegisterCallback<ClickEvent>` не срабатывает от Submit.
 
 Генерация базовых окон: **ProtoSystem → UI → UI Toolkit Setup & Generator**
 (шаг 1 — установка PanelSettings, шаг 2 — генерация окон в проект;

@@ -47,6 +47,7 @@ namespace ProtoSystem.UI
         private Focusable _lastFocused;
         private Coroutine _fadeCoroutine;
         private bool _rootPrepared;
+        private PanelEventHandler _panelEventHandler;
 
         #region Unity Lifecycle
 
@@ -73,6 +74,7 @@ namespace ProtoSystem.UI
         {
             EventBus.Unsubscribe(EventBus.Localization.LanguageChanged, OnLanguageChanged);
             _rootPrepared = false; // дерево будет пересоздано при следующей активации
+            _panelEventHandler = null;
         }
 
         private void OnLanguageChanged(object _)
@@ -220,6 +222,8 @@ namespace ProtoSystem.UI
                 SetPicking(root, PickingMode.Position);
                 root.RemoveFromClassList(ClassBlurred);
 
+                EnsurePanelSelected();
+
                 if (_lastFocused is VisualElement ve && ve.panel != null)
                     ve.Focus();
                 else
@@ -245,11 +249,61 @@ namespace ProtoSystem.UI
             var root = Root;
             if (root == null) return;
 
+            EnsurePanelSelected();
+
             VisualElement target = null;
             if (!string.IsNullOrEmpty(defaultFocusName))
                 target = root.Q(defaultFocusName);
             target ??= FindFirstFocusable(root);
             target?.Focus();
+        }
+
+        /// <summary>
+        /// Направляет геймпад/клавиатуру в панель этого окна: EventSystem раздаёт
+        /// Move/Submit/Cancel только выбранному объекту, а toolkit-панель получает их
+        /// через свой PanelEventHandler. Мышь выбирает его кликом сама, геймпад — никогда,
+        /// поэтому выбираем явно при показе/фокусе окна. Работает с любым input-модулем
+        /// (StandaloneInputModule, InputSystemUIInputModule, RewiredStandaloneInputModule).
+        /// </summary>
+        private void EnsurePanelSelected()
+        {
+            var root = Root;
+            if (root?.panel == null) return;
+
+            var eventSystem = UnityEngine.EventSystems.EventSystem.current;
+            if (eventSystem == null) return;
+
+            if (_panelEventHandler == null || _panelEventHandler.panel != root.panel)
+            {
+                _panelEventHandler = null;
+                var handlers = FindObjectsByType<PanelEventHandler>(FindObjectsSortMode.None);
+                foreach (var handler in handlers)
+                {
+                    if (handler.panel == root.panel)
+                    {
+                        _panelEventHandler = handler;
+                        break;
+                    }
+                }
+            }
+
+            if (_panelEventHandler != null &&
+                eventSystem.currentSelectedGameObject != _panelEventHandler.gameObject)
+            {
+                eventSystem.SetSelectedGameObject(_panelEventHandler.gameObject);
+            }
+        }
+
+        /// <summary>
+        /// Подписка на кнопку по имени. Используйте вместо RegisterCallback&lt;ClickEvent&gt;:
+        /// clicked срабатывает и от указателя, и от геймпадного Submit (ClickEvent — только от мыши).
+        /// Вызывается из OnBuildUI — дерево пересоздаётся, дубликатов подписок не будет.
+        /// </summary>
+        protected static void OnClick(VisualElement root, string buttonName, Action action)
+        {
+            var button = root?.Q<Button>(buttonName);
+            if (button != null && action != null)
+                button.clicked += action;
         }
 
         private static VisualElement FindFirstFocusable(VisualElement element)
