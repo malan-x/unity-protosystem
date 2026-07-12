@@ -101,12 +101,14 @@
         </ui:VisualElement>
 
         <!-- ══ Оценка билда (не сворачивается) ══
-             10 звёзд-кнопок строит код: фокус-навигация геймпадом (влево/вправо),
-             Submit ставит оценку; мышь — ховер-превью + клик. -->
+             Полоска звёзд — ОДИН фокусируемый контрол (Button):
+             геймпад/клавиатура — влево/вправо выбирают 1–10 (фокус не уходит),
+             Submit ставит оценку, вверх/вниз — переход к другим элементам;
+             мышь — ховер-превью + клик. Звёзды-Label строит код. -->
         <ui:VisualElement name="cp-rating" class="cp-rating">
             <ui:Label name="cp-rating-label" class="cp-rating-label" text="" picking-mode="Ignore" />
             <ui:Label name="cp-rating-version" class="cp-rating-version" text="" picking-mode="Ignore" />
-            <ui:VisualElement name="cp-rating-stars" class="cp-rating-stars" />
+            <ui:Button name="cp-rating-stars" class="cp-rating-stars" />
             <ui:Label name="cp-rating-value" class="cp-rating-value" text="—" picking-mode="Ignore" />
             <ui:Label name="cp-rating-avg" class="cp-rating-avg" text="" picking-mode="Ignore" />
         </ui:VisualElement>

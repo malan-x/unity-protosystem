@@ -74,9 +74,11 @@ namespace ProtoSystem.UI
         private VisualElement _goalRoot, _goalFill;
         private Label  _goalDesc, _goalCount;
 
-        private VisualElement _ratingRoot, _ratingStars;
+        private VisualElement _ratingRoot;
+        private Button _ratingStars;
         private Label  _ratingLabel, _ratingVersion, _ratingValue, _ratingAvg;
-        private readonly List<Button> _starButtons = new();
+        private readonly List<Label> _starLabels = new();
+        private int _ratingPreview;
 
         #endregion
 
@@ -269,7 +271,7 @@ namespace ProtoSystem.UI
             _ratingRoot    = _root.Q("cp-rating");
             _ratingLabel   = _root.Q<Label>("cp-rating-label");
             _ratingVersion = _root.Q<Label>("cp-rating-version");
-            _ratingStars   = _root.Q("cp-rating-stars");
+            _ratingStars   = _root.Q<Button>("cp-rating-stars");
             _ratingValue   = _root.Q<Label>("cp-rating-value");
             _ratingAvg     = _root.Q<Label>("cp-rating-avg");
         }
@@ -299,28 +301,78 @@ namespace ProtoSystem.UI
         }
 
         /// <summary>
-        /// 10 звёзд-кнопок: фокус-навигация геймпадом (влево/вправо между звёздами),
-        /// Submit ставит оценку; мышь — ховер-превью, увод курсора возвращает свой голос.
+        /// Полоска звёзд — один фокусируемый контрол: влево/вправо выбирают 1–10
+        /// (фокус не уходит), Submit/клик ставит оценку, вверх/вниз — обычная
+        /// навигация к другим элементам. Мышь — ховер-превью по позиции курсора.
         /// </summary>
         private void BuildRatingStars()
         {
             if (_ratingStars == null) return;
+            _ratingStars.text = string.Empty;
             _ratingStars.Clear();
-            _starButtons.Clear();
+            _starLabels.Clear();
 
             for (int i = 1; i <= 10; i++)
             {
-                int score = i;
-                var star = new Button(() => SubmitRating(score)) { text = "★" };
+                var star = new Label("★");
                 star.AddToClassList("cp-star");
-                star.RegisterCallback<PointerEnterEvent>(_ => UpdateRatingDisplay(score));
-                star.RegisterCallback<FocusInEvent>(_ => UpdateRatingDisplay(score));
-                star.RegisterCallback<FocusOutEvent>(_ => UpdateRatingDisplay(_userVote));
-                _starButtons.Add(star);
+                star.pickingMode = PickingMode.Ignore;
+                _starLabels.Add(star);
                 _ratingStars.Add(star);
             }
 
-            _ratingStars.RegisterCallback<PointerLeaveEvent>(_ => UpdateRatingDisplay(_userVote));
+            _ratingStars.clicked += () => SubmitRating(_ratingPreview);
+
+            // Геймпад/клавиатура: влево/вправо — значение, вверх/вниз — уход с контрола
+            _ratingStars.RegisterCallback<NavigationMoveEvent>(OnRatingNavMove);
+            _ratingStars.RegisterCallback<FocusInEvent>(_ =>
+                SetRatingPreview(_userVote > 0 ? _userVote : 5));
+            _ratingStars.RegisterCallback<FocusOutEvent>(_ => ResetRatingPreview());
+
+            // Мышь: превью по позиции курсора, увод — откат к своему голосу
+            _ratingStars.RegisterCallback<PointerMoveEvent>(e =>
+                SetRatingPreview(StarFromPointer(e.position.x)));
+            _ratingStars.RegisterCallback<PointerLeaveEvent>(_ => ResetRatingPreview());
+        }
+
+        private void OnRatingNavMove(NavigationMoveEvent evt)
+        {
+            int delta;
+            switch (evt.direction)
+            {
+                case NavigationMoveEvent.Direction.Left:  delta = -1; break;
+                case NavigationMoveEvent.Direction.Right: delta = +1; break;
+                default: return; // вверх/вниз — обычный переход фокуса
+            }
+
+            SetRatingPreview(Mathf.Clamp(_ratingPreview + delta, 1, 10));
+            evt.StopPropagation();
+#if UNITY_2023_2_OR_NEWER
+            _ratingStars.focusController?.IgnoreEvent(evt);
+#else
+            evt.PreventDefault();
+#endif
+        }
+
+        /// <summary>Индекс звезды под курсором (координата панели).</summary>
+        private int StarFromPointer(float panelX)
+        {
+            for (int i = 0; i < _starLabels.Count; i++)
+                if (panelX <= _starLabels[i].worldBound.xMax)
+                    return i + 1;
+            return 10;
+        }
+
+        private void SetRatingPreview(int value)
+        {
+            _ratingPreview = value;
+            UpdateRatingDisplay(value);
+        }
+
+        private void ResetRatingPreview()
+        {
+            _ratingPreview = _userVote;
+            UpdateRatingDisplay(_userVote);
         }
 
         #endregion
@@ -773,8 +825,8 @@ namespace ProtoSystem.UI
 
         private void UpdateRatingDisplay(int value)
         {
-            for (int i = 0; i < _starButtons.Count; i++)
-                _starButtons[i].EnableInClassList("cp-star-on", i < value);
+            for (int i = 0; i < _starLabels.Count; i++)
+                _starLabels[i].EnableInClassList("cp-star-on", i < value);
             if (_ratingValue != null)
                 _ratingValue.text = value > 0 ? value.ToString() : "—";
         }
