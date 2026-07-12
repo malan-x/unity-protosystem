@@ -67,7 +67,7 @@ namespace ProtoSystem.LiveOps
         private int                       _unreadCount;
         private LiveOpsPlayerContext      _playerContext  = new(0, 0);
         // Panel registration
-        private ProtoSystem.UI.CommunityPanelWindow _panel;
+        private ILiveOpsPanel _panel;
         private bool _serverAvailable;
         private bool _hasData;
 
@@ -164,7 +164,7 @@ namespace ProtoSystem.LiveOps
         /// - есть данные → публикует всё через EventBus;
         /// - fetchOnPanelOpen → запускает обновление.
         /// </summary>
-        public void RegisterPanel(ProtoSystem.UI.CommunityPanelWindow panel)
+        public void RegisterPanel(ILiveOpsPanel panel)
         {
             _panel = panel;
 
@@ -180,16 +180,16 @@ namespace ProtoSystem.LiveOps
             LiveOpsLog.Info($"[{SystemId}] RegisterPanel: initialized=true, serverAvailable={_serverAvailable}, hasData={_hasData}, panelConfig={(_panelConfig != null ? "OK" : "NULL")}");
             if (!_serverAvailable)
             {
-                panel.gameObject.SetActive(false);
+                panel.SetPanelVisible(false);
                 return;
             }
-            panel.gameObject.SetActive(true);
+            panel.SetPanelVisible(true);
             if (_hasData) PushAllDataToEventBus();
             if (config != null && config.fetchOnPanelOpen) _ = SafeFetchAsync();
         }
 
         /// <summary>Отписать панель от системы.</summary>
-        public void UnregisterPanel(ProtoSystem.UI.CommunityPanelWindow panel)
+        public void UnregisterPanel(ILiveOpsPanel panel)
         {
             if (_panel == panel) _panel = null;
         }
@@ -543,12 +543,12 @@ namespace ProtoSystem.LiveOps
             {
                 if (_serverAvailable)
                 {
-                    _panel.gameObject.SetActive(true);
+                    _panel.SetPanelVisible(true);
                     if (_hasData) PushAllDataToEventBus();
                 }
                 else
                 {
-                    _panel.gameObject.SetActive(false);
+                    _panel.SetPanelVisible(false);
                 }
             }
 

@@ -25,8 +25,11 @@ namespace ProtoSystem.UI
     ///
     /// Для генерации префаба: ProtoSystem → UI → Tools → UI Generator → Community Panel
     /// </summary>
-    public class CommunityPanelWindow : MonoEventBus
+    public class CommunityPanelWindow : MonoEventBus, ILiveOpsPanel
     {
+        /// <summary>ILiveOpsPanel: LiveOpsSystem управляет видимостью панели.</summary>
+        public void SetPanelVisible(bool visible) => gameObject.SetActive(visible);
+
         #region Inspector References
 
         [Header("System")]

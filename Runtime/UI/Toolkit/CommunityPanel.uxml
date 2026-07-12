@@ -1,0 +1,115 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <!-- Community Panel (UI Toolkit) — встраиваемый LiveOps-виджет.
+         Инстанциируется окном-хозяином (например, главным меню) в свой контейнер;
+         логика — CommunityPanelToolkit (регистрируется в LiveOpsSystem, данные
+         через Evt.LiveOps.DataUpdated).
+
+         Стилизация: базовый вид задаёт CommunityPanel.uss через переменные - -cp-*;
+         проект переопределяет их (или любые селекторы .cp-*) в своём USS —
+         дерево панели живёт внутри дерева окна-хозяина, каскад работает.
+
+         Динамический контент (опции опросов, пункты devlog, сообщения переписки)
+         строит код — тут только статический каркас. Тексты задаёт код через
+         Loc.Get(ui.community.*) с fallback'ами. -->
+    <Style src="CommunityPanel.uss" />
+    <ui:VisualElement name="community-panel" class="community-panel">
+
+        <!-- ══ Разворачиваемый блок: карточки + переписка ══ -->
+        <ui:VisualElement name="cp-expanded" class="cp-expanded">
+
+            <ui:VisualElement name="cp-panel-body" class="cp-panel-body">
+                <!-- Шапка карусели: навигация + бейдж типа карточки -->
+                <ui:VisualElement name="cp-card-header" class="cp-card-header">
+                    <ui:Button name="cp-prev-button" class="cp-nav-button" text="&lt;" />
+                    <ui:Label name="cp-card-counter" class="cp-card-counter" text="" />
+                    <ui:Button name="cp-next-button" class="cp-nav-button" text="&gt;" />
+                    <ui:VisualElement class="cp-spacer" picking-mode="Ignore" />
+                    <ui:Label name="cp-type-badge" class="cp-type-badge" text="" />
+                </ui:VisualElement>
+
+                <!-- Карточки (одна видима) -->
+                <ui:VisualElement name="cp-card-content" class="cp-card-content">
+                    <ui:VisualElement name="cp-poll-card" class="cp-card">
+                        <ui:Label name="cp-poll-question" class="cp-card-title" text="" />
+                        <ui:VisualElement name="cp-poll-options" class="cp-poll-options" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="cp-ann-card" class="cp-card">
+                        <ui:Label name="cp-ann-title" class="cp-card-title" text="" />
+                        <ui:Label name="cp-ann-body" class="cp-ann-body" text="" />
+                        <ui:Button name="cp-ann-url-button" class="cp-link-button" text="" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="cp-devlog-card" class="cp-card">
+                        <ui:Label name="cp-devlog-focus" class="cp-devlog-focus" text="" />
+                        <ui:Label name="cp-devlog-title" class="cp-card-title" text="" />
+                        <ui:Label name="cp-devlog-desc" class="cp-devlog-desc" text="" />
+                        <ui:VisualElement name="cp-devlog-items" class="cp-devlog-items" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:Label name="cp-card-meta" class="cp-card-meta" text="" />
+                <ui:VisualElement class="cp-separator" picking-mode="Ignore" />
+
+                <!-- Сообщение разработчикам -->
+                <ui:VisualElement name="cp-message-row" class="cp-message-row">
+                    <ui:VisualElement class="cp-input-wrap">
+                        <ui:TextField name="cp-message-input" class="cp-message-input" />
+                        <ui:Label name="cp-input-placeholder" class="cp-input-placeholder" text="" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:Button name="cp-send-button" class="cp-send-button" text="" />
+                    <ui:Button name="cp-conv-button" class="cp-conv-button" text="✉">
+                        <ui:VisualElement name="cp-notification-badge" class="cp-notification-badge" picking-mode="Ignore">
+                            <ui:Label name="cp-notification-count" class="cp-notification-count" text="0" picking-mode="Ignore" />
+                        </ui:VisualElement>
+                    </ui:Button>
+                </ui:VisualElement>
+                <ui:Label name="cp-char-count" class="cp-char-count" text="0/120" picking-mode="Ignore" />
+            </ui:VisualElement>
+
+            <!-- Переписка с разработчиками (замещает panel-body) -->
+            <ui:VisualElement name="cp-conversation" class="cp-conversation">
+                <ui:VisualElement class="cp-conv-header">
+                    <ui:Button name="cp-conv-back-button" class="cp-conv-back-button" text="&lt;" />
+                    <ui:Label name="cp-conv-title" class="cp-conv-title" text="" />
+                    <ui:Label name="cp-translation-lang" class="cp-translation-lang" text="" />
+                    <ui:Button name="cp-translation-toggle" class="cp-translation-toggle" text="Aa" />
+                </ui:VisualElement>
+                <ui:ScrollView name="cp-conv-scroll" class="cp-conv-scroll" vertical-scroller-visibility="Hidden">
+                    <ui:Label name="cp-conv-empty" class="cp-conv-empty" text="" />
+                    <ui:VisualElement name="cp-conv-messages" class="cp-conv-messages" />
+                </ui:ScrollView>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- ══ Свёрнутая строка: развернуть/свернуть + статус ══ -->
+        <ui:VisualElement name="cp-collapsed-row" class="cp-collapsed-row">
+            <ui:Button name="cp-expand-button" class="cp-toggle-button" text="" />
+            <ui:Label name="cp-status-text" class="cp-status-text" text="" picking-mode="Ignore" />
+            <ui:VisualElement class="cp-spacer" picking-mode="Ignore" />
+            <ui:Label name="cp-summary-text" class="cp-summary-text" text="" picking-mode="Ignore" />
+            <ui:Button name="cp-collapse-button" class="cp-toggle-button cp-toggle-button-right" text="" />
+        </ui:VisualElement>
+
+        <!-- ══ Цель (не сворачивается) ══ -->
+        <ui:VisualElement name="cp-goal" class="cp-goal">
+            <ui:Label name="cp-goal-desc" class="cp-goal-desc" text="" picking-mode="Ignore" />
+            <ui:VisualElement class="cp-goal-strip" picking-mode="Ignore">
+                <ui:VisualElement name="cp-goal-track" class="cp-goal-track" picking-mode="Ignore">
+                    <ui:VisualElement name="cp-goal-fill" class="cp-goal-fill" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:Label name="cp-goal-count" class="cp-goal-count" text="" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- ══ Оценка билда (не сворачивается) ══
+             10 звёзд-кнопок строит код: фокус-навигация геймпадом (влево/вправо),
+             Submit ставит оценку; мышь — ховер-превью + клик. -->
+        <ui:VisualElement name="cp-rating" class="cp-rating">
+            <ui:Label name="cp-rating-label" class="cp-rating-label" text="" picking-mode="Ignore" />
+            <ui:Label name="cp-rating-version" class="cp-rating-version" text="" picking-mode="Ignore" />
+            <ui:VisualElement name="cp-rating-stars" class="cp-rating-stars" />
+            <ui:Label name="cp-rating-value" class="cp-rating-value" text="—" picking-mode="Ignore" />
+            <ui:Label name="cp-rating-avg" class="cp-rating-avg" text="" picking-mode="Ignore" />
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>

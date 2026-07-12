@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.0] - 2026-07-12
+
+### Added
+- **Community Panel на UI Toolkit** — `CommunityPanelToolkit`: контроллер над
+  VisualElement-деревом (не MonoBehaviour), порт CommunityPanelWindow (uGUI).
+  Окно-хозяин инстанциирует шаблон `Runtime/UI/Toolkit/CommunityPanel.uxml`
+  в свой контейнер и создаёт контроллер в OnBuildUI; Dispose() при пересоздании дерева.
+  Стили — `CommunityPanel.uss` через переменные `--cp-*`: проект переопределяет
+  их (или селекторы `.cp-*`) в USS окна-хозяина. Рейтинг — 10 звёзд-кнопок:
+  полноценное управление геймпадом (фокус-навигация + Submit), мышью — ховер + клик
+- `ILiveOpsPanel` — интерфейс панели для LiveOpsSystem; `RegisterPanel/UnregisterPanel`
+  теперь принимают интерфейс (uGUI CommunityPanelWindow реализует его — код проектов
+  не меняется), видимость через `SetPanelVisible` вместо прямого SetActive
+
 ## [1.18.0] - 2026-07-11
 
 ### Added

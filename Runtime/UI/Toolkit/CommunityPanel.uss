@@ -1,0 +1,558 @@
+/* Community Panel (UI Toolkit) — базовый вид.
+   Палитра — мокап community-panel_2.html (тот же, что uGUI-генератор панели).
+   Всё сведено к переменным --cp-* на корне .community-panel: проект переопределяет
+   их (или любые селекторы .cp-*) в своём USS — специфичность проектных правил выше.
+   Шрифты не задаются — наследуются от окна-хозяина; при желании проект вешает
+   -unity-font-definition на .community-panel / .cp-card-title. */
+
+.community-panel {
+    --cp-panel-bg: rgb(12, 6, 2);
+    --cp-border: rgb(58, 30, 6);
+    --cp-border-top: rgb(122, 58, 16);
+    --cp-accent: rgb(208, 120, 48);
+    --cp-text: rgb(154, 112, 80);
+    --cp-text-dim: rgb(74, 46, 24);
+    --cp-meta: rgb(58, 32, 16);
+    --cp-sep: rgb(99, 34, 1);
+    --cp-input-bg: rgb(8, 4, 2);
+    --cp-input-border: rgb(42, 20, 6);
+    --cp-input-text: rgb(192, 128, 80);
+    --cp-send-bg: rgb(21, 10, 2);
+    --cp-send-border: rgb(90, 42, 10);
+    --cp-send-text: rgb(192, 112, 48);
+    --cp-nav-text: rgb(122, 64, 32);
+    --cp-strip-bg: rgb(15, 8, 1);
+    --cp-strip-border: rgb(74, 42, 10);
+    --cp-goal-desc: rgb(184, 112, 48);
+    --cp-goal-track: rgb(30, 16, 8);
+    --cp-goal-count: rgb(240, 160, 64);
+    --cp-star-dim: rgb(42, 20, 8);
+    --cp-star-active: rgb(224, 128, 32);
+    --cp-badge-bg: rgb(191, 31, 20);
+    --cp-reply: rgb(115, 184, 89);
+    --cp-focus: rgb(232, 174, 88);
+
+    flex-direction: column;
+}
+
+.cp-spacer { flex-grow: 1; }
+
+/* ── Кнопки: сброс дефолтного вида + видимый фокус (геймпад/клавиатура) ── */
+
+.community-panel Button {
+    margin: 0;
+    border-radius: 0;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 1px;
+    border-color: rgba(0, 0, 0, 0);
+}
+.community-panel Button:focus {
+    border-width: 2px;
+    border-color: var(--cp-focus);
+}
+
+/* ══ Разворачиваемый блок ══ */
+
+.cp-expanded {
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.cp-panel-body {
+    background-color: var(--cp-panel-bg);
+    border-width: 1px;
+    border-color: var(--cp-border);
+    border-top-width: 3px;
+    border-top-color: var(--cp-border-top);
+    padding: 6px 29px 13px 29px;
+}
+
+/* ── Шапка карусели ── */
+
+.cp-card-header {
+    flex-direction: row;
+    align-items: center;
+    height: 56px;
+}
+
+.cp-nav-button {
+    width: 36px;
+    height: 36px;
+    background-color: var(--cp-input-bg);
+    border-width: 1px;
+    border-color: var(--cp-border);
+    color: var(--cp-nav-text);
+    font-size: 18px;
+    -unity-text-align: middle-center;
+}
+.cp-nav-button:hover { color: var(--cp-accent); border-color: var(--cp-send-border); }
+
+.cp-card-counter {
+    width: 64px;
+    font-size: 16px;
+    letter-spacing: 2px;
+    color: var(--cp-text-dim);
+    -unity-text-align: middle-center;
+}
+
+.cp-type-badge {
+    padding: 3px 14px;
+    font-size: 14px;
+    letter-spacing: 2px;
+    color: var(--cp-text-dim);
+    border-width: 1px;
+    border-color: var(--cp-border);
+    background-color: rgba(9, 4, 1, 0.9);
+    -unity-text-align: middle-center;
+}
+
+/* ── Карточки ── */
+
+.cp-card-content { min-height: 96px; }
+
+.cp-card { flex-direction: column; }
+
+.cp-card-title {
+    font-size: 22px;
+    -unity-font-style: bold;
+    color: var(--cp-accent);
+    letter-spacing: 1.5px;
+    white-space: normal;
+    margin-bottom: 8px;
+}
+
+/* Poll */
+.cp-poll-options { flex-direction: column; }
+
+.cp-poll-option {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 6px 12px;
+    border-width: 1px;
+    border-color: var(--cp-input-border);
+    background-color: rgba(0, 0, 0, 0);
+    overflow: hidden;
+}
+.cp-poll-option:hover { border-color: var(--cp-send-border); }
+
+.cp-poll-fill {
+    position: absolute;
+    left: 1px; top: 1px; bottom: 1px;
+    background-color: rgba(122, 58, 16, 0.35);
+}
+
+.cp-poll-check {
+    width: 22px;
+    color: var(--cp-star-active);
+    font-size: 18px;
+    -unity-text-align: middle-center;
+}
+
+.cp-poll-label {
+    flex-grow: 1;
+    flex-shrink: 1;
+    font-size: 20px;
+    color: var(--cp-text);
+    white-space: normal;
+    -unity-text-align: middle-left;
+}
+
+.cp-poll-pct {
+    width: 64px;
+    font-size: 16px;
+    color: var(--cp-text-dim);
+    -unity-text-align: middle-right;
+}
+
+/* Announcement */
+.cp-ann-body {
+    font-size: 20px;
+    color: rgb(138, 106, 80);
+    white-space: normal;
+    margin-bottom: 8px;
+}
+
+.cp-link-button {
+    align-self: flex-start;
+    padding: 4px 14px;
+    font-size: 16px;
+    letter-spacing: 1px;
+    color: var(--cp-send-text);
+    border-width: 1px;
+    border-color: var(--cp-send-border);
+    background-color: var(--cp-send-bg);
+}
+.cp-link-button:hover { color: var(--cp-accent); }
+
+/* DevLog */
+.cp-devlog-focus {
+    font-size: 15px;
+    letter-spacing: 3px;
+    color: rgb(106, 58, 16);
+    margin-bottom: 2px;
+}
+
+.cp-devlog-desc {
+    font-size: 18px;
+    color: rgb(122, 90, 64);
+    white-space: normal;
+    margin-bottom: 6px;
+}
+
+.cp-devlog-items { flex-direction: column; }
+
+.cp-devlog-item {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.cp-devlog-box {
+    width: 16px;
+    height: 16px;
+    margin-right: 10px;
+    border-width: 1px;
+    border-color: var(--cp-border);
+    color: var(--cp-star-active);
+    font-size: 12px;
+    -unity-text-align: middle-center;
+}
+
+.cp-devlog-label { font-size: 19px; white-space: normal; }
+.cp-devlog-done { color: rgb(153, 153, 128); }
+.cp-devlog-wip  { color: rgb(255, 217, 77); }
+.cp-devlog-todo { color: rgb(204, 204, 204); }
+
+/* Meta + разделитель */
+.cp-card-meta {
+    height: 26px;
+    font-size: 14px;
+    letter-spacing: 1px;
+    color: var(--cp-meta);
+    -unity-text-align: middle-left;
+}
+
+.cp-separator {
+    height: 1px;
+    margin: 10px 10% 10px 10%;
+    background-color: var(--cp-sep);
+}
+
+/* ── Сообщение разработчикам ── */
+
+.cp-message-row {
+    flex-direction: row;
+    align-items: center;
+    height: 54px;
+}
+
+.cp-input-wrap {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin-right: 13px;
+}
+
+.cp-message-input {
+    margin: 0;
+    --unity-cursor-color: var(--cp-input-text);
+}
+.cp-message-input > .unity-base-text-field__input {
+    background-color: var(--cp-input-bg);
+    border-width: 1px;
+    border-color: var(--cp-input-border);
+    border-radius: 0;
+    color: var(--cp-input-text);
+    font-size: 19px;
+    padding: 8px 12px;
+}
+.cp-message-input:focus > .unity-base-text-field__input {
+    border-color: var(--cp-focus);
+}
+
+.cp-input-placeholder {
+    position: absolute;
+    left: 13px; top: 0; bottom: 0;
+    font-size: 19px;
+    color: var(--cp-meta);
+    -unity-text-align: middle-left;
+}
+
+.cp-send-button {
+    padding: 8px 22px;
+    background-color: var(--cp-send-bg);
+    border-width: 1px;
+    border-color: var(--cp-send-border);
+    color: var(--cp-send-text);
+    font-size: 17px;
+    letter-spacing: 2px;
+}
+.cp-send-button:hover { color: var(--cp-accent); }
+.cp-send-button:disabled { opacity: 0.4; }
+
+.cp-conv-button {
+    width: 54px;
+    height: 45px;
+    margin-left: 13px;
+    background-color: var(--cp-send-bg);
+    border-width: 1px;
+    border-color: var(--cp-send-border);
+    color: var(--cp-send-text);
+    font-size: 20px;
+    -unity-text-align: middle-center;
+}
+
+.cp-notification-badge {
+    position: absolute;
+    right: -6px; top: -6px;
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    background-color: var(--cp-badge-bg);
+    justify-content: center;
+}
+
+.cp-notification-count {
+    font-size: 12px;
+    color: white;
+    -unity-text-align: middle-center;
+}
+
+.cp-char-count {
+    font-size: 14px;
+    color: var(--cp-meta);
+    -unity-text-align: upper-right;
+    margin-right: 150px;
+}
+
+/* ── Переписка ── */
+
+.cp-conversation {
+    background-color: var(--cp-panel-bg);
+    border-width: 1px;
+    border-color: var(--cp-border);
+    border-top-width: 3px;
+    border-top-color: var(--cp-border-top);
+}
+
+.cp-conv-header {
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 13px;
+    background-color: rgb(9, 4, 1);
+}
+
+.cp-conv-back-button {
+    width: 42px;
+    height: 42px;
+    background-color: var(--cp-send-bg);
+    border-width: 1px;
+    border-color: var(--cp-send-border);
+    color: var(--cp-send-text);
+    font-size: 22px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    margin-right: 13px;
+}
+
+.cp-conv-title {
+    flex-grow: 1;
+    font-size: 19px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    color: var(--cp-accent);
+}
+
+.cp-translation-lang {
+    font-size: 14px;
+    color: var(--cp-nav-text);
+    margin-right: 6px;
+}
+
+.cp-translation-toggle {
+    width: 45px;
+    height: 35px;
+    background-color: var(--cp-send-bg);
+    border-width: 1px;
+    border-color: var(--cp-send-border);
+    color: var(--cp-nav-text);
+    font-size: 16px;
+    -unity-text-align: middle-center;
+}
+
+.cp-conv-scroll {
+    max-height: 480px;
+    min-height: 120px;
+}
+
+.cp-conv-empty {
+    font-size: 18px;
+    color: var(--cp-text-dim);
+    -unity-text-align: middle-center;
+    padding: 20px;
+}
+
+.cp-conv-messages { flex-direction: column; padding: 6px 10px; }
+
+.cp-conv-item {
+    flex-direction: column;
+    padding: 8px 4px;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--cp-input-border);
+}
+
+.cp-conv-msg  { font-size: 18px; color: var(--cp-text); white-space: normal; }
+.cp-conv-time { font-size: 13px; color: var(--cp-meta); margin-top: 2px; }
+.cp-conv-cat  { font-size: 13px; color: var(--cp-meta); }
+
+.cp-conv-reply-row {
+    flex-direction: row;
+    margin-top: 4px;
+    padding-left: 14px;
+    border-left-width: 2px;
+    border-left-color: var(--cp-reply);
+}
+.cp-conv-reply { font-size: 18px; color: var(--cp-reply); white-space: normal; }
+
+/* ══ Свёрнутая строка ══ */
+
+.cp-collapsed-row {
+    flex-direction: row;
+    align-items: center;
+    height: 51px;
+    padding: 0 19px;
+    background-color: var(--cp-panel-bg);
+    border-width: 1px;
+    border-color: var(--cp-border);
+    border-top-width: 3px;
+    border-top-color: var(--cp-border-top);
+}
+
+.cp-toggle-button {
+    padding: 6px 10px;
+    font-size: 14px;
+    letter-spacing: 2px;
+    color: var(--cp-nav-text);
+    background-color: var(--cp-input-bg);
+    -unity-text-align: middle-left;
+}
+.cp-toggle-button:hover { color: var(--cp-accent); }
+.cp-toggle-button-right { -unity-text-align: middle-right; }
+
+.cp-status-text  { font-size: 14px; color: var(--cp-text-dim); margin-left: 13px; }
+.cp-summary-text { font-size: 14px; color: var(--cp-text-dim); margin-right: 13px; }
+
+/* ══ Цель (вишлисты) ══ */
+
+.cp-goal {
+    flex-direction: column;
+    background-color: var(--cp-strip-bg);
+    border-width: 1px;
+    border-color: var(--cp-border);
+    border-top-width: 0;
+}
+
+.cp-goal-desc {
+    padding: 11px 29px 6px 29px;
+    font-size: 20px;
+    -unity-font-style: bold;
+    letter-spacing: 1.5px;
+    color: var(--cp-goal-desc);
+    -unity-text-align: middle-center;
+    white-space: normal;
+}
+
+.cp-goal-strip {
+    flex-direction: row;
+    align-items: center;
+    height: 51px;
+    padding: 0 22px;
+    border-top-width: 1px;
+    border-top-color: var(--cp-strip-border);
+}
+
+.cp-goal-track {
+    flex-grow: 1;
+    height: 19px;
+    margin-right: 16px;
+    background-color: var(--cp-goal-track);
+    border-width: 1px;
+    border-color: var(--cp-border);
+}
+
+.cp-goal-fill {
+    position: absolute;
+    left: 2px; top: 2px; bottom: 2px;
+    width: 0;
+    background-color: var(--cp-star-active);
+}
+
+.cp-goal-count {
+    width: 176px;
+    font-size: 19px;
+    letter-spacing: 1px;
+    color: var(--cp-goal-count);
+    -unity-text-align: middle-right;
+}
+
+/* ══ Оценка билда ══ */
+
+.cp-rating {
+    flex-direction: row;
+    align-items: center;
+    height: 70px;
+    padding: 0 29px;
+    background-color: var(--cp-strip-bg);
+    border-width: 1px;
+    border-color: var(--cp-border);
+    border-top-width: 0;
+}
+
+.cp-rating-label {
+    font-size: 16px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    color: rgb(138, 79, 28);
+    margin-right: 22px;
+}
+
+.cp-rating-version {
+    font-size: 14px;
+    color: var(--cp-meta);
+    margin-right: 22px;
+}
+
+.cp-rating-stars {
+    flex-grow: 1;
+    flex-direction: row;
+    align-items: center;
+    height: 44px;
+}
+
+/* Звезда-кнопка: фокусируется навигацией (геймпад), Submit ставит оценку */
+.cp-star {
+    width: 30px;
+    height: 40px;
+    padding: 0;
+    font-size: 26px;
+    color: var(--cp-star-dim);
+    background-color: rgba(0, 0, 0, 0);
+    -unity-text-align: middle-center;
+}
+.cp-star-on { color: var(--cp-star-active); }
+.cp-star:hover { color: var(--cp-star-active); }
+
+.cp-rating-value {
+    width: 48px;
+    font-size: 22px;
+    -unity-font-style: bold;
+    color: rgb(224, 138, 64);
+    -unity-text-align: middle-right;
+}
+
+.cp-rating-avg {
+    width: 64px;
+    font-size: 14px;
+    color: rgb(90, 51, 28);
+    -unity-text-align: middle-right;
+}
