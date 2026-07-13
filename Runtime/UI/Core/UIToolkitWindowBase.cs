@@ -207,9 +207,22 @@ namespace ProtoSystem.UI
             var root = Root;
             if (root != null)
             {
-                // Запоминаем фокус, глушим ввод панели
-                _lastFocused = root.focusController?.focusedElement;
-                (_lastFocused as VisualElement)?.Blur();
+                // Запоминаем фокус — но ТОЛЬКО свой. FocusController общий на панель
+                // (один PanelSettings на WindowLayer), и к моменту Blur фокус уже может
+                // стоять на элементе окна, которое открылось ПОВЕРХ нас. Без проверки
+                // владельца мы снимали фокус с чужого окна — оно оставалось без фокуса,
+                // и геймпад в нём не работал.
+                var focused = root.focusController?.focusedElement as VisualElement;
+                if (focused != null && root.Contains(focused))
+                {
+                    _lastFocused = focused;
+                    focused.Blur();
+                }
+                else
+                {
+                    _lastFocused = null;
+                }
+
                 SetPicking(root, PickingMode.Ignore);
                 SuspendFocusTree(root);
                 root.AddToClassList(ClassBlurred);

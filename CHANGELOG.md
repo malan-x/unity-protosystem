@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.10] - 2026-07-13
+
+### Fixed
+- **Открывшееся toolkit-окно теряло фокус сразу после показа** (геймпад в нём не работал:
+  в титрах фокус на «Назад» не вставал вовсе). `Blur()` окна, уходящего вниз, снимал фокус
+  с окна, которое открылось ПОВЕРХ него: `FocusController` общий на панель (один
+  `PanelSettings` на `WindowLayer`), и `focusController.focusedElement` к моменту `Blur()`
+  указывал уже на чужой элемент. Теперь окно запоминает и гасит фокус, только если тот
+  принадлежит ему (`root.Contains(focused)`).
+
 ## [1.19.9] - 2026-07-13
 
 ### Fixed
