@@ -168,9 +168,16 @@ namespace ProtoSystem.UI
             });
             PublishWindowClosed(closing);
 
-            // Показываем предыдущее (оно могло быть скрыто)
+            // Возвращаем предыдущее окно.
+            // Если оно было приглушено (OpenNormal делает Blur(dim: false) окну под новым) —
+            // именно Focus(): он вернёт focusable/pickingMode и фокус. Show() этого не делает,
+            // и окно осталось бы видимым, но мёртвым для мыши и геймпада.
+            // Если же окно было скрыто — Show().
             CurrentWindow = opening;
-            opening.Show(); // Show вместо Focus - окно могло быть скрыто
+            if (opening.State == WindowState.Blurred)
+                opening.Focus();
+            else
+                opening.Show();
             PublishWindowFocused(opening);
 
             PublishEvent(new NavigationEventData
@@ -466,6 +473,17 @@ namespace ProtoSystem.UI
                 window.ApplyOpaqueBackground();
             }
 
+            // Окно, оставшееся под новым (Level 0 под Level 1+), больше не принимает ввод.
+            // Без этого его элементы остаются focusable, а FocusController у toolkit общий
+            // на панель — и Tab/стрелки уводили фокус в окно под открытым (из титров можно
+            // было «вернуться» табами в главное меню).
+            // dim: false — глушим ввод и фокус, но не затемняем: окно и так перекрыто.
+            if (CurrentWindow != null && CurrentWindow != window)
+            {
+                CurrentWindow.Blur(dim: false);
+                PublishWindowBlurred(CurrentWindow);
+            }
+
             // Добавляем в стек
             _windowStack.Push(window);
             CurrentWindow = window;
@@ -541,6 +559,14 @@ namespace ProtoSystem.UI
 
             // Обновляем CurrentWindow
             CurrentWindow = _windowStack.Count > 0 ? _windowStack.Peek() : null;
+
+            // Окно, вновь оказавшееся верхним, могло быть приглушено (Blur(dim: false)
+            // при открытии окна поверх него) — возвращаем ему ввод и фокус.
+            if (CurrentWindow != null && CurrentWindow.State == WindowState.Blurred)
+            {
+                CurrentWindow.Focus();
+                PublishWindowFocused(CurrentWindow);
+            }
         }
 
 

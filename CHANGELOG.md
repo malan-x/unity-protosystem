@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.11] - 2026-07-13
+
+### Fixed
+- **Из открытого окна можно было уйти табом в окно под ним** (из титров — обратно в главное
+  меню). `OpenNormal` не глушил окно, остающееся снизу: его элементы оставались focusable,
+  а `FocusController` у toolkit общий на панель (один `PanelSettings` на `WindowLayer`).
+  Blur был только у модалок и overlay. Теперь `OpenNormal` вызывает `Blur(dim: false)`
+  у окна под новым, а `Back()` / `CloseWindowsAtOrAboveLevel()` возвращают ему ввод и фокус
+  через `Focus()` (раньше `Back()` звал `Show()`, который не снимает приглушение).
+
+### Changed
+- `UIWindowBase.Blur(bool dim)` — приглушение теперь без обязательного затемнения.
+  `dim: true` (модалка поверх окна) — как раньше, `UIToolkitWindowBase` вешает
+  `window-blurred`; `dim: false` (окно просто перекрыто сверху) — глушим ввод и фокус,
+  но вид не трогаем, иначе меню под полупрозрачными титрами потемнело бы.
+  Старый `Blur()` сохранён как `Blur(dim: true)` — код проектов не ломается.
+
 ## [1.19.10] - 2026-07-13
 
 ### Fixed

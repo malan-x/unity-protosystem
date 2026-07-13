@@ -121,7 +121,16 @@ namespace ProtoSystem.UI
         /// <summary>
         /// Окно потеряло фокус (открылось другое поверх)
         /// </summary>
-        internal virtual void Blur()
+        internal void Blur() => Blur(dim: true);
+
+        /// <summary>
+        /// Окно потеряло фокус.
+        /// <paramref name="dim"/> — визуально приглушить окно (модалка поверх него).
+        /// Для Normal-окна, которое просто перекрыли сверху, приглушать не нужно:
+        /// ввод и фокус глушим, но вид не трогаем (uGUI визуал и так не меняет,
+        /// а UIToolkitWindowBase иначе вешает класс window-blurred).
+        /// </summary>
+        internal virtual void Blur(bool dim)
         {
             if (State != WindowState.Visible) return;
 

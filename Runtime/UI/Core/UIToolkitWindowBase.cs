@@ -199,7 +199,7 @@ namespace ProtoSystem.UI
 
         #region Blur/Focus (ввод и фокус для геймпада)
 
-        internal override void Blur()
+        internal override void Blur(bool dim)
         {
             if (State != WindowState.Visible) return;
             SetState(WindowState.Blurred);
@@ -225,7 +225,11 @@ namespace ProtoSystem.UI
 
                 SetPicking(root, PickingMode.Ignore);
                 SuspendFocusTree(root);
-                root.AddToClassList(ClassBlurred);
+
+                // Затемняем только под модалкой. Normal-окно, перекрытое сверху, глушим
+                // «тихо»: класс window-blurred (opacity) поверх и так перекрытого окна
+                // менял бы картинку — например, меню под полупрозрачными титрами.
+                if (dim) root.AddToClassList(ClassBlurred);
             }
 
             OnBlur();
