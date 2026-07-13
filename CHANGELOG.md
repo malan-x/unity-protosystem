@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.2] - 2026-07-13
+
+### Changed
+- TODO-кнопка в главном тулбаре теперь выглядит кнопкой, а не текстом: оранжевая заливка,
+  белый жирный текст, скругление. `MainToolbarButton` не даёт доступа к своему
+  `VisualElement`, поэтому элемент находится в дереве окна тулбара по USS-классу
+  (`ussName` из атрибута) и красится инлайн-стилями. Когда незакрытых задач нет, заливка
+  приглушённая — кнопка не мозолит глаз. Клик по кнопке обновляет счётчик.
+
 ## [1.21.1] - 2026-07-13
 
 ### Fixed
