@@ -1,6 +1,7 @@
 // Packages/com.protosystem.core/Runtime/UI/Core/UIToolkitWindowBase.cs
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -49,6 +50,9 @@ namespace ProtoSystem.UI
         private bool _rootPrepared;
         private PanelEventHandler _panelEventHandler;
 
+        /// <summary>Элементы, у которых Blur() снял focusable (вернём в Focus()).</summary>
+        private readonly List<VisualElement> _suspendedFocusables = new();
+
         #region Unity Lifecycle
 
         protected override void Awake()
@@ -75,6 +79,8 @@ namespace ProtoSystem.UI
             EventBus.Unsubscribe(EventBus.Localization.LanguageChanged, OnLanguageChanged);
             _rootPrepared = false; // дерево будет пересоздано при следующей активации
             _panelEventHandler = null;
+            // Элементы старого дерева умрут вместе с ним — держать на них ссылки нельзя
+            _suspendedFocusables.Clear();
         }
 
         private void OnLanguageChanged(object _)
@@ -205,6 +211,7 @@ namespace ProtoSystem.UI
                 _lastFocused = root.focusController?.focusedElement;
                 (_lastFocused as VisualElement)?.Blur();
                 SetPicking(root, PickingMode.Ignore);
+                SuspendFocusTree(root);
                 root.AddToClassList(ClassBlurred);
             }
 
@@ -220,6 +227,7 @@ namespace ProtoSystem.UI
             if (root != null)
             {
                 SetPicking(root, PickingMode.Position);
+                RestoreFocusTree();
                 root.RemoveFromClassList(ClassBlurred);
 
                 EnsurePanelSelected();
@@ -238,6 +246,35 @@ namespace ProtoSystem.UI
             root.pickingMode = mode;
             foreach (var child in root.Children())
                 child.pickingMode = mode;
+        }
+
+        /// <summary>
+        /// Снять focusable со всего поддерева blurred-окна и запомнить, кому вернуть.
+        ///
+        /// Зачем: фабрика создаёт ОДИН PanelSettings на WindowLayer, поэтому все окна слоя
+        /// живут в одной панели с общим FocusController. pickingMode глушит только мышь —
+        /// клавиатура/геймпад продолжали уводить фокус в окно под модалкой.
+        /// Через focusable (а не SetEnabled(false)), чтобы не ловить :disabled из темы
+        /// поверх .window-blurred — иначе фон затемняется дважды.
+        /// </summary>
+        private void SuspendFocusTree(VisualElement root)
+        {
+            _suspendedFocusables.Clear();
+            root.Query<VisualElement>().ForEach(ve =>
+            {
+                if (!ve.focusable) return;
+                _suspendedFocusables.Add(ve);
+                ve.focusable = false;
+            });
+        }
+
+        private void RestoreFocusTree()
+        {
+            foreach (var ve in _suspendedFocusables)
+            {
+                if (ve != null) ve.focusable = true;
+            }
+            _suspendedFocusables.Clear();
         }
 
         /// <summary>
