@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.3] - 2026-07-13
+
+### Fixed
+- TODO-кнопка в главном тулбаре не красилась: стиль применялся один раз через `delayCall`,
+  а тулбар строится позже — искать было нечего. Теперь поиск повторяется на
+  `EditorApplication.update`, пока кнопка не появится (с таймаутом), а сам поиск идёт
+  по USS-классу, по имени и по подписи — на что именно вешается `ussName`, Unity
+  не документирует. Цвет текста задаётся и кнопке, и вложенному `TextElement`:
+  подпись `EditorToolbarButton` имеет свой стиль из темы, инлайн на родителе его не перебивает.
+
 ## [1.21.2] - 2026-07-13
 
 ### Changed

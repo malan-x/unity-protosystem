@@ -72,26 +72,71 @@ namespace ProtoSystem.Editor
         }
 
         /// <summary>
-        /// MainToolbarButton не даёт доступа к своему VisualElement, поэтому находим кнопку
-        /// в дереве окна тулбара по USS-классу (ussName из атрибута) и красим инлайн-стилями.
-        /// MainToolbar.window — internal, отсюда рефлексия.
+        /// MainToolbarButton не даёт доступа к своему VisualElement — красить приходится
+        /// «снаружи»: найти кнопку в дереве окна тулбара и выставить инлайн-стили.
+        ///
+        /// Тонкости, из-за которых наивный вариант не работал:
+        /// - тулбар строится ПОЗЖЕ, чем срабатывает delayCall, поэтому ищем повторно
+        ///   на EditorApplication.update, пока не найдём (и не дольше StyleTimeout);
+        /// - на что вешается ussName (USS-класс или name) — не документировано, поэтому
+        ///   ищем по классу, по имени И по тексту кнопки;
+        /// - MainToolbar.window — internal, отсюда рефлексия.
         /// </summary>
         private static void StyleButton()
         {
-            var toolbarType = typeof(MainToolbar);
-            var windowProp = toolbarType.GetProperty("window",
+            _styleDeadline = EditorApplication.timeSinceStartup + StyleTimeout;
+            EditorApplication.update -= TryStyle;
+            EditorApplication.update += TryStyle;
+        }
+
+        private const double StyleTimeout = 10.0;   // сек: тулбар успевает построиться
+        private static double _styleDeadline;
+
+        private static void TryStyle()
+        {
+            if (EditorApplication.timeSinceStartup > _styleDeadline)
+            {
+                EditorApplication.update -= TryStyle;
+                return;
+            }
+
+            var button = FindToolbarButton();
+            if (button == null) return;   // тулбар ещё не построен — пробуем на следующем кадре
+
+            EditorApplication.update -= TryStyle;
+            Paint(button);
+        }
+
+        private static VisualElement FindToolbarButton()
+        {
+            var windowProp = typeof(MainToolbar).GetProperty("window",
                 BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
 
-            if (windowProp?.GetValue(null) is not EditorWindow window) return;
+            if (windowProp?.GetValue(null) is not EditorWindow window) return null;
 
             var root = window.rootVisualElement;
-            var button = root?.Q(className: UssName);
-            if (button == null) return;
+            if (root == null) return null;
 
+            // 1) по USS-классу, 2) по имени — что из этого делает ussName, не документировано
+            var button = root.Q(className: UssName) ?? root.Q(name: UssName);
+            if (button != null) return button;
+
+            // 3) fallback: по подписи кнопки (её задаём мы сами)
+            VisualElement found = null;
+            root.Query<TextElement>().ForEach(label =>
+            {
+                if (found != null || label.text == null || !label.text.StartsWith("TODO")) return;
+                // сама кнопка — родитель подписи (EditorToolbarButton)
+                found = label.parent ?? label;
+            });
+            return found;
+        }
+
+        private static void Paint(VisualElement button)
+        {
             bool hasTasks = TodoListWindow.GetActiveCount() > 0;
 
             button.style.backgroundColor = hasTasks ? Accent : AccentIdle;
-            button.style.color = Color.white;
             button.style.unityFontStyleAndWeight = FontStyle.Bold;
             button.style.borderTopLeftRadius = 4;
             button.style.borderTopRightRadius = 4;
@@ -102,9 +147,10 @@ namespace ProtoSystem.Editor
             button.style.marginLeft = 4;
             button.style.marginRight = 4;
 
-            // Подпись у EditorToolbarButton — вложенный TextElement, цвет нужен и ему
-            var label = button.Q<TextElement>();
-            if (label != null) label.style.color = Color.white;
+            // Цвет текста задаём и кнопке, и её подписи: у EditorToolbarButton подпись —
+            // вложенный TextElement со своим стилем из темы, инлайн на родителе его не перебьёт
+            button.style.color = Color.white;
+            button.Query<TextElement>().ForEach(label => label.style.color = Color.white);
         }
     }
 }
