@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.0] - 2026-07-13
+
+### Added
+- **Интеграция с MCP for Unity** (Claude Code управляет редактором) — ОПЦИОНАЛЬНАЯ.
+  - `ProtoSystem → MCP for Unity → Установить` — ставит `com.coplaydev.unity-mcp` по кнопке,
+    пин на ТЕГ `v10.0.0` (не на `main`: чужой коммит не должен ломать сборку), и сразу пишет
+    `.mcp.json` с транспортом `http` на `127.0.0.1:8080/mcp` — окно самого пакета для CLI
+    этого не делает, а stdio-вариант ищет Unity по TCP и не находит.
+    Диалог честно предупреждает: нужны Python 3.10+ и `uv` В СИСТЕМЕ, пакет шлёт телеметрию.
+  - **Кнопка состояния моста в главном тулбаре**, рядом с TODO: зелёная — мост поднят,
+    серая — нет; клик поднимает/останавливает. Состояние опрашивается, так что кнопка
+    видит и внешние изменения (окно MCP, перезапуск).
+  - MCP НЕ в `dependencies`: он требует системный Python/uv, которые Unity не поставит.
+    Интеграция живёт в отдельной сборке `ProtoSystem.Editor.MCP` с
+    `versionDefines` + `defineConstraints` — она компилируется ТОЛЬКО когда пакет установлен.
+    Нет пакета — нет сборки, ProtoSystem собирается как раньше и ничего за собой не тянет.
+
 ## [1.21.5] - 2026-07-13
 
 ### Fixed

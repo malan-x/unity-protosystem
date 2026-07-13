@@ -1,0 +1,27 @@
+{
+    "name": "ProtoSystem.Editor.MCP",
+    "rootNamespace": "ProtoSystem.Editor.MCP",
+    "references": [
+        "ProtoSystem.Editor",
+        "MCPForUnity.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "PROTOSYSTEM_MCP"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.coplaydev.unity-mcp",
+            "expression": "",
+            "define": "PROTOSYSTEM_MCP"
+        }
+    ],
+    "noEngineReferences": false
+}
