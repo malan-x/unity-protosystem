@@ -405,21 +405,64 @@ namespace ProtoSystem.UI
 #endif
         }
 
-        /// <summary>Видимые фокусируемые элементы панели в порядке дерева (сверху вниз).</summary>
+        /// <summary>
+        /// Порядок навигации: ЯВНЫЙ список контролов сверху вниз, зависящий от состояния
+        /// (свёрнута / развёрнута / открыта переписка).
+        ///
+        /// Обходить дерево через Query&lt;VisualElement&gt;() нельзя: focusable — не только наши
+        /// кнопки, но и служебные внутренности (скроллеры ScrollView, input внутри TextField).
+        /// Фокус уходил на них, и с виду просто «пропадал» — выше кнопки «свернуть» было
+        /// не пройти.
+        /// </summary>
         private List<VisualElement> FocusablesInOrder()
         {
             var list = new List<VisualElement>();
             if (_root == null) return list;
 
-            _root.Query<VisualElement>().ForEach(ve =>
+            if (_isExpanded)
             {
-                if (ve.focusable && ve.enabledInHierarchy &&
-                    ve.resolvedStyle.display != DisplayStyle.None &&
-                    ve.resolvedStyle.visibility == Visibility.Visible)
-                    list.Add(ve);
-            });
+                if (_conversationOpen)
+                {
+                    Add(_convBackButton);
+                    Add(_translationToggle);
+                }
+                else
+                {
+                    Add(_prevButton);
+                    Add(_nextButton);
+
+                    // Интерактив текущей карточки: опции опроса или ссылка объявления
+                    if (_pollOptions != null)
+                        foreach (var option in _pollOptions.Children())
+                            Add(option);
+                    Add(_annUrlButton);
+
+                    Add(_messageInput);
+                    Add(_sendButton);
+                    Add(_convButton);
+                }
+            }
+
+            // Свёрнутая строка видна всегда: одна из кнопок активна по состоянию
+            Add(_expandButton);
+            Add(_collapseButton);
+
+            Add(_ratingStars);
+
             return list;
+
+            void Add(VisualElement ve)
+            {
+                if (IsNavigable(ve)) list.Add(ve);
+            }
         }
+
+        private static bool IsNavigable(VisualElement ve)
+            => ve != null
+               && ve.focusable
+               && ve.enabledInHierarchy
+               && ve.resolvedStyle.display != DisplayStyle.None
+               && ve.resolvedStyle.visibility == Visibility.Visible;
 
         /// <summary>
         /// Вход в панель извне (окно-хозяин: Tab на группу или «влево» из меню).

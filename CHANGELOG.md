@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.7] - 2026-07-13
+
+### Fixed
+- **Фокус «пропадал» выше кнопки «свернуть»** в развёрнутой Community Panel: до карточек,
+  опций опроса, поля ввода и кнопок отправки/переписки было не добраться.
+  Причина — обход дерева через `Query<VisualElement>()` в 1.19.6: focusable не только наши
+  кнопки, но и служебные внутренности (скроллеры `ScrollView`, input внутри `TextField`),
+  и фокус уходил на них — визуально «в никуда».
+  Теперь порядок навигации — ЯВНЫЙ список контролов сверху вниз, зависящий от состояния
+  панели (свёрнута / развёрнута / открыта переписка): prev/next → опции опроса или ссылка
+  объявления → поле ввода → отправить → переписка → развернуть/свернуть → рейтинг.
+
 ## [1.19.6] - 2026-07-13
 
 ### Fixed
