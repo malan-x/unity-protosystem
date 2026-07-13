@@ -25,7 +25,8 @@ namespace ProtoSystem.UI
     /// активации (пул окон!), поэтому весь динамический контент стройте в OnBuildUI(root) —
     /// он вызывается при каждом Show на свежем дереве.
     /// </summary>
-    [RequireComponent(typeof(UIDocument))]
+    // RequireComponent(UIDocument) НЕТ намеренно: с Unity 6000.5 окно может нести
+    // PanelRenderer вместо UIDocument (см. регион «Бэкенд рендера»).
     public abstract class UIToolkitWindowBase : UIWindowBase
     {
         [Header("UI Toolkit")]
@@ -39,8 +40,34 @@ namespace ProtoSystem.UI
         protected UIDocument document;
         public UIDocument Document => document;
 
-        /// <summary>Корень визуального дерева (null, если документ не активен).</summary>
-        public VisualElement Root => document != null ? document.rootVisualElement : null;
+#if UNITY_6000_5_OR_NEWER
+        /// <summary>
+        /// PanelRenderer (Unity 6000.5+) — альтернатива UIDocument. Он наследник Renderer,
+        /// а не MonoBehaviour: не пересоздаёт дерево при выключении объекта, даёт честные
+        /// bounds/culling и sorting layers. UIDocument не устарел и остаётся бэкендом
+        /// по умолчанию — на 6000.3/6000.4 PanelRenderer просто не существует.
+        ///
+        /// Отличие жизненного цикла: корень НЕ читается свойством, он приходит колбэком
+        /// RegisterUIReloadCallback при (пере)загрузке UI — поэтому кэшируем его здесь.
+        /// </summary>
+        protected PanelRenderer panelRenderer;
+        public PanelRenderer Renderer => panelRenderer;
+
+        private VisualElement _rendererRoot;
+        private Action _deferredShow;   // Show() пришёл раньше, чем PanelRenderer отдал дерево
+#endif
+
+        /// <summary>Корень визуального дерева (null, если окно не активно).</summary>
+        public VisualElement Root
+        {
+            get
+            {
+#if UNITY_6000_5_OR_NEWER
+                if (panelRenderer != null) return _rendererRoot;
+#endif
+                return document != null ? document.rootVisualElement : null;
+            }
+        }
 
         /// <summary>Локализатор дерева (доступен наследникам для динамического контента).</summary>
         protected ToolkitLocalization Localization { get; } = new();
@@ -58,30 +85,88 @@ namespace ProtoSystem.UI
         protected override void Awake()
         {
             document = GetComponent<UIDocument>();
+#if UNITY_6000_5_OR_NEWER
+            panelRenderer = GetComponent<PanelRenderer>();
+#endif
+            if (document == null && !HasRendererBackend())
+            {
+                ProtoLogger.LogError("UISystem",
+                    $"{name}: на объекте нет ни UIDocument, ни PanelRenderer — окно не сможет показать UXML.");
+            }
+
             base.Awake();
 
             // Скрываем до первого Show — иначе UXML мигнёт на кадр после Instantiate
-            var root = Root;
-            if (root != null)
-            {
-                root.style.display = DisplayStyle.None;
-                root.style.opacity = 0f;
-            }
+            HideRootImmediate();
         }
 
         protected virtual void OnEnable()
         {
             EventBus.Subscribe(EventBus.Localization.LanguageChanged, OnLanguageChanged);
+#if UNITY_6000_5_OR_NEWER
+            // PanelRenderer отдаёт дерево ТОЛЬКО колбэком (rootVisualElement у него не публичный)
+            if (panelRenderer != null)
+                panelRenderer.RegisterUIReloadCallback(OnRendererUIReloaded);
+#endif
         }
 
         protected virtual void OnDisable()
         {
             EventBus.Unsubscribe(EventBus.Localization.LanguageChanged, OnLanguageChanged);
+#if UNITY_6000_5_OR_NEWER
+            if (panelRenderer != null)
+                panelRenderer.UnregisterUIReloadCallback(OnRendererUIReloaded);
+            _deferredShow = null;
+#endif
             _rootPrepared = false; // дерево будет пересоздано при следующей активации
             _panelEventHandler = null;
             // Элементы старого дерева умрут вместе с ним — держать на них ссылки нельзя
             _suspendedFocusables.Clear();
         }
+
+        #region Бэкенд рендера (UIDocument / PanelRenderer)
+
+        private bool HasRendererBackend()
+        {
+#if UNITY_6000_5_OR_NEWER
+            return panelRenderer != null;
+#else
+            return false;
+#endif
+        }
+
+        private void HideRootImmediate()
+        {
+            var root = Root;
+            if (root == null) return;
+            root.style.display = DisplayStyle.None;
+            root.style.opacity = 0f;
+        }
+
+#if UNITY_6000_5_OR_NEWER
+        /// <summary>
+        /// PanelRenderer (пере)собрал дерево. В отличие от UIDocument корень приходит сюда,
+        /// а не читается свойством — кэшируем и, если Show() уже ждал дерево, доигрываем его.
+        /// </summary>
+        private void OnRendererUIReloaded(PanelRenderer _, VisualElement root)
+        {
+            _rendererRoot = root;
+            _rootPrepared = false;   // дерево новое: ссылки и подписки наследников устарели
+
+            var pending = _deferredShow;
+            if (pending != null)
+            {
+                _deferredShow = null;
+                pending();
+            }
+            else if (State != WindowState.Visible && State != WindowState.Showing)
+            {
+                HideRootImmediate();
+            }
+        }
+#endif
+
+        #endregion
 
         private void OnLanguageChanged(object _)
         {
@@ -106,7 +191,16 @@ namespace ProtoSystem.UI
             var root = Root;
             if (root == null)
             {
-                ProtoLogger.LogError("UISystem", $"{name}: UIDocument.rootVisualElement == null (нет visualTreeAsset/panelSettings?)");
+#if UNITY_6000_5_OR_NEWER
+                // PanelRenderer мог ещё не отдать дерево — оно приходит колбэком.
+                // Доиграем показ в OnRendererUIReloaded, когда корень появится.
+                if (panelRenderer != null)
+                {
+                    _deferredShow = () => Show(onComplete);
+                    return;
+                }
+#endif
+                ProtoLogger.LogError("UISystem", $"{name}: rootVisualElement == null (нет visualTreeAsset/panelSettings?)");
                 onComplete?.Invoke();
                 return;
             }

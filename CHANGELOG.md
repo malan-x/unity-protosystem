@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.20.0] - 2026-07-13
+
+### Added
+- **PanelRenderer как второй бэкенд toolkit-окон** (Unity 6000.5+, `#if UNITY_6000_5_OR_NEWER`).
+  `UIDocument` остаётся бэкендом по умолчанию и не устарел — на 6000.3/6000.4 `PanelRenderer`
+  просто не существует, поэтому вся поддержка под директивой и пакет по-прежнему собирается
+  на 6000.3.
+  - `UIToolkitWindowBase`: снят `[RequireComponent(UIDocument)]`; `Root` берётся из того
+    бэкенда, что стоит на объекте. У `PanelRenderer` корень НЕ читается свойством
+    (`rootVisualElement` не публичный) — он приходит колбэком `RegisterUIReloadCallback`,
+    поэтому база кэширует его и, если `Show()` случился раньше дерева, доигрывает показ
+    в колбэке.
+  - `UIWindowFactory`: `PanelSettings` по слою и порядок внутри слоя настраиваются для обоих
+    компонентов (`sortingOrder` у `PanelRenderer` — `int`, он наследник `Renderer`).
+  - Окно на новом бэкенде: на префабе вместо `UIDocument` поставить `PanelRenderer`
+    (`visualTreeAsset` тот же, `panelSettings` не задавать — подставит фабрика).
+    Что даёт: UI не пересоздаётся при выключении объекта, честные bounds/culling,
+    sorting layers.
+
 ## [1.19.11] - 2026-07-13
 
 ### Fixed

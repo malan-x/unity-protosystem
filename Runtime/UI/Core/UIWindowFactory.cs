@@ -130,9 +130,37 @@ namespace ProtoSystem.UI
         /// и поднимает документ наверх внутри слоя. PanelSettings.sortingOrder = (int)WindowLayer —
         /// та же шкала, что у Canvas-слоёв, поэтому uGUI- и toolkit-окна сортируются согласованно.
         /// </summary>
+        /// <summary>
+        /// Настройка toolkit-окна: PanelSettings по слою + порядок внутри слоя.
+        /// Бэкендов два: UIDocument (по умолчанию, есть везде) и PanelRenderer (Unity 6000.5+).
+        /// Оба несут panelSettings/visualTreeAsset/sortingOrder — различается только тип компонента.
+        /// </summary>
         private void ConfigureToolkitDocument(UIWindowBase window, WindowDefinition definition)
         {
+            // «SetAsLastSibling» для toolkit: внутри панели окна сортируются по sortingOrder
+            _panelTopOrder.TryGetValue(definition.layer, out int top);
+
             var doc = window.GetComponent<UIDocument>();
+
+#if UNITY_6000_5_OR_NEWER
+            var renderer = window.GetComponent<PanelRenderer>();
+            if (renderer != null)
+            {
+                if (renderer.panelSettings == null)
+                {
+                    var rendererPanel = GetOrCreatePanelSettings(definition.layer);
+                    if (rendererPanel != null)
+                        renderer.panelSettings = rendererPanel;
+                    else
+                        LogMissingPanelSettings(definition.id, "PanelRenderer");
+                }
+
+                _panelTopOrder[definition.layer] = ++top;
+                renderer.sortingOrder = top;   // у PanelRenderer это int (унаследован от Renderer)
+                return;
+            }
+#endif
+
             if (doc == null) return;
 
             if (doc.panelSettings == null)
@@ -141,15 +169,18 @@ namespace ProtoSystem.UI
                 if (panel != null)
                     doc.panelSettings = panel;
                 else
-                    ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Errors,
-                        $"Окно '{definition.id}' (UI Toolkit) без PanelSettings: назначьте PanelSettings " +
-                        "в UISystemConfig.panelSettings (шаблон) или на UIDocument префаба.");
+                    LogMissingPanelSettings(definition.id, "UIDocument");
             }
 
-            // «SetAsLastSibling» для toolkit: внутри панели документы сортируются по sortingOrder
-            _panelTopOrder.TryGetValue(definition.layer, out int top);
             _panelTopOrder[definition.layer] = ++top;
             doc.sortingOrder = top;
+        }
+
+        private static void LogMissingPanelSettings(string windowId, string component)
+        {
+            ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Errors,
+                $"Окно '{windowId}' (UI Toolkit) без PanelSettings: назначьте PanelSettings " +
+                $"в UISystemConfig.panelSettings (шаблон) или на {component} префаба.");
         }
 
         private PanelSettings GetOrCreatePanelSettings(WindowLayer layer)
