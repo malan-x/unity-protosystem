@@ -213,7 +213,7 @@ namespace ProtoSystem.UI
             Localization.Localize(root);
 
             root.style.display = DisplayStyle.Flex;
-            root.pickingMode = PickingMode.Position;
+            SetPicking(root, PickingMode.Position);   // учитывает PointerTransparentRoot
 
             StartFade(root, show: true, () =>
             {
@@ -352,11 +352,30 @@ namespace ProtoSystem.UI
             OnFocus();
         }
 
-        private static void SetPicking(VisualElement root, PickingMode mode)
+        /// <summary>
+        /// Окно поверх интерактивной 3D-сцены (глобальная карта, HUD): корень НЕ должен
+        /// ловить указатель, иначе EventSystem.IsPointerOverGameObject() вернёт true над всей
+        /// панелью и клики по сцене (выбор гекса, камера) перестанут проходить.
+        ///
+        /// true — корень прозрачен для мыши, ловят только дочерние панели/кнопки
+        /// (у них PickingMode.Position по умолчанию). Фон такого окна кликов не принимает.
+        /// </summary>
+        protected virtual bool PointerTransparentRoot => false;
+
+        /// <summary>
+        /// Только КОРЕНЬ. Раньше метод проставлял mode ещё и прямым детям — и затирал
+        /// picking-mode="Ignore", выставленный в UXML для декора (виньетки, подложки).
+        /// Для приглушения окна хватает корня + снятого focusable (см. SuspendFocusTree).
+        /// </summary>
+        private void SetPicking(VisualElement root, PickingMode mode)
         {
+            if (mode == PickingMode.Position && PointerTransparentRoot)
+            {
+                root.pickingMode = PickingMode.Ignore;
+                return;
+            }
+
             root.pickingMode = mode;
-            foreach (var child in root.Children())
-                child.pickingMode = mode;
         }
 
         /// <summary>

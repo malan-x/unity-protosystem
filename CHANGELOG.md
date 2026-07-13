@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.23.0] - 2026-07-13
+
+### Added
+- **`UIToolkitWindowBase.PointerTransparentRoot`** — окно поверх интерактивной 3D-сцены
+  (глобальная карта с выбором гекса, HUD). Корень такого окна НЕ ловит указатель, поэтому
+  `EventSystem.IsPointerOverGameObject()` не возвращает true над всей панелью и клики по
+  сцене (выбор гекса, вращение камеры) проходят. Ловят только дочерние панели и кнопки.
+  По умолчанию `false` — поведение прежних окон не меняется.
+
+### Fixed
+- `SetPicking` больше НЕ проставляет `pickingMode` прямым детям корня: он затирал
+  `picking-mode="Ignore"`, заданный в UXML для декора (виньетки, подложки, слоты).
+  Для приглушения окна хватает корня и снятого `focusable`.
+
 ## [1.22.2] - 2026-07-13
 
 ### Fixed
