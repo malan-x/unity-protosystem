@@ -136,21 +136,30 @@ namespace ProtoSystem.Editor
         {
             bool hasTasks = TodoListWindow.GetActiveCount() > 0;
 
+            // Компактно: кнопка соседствует с Play/Pause/Step и не должна их перевешивать
             button.style.backgroundColor = hasTasks ? Accent : AccentIdle;
             button.style.unityFontStyleAndWeight = FontStyle.Bold;
-            button.style.borderTopLeftRadius = 4;
-            button.style.borderTopRightRadius = 4;
-            button.style.borderBottomLeftRadius = 4;
-            button.style.borderBottomRightRadius = 4;
-            button.style.paddingLeft = 8;
-            button.style.paddingRight = 8;
-            button.style.marginLeft = 4;
-            button.style.marginRight = 4;
+            button.style.borderTopLeftRadius = 3;
+            button.style.borderTopRightRadius = 3;
+            button.style.borderBottomLeftRadius = 3;
+            button.style.borderBottomRightRadius = 3;
+            button.style.paddingLeft = 5;
+            button.style.paddingRight = 5;
+            button.style.paddingTop = 0;
+            button.style.paddingBottom = 0;
+            button.style.marginLeft = 2;
+            button.style.marginRight = 2;
+            button.style.height = 18;
 
             // Цвет текста задаём и кнопке, и её подписи: у EditorToolbarButton подпись —
             // вложенный TextElement со своим стилем из темы, инлайн на родителе его не перебьёт
             button.style.color = Color.white;
-            button.Query<TextElement>().ForEach(label => label.style.color = Color.white);
+            button.style.fontSize = 10;
+            button.Query<TextElement>().ForEach(label =>
+            {
+                label.style.color = Color.white;
+                label.style.fontSize = 10;
+            });
         }
     }
 }
