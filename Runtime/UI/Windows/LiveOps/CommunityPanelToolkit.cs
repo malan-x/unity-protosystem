@@ -297,6 +297,10 @@ namespace ProtoSystem.UI
                 _messageInput.maxLength = MessageMaxChars;
                 _messageInput.RegisterValueChangedCallback(e => OnMessageInputChanged(e.newValue));
                 _messageInput.RegisterCallback<FocusInEvent>(_ => TryShowVirtualKeyboard());
+
+                // Выход стрелками вверх/вниз из поля ввода (TextField иначе съедает их)
+                _messageInput.RegisterCallback<NavigationMoveEvent>(OnInputNavMove, TrickleDown.TrickleDown);
+                _messageInput.RegisterCallback<KeyDownEvent>(OnInputKeyDown, TrickleDown.TrickleDown);
             }
             OnMessageInputChanged("");
 
@@ -388,21 +392,67 @@ namespace ProtoSystem.UI
             };
             if (dir == 0) return;
             if (evt.target is not VisualElement focused) return;
+            if (!MoveFocus(focused, dir)) return; // край панели — отдаём окну
 
-            var order = FocusablesInOrder();
-            int index = order.IndexOf(focused);
-            if (index < 0) return;
-
-            int next = index + dir;
-            if (next < 0 || next >= order.Count) return; // край панели — отдаём окну
-
-            order[next].Focus();
             evt.StopPropagation();
 #if UNITY_2023_2_OR_NEWER
             focused.focusController?.IgnoreEvent(evt);
 #else
             evt.PreventDefault();
 #endif
+        }
+
+        /// <summary>Сместить фокус на соседний контрол по списку навигации. false — упёрлись в край.</summary>
+        private bool MoveFocus(VisualElement from, int dir)
+        {
+            var order = FocusablesInOrder();
+            int index = order.IndexOf(from);
+            if (index < 0) return false;
+
+            int next = index + dir;
+            if (next < 0 || next >= order.Count) return false;
+
+            order[next].Focus();
+            return true;
+        }
+
+        // ── Поле ввода сообщения ──────────────────────────────────────────────
+        // TextField съедает стрелки (каретка), поэтому вверх/вниз из него не выходили:
+        // с кнопки «отправить» фокус попадал в поле — и застревал, до стрелок карточек
+        // ‹/› было не добраться. Перехватываем ДО внутреннего input (TrickleDown):
+        // NavigationMoveEvent — геймпад, KeyDownEvent — клавиатура.
+        // Left/Right не трогаем: это движение каретки по тексту.
+
+        private void OnInputNavMove(NavigationMoveEvent evt)
+        {
+            int dir = evt.direction switch
+            {
+                NavigationMoveEvent.Direction.Up   => -1,
+                NavigationMoveEvent.Direction.Down => +1,
+                _ => 0
+            };
+            if (dir == 0 || !MoveFocus(_messageInput, dir)) return;
+
+            evt.StopPropagation();
+#if UNITY_2023_2_OR_NEWER
+            _messageInput.focusController?.IgnoreEvent(evt);
+#else
+            evt.PreventDefault();
+#endif
+        }
+
+        private void OnInputKeyDown(KeyDownEvent evt)
+        {
+            int dir = evt.keyCode switch
+            {
+                KeyCode.UpArrow   => -1,
+                KeyCode.DownArrow => +1,
+                _ => 0
+            };
+            if (dir == 0 || !MoveFocus(_messageInput, dir)) return;
+
+            evt.StopPropagation();
+            evt.PreventDefault();
         }
 
         /// <summary>
@@ -475,12 +525,15 @@ namespace ProtoSystem.UI
         }
 
         /// <summary>
-        /// Удержать фокус в панели после сворачивания/разворачивания: нажатая кнопка
-        /// прячется (expand -> collapse и наоборот), и фокус улетал в никуда — приходилось
-        /// заново добираться табами. Фокус перехватываем ТОЛЬКО если он был внутри панели.
-        /// Отложено на кадр: до этого ApplyExpandedState ещё не переключил display.
+        /// Удержать фокус в панели после смены режима (свернуть/развернуть, вход/выход
+        /// из переписки): контрол, на котором стоял фокус, прячется — и фокус улетал в
+        /// никуда, приходилось заново добираться табами.
+        ///
+        /// Перехватываем ТОЛЬКО если фокус был внутри панели (мышью её могли переключить,
+        /// пока фокус в меню — тогда красть его нельзя).
+        /// Отложено на кадр: до этого display ещё не переключён.
         /// </summary>
-        private void KeepFocusAfterExpandToggle()
+        private void KeepFocusInPanel(VisualElement preferred)
         {
             if (_root?.panel == null) return;
 
@@ -489,17 +542,13 @@ namespace ProtoSystem.UI
 
             _root.schedule.Execute(() =>
             {
-                var preferred = _isExpanded ? (VisualElement)_collapseButton : _expandButton;
-                if (preferred != null && preferred.enabledInHierarchy &&
-                    preferred.resolvedStyle.display != DisplayStyle.None &&
-                    preferred.resolvedStyle.visibility == Visibility.Visible)
-                {
-                    preferred.Focus();
-                    return;
-                }
-                FocusEntry();
+                if (IsNavigable(preferred)) preferred.Focus();
+                else FocusEntry();
             }).ExecuteLater(1);
         }
+
+        private void KeepFocusAfterExpandToggle()
+            => KeepFocusInPanel(_isExpanded ? (VisualElement)_collapseButton : _expandButton);
 
         #endregion
 
@@ -1006,6 +1055,9 @@ namespace ProtoSystem.UI
             UpdateTranslationUI();
             RenderConversation();
             NotifyLayoutChanged("conversation_open");
+
+            // Кнопка «Сообщения» спряталась вместе с телом панели — увести фокус на «назад»
+            KeepFocusInPanel(_convBackButton);
         }
 
         private void CloseConversation()
@@ -1024,6 +1076,9 @@ namespace ProtoSystem.UI
                 ShowCard(_currentCard);
             }
             NotifyLayoutChanged("conversation_close");
+
+            // Вернуться туда, откуда уходили — на кнопку «Сообщения»
+            KeepFocusInPanel(_convButton);
         }
 
         private void CycleTranslationMode()
