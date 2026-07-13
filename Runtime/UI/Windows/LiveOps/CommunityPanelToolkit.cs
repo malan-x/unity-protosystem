@@ -800,6 +800,10 @@ namespace ProtoSystem.UI
                 isMulti ? UIKeys.CommunityPanel.Fallback.TypePollMulti : UIKeys.CommunityPanel.Fallback.TypePoll);
 
             if (_pollOptions == null) return;
+
+            // Голосование перерисовывает опции: Clear() уничтожает кнопки вместе с фокусом.
+            // Запоминаем позицию, чтобы вернуть фокус на ту же строку опроса.
+            int focusedOption = FocusedPollOptionIndex();
             _pollOptions.Clear();
 
             bool hasVoted = System.Array.Exists(poll.options, o => o.selected);
@@ -843,6 +847,43 @@ namespace ProtoSystem.UI
 
                 _pollOptions.Add(btn);
             }
+
+            RestorePollOptionFocus(focusedOption);
+        }
+
+        /// <summary>Индекс опции опроса, на которой сейчас фокус (-1 — фокус не в опросе).</summary>
+        private int FocusedPollOptionIndex()
+        {
+            if (_pollOptions == null) return -1;
+            if (_root?.focusController?.focusedElement is not VisualElement focused) return -1;
+
+            int index = 0;
+            foreach (var option in _pollOptions.Children())
+            {
+                if (option == focused || option.Contains(focused)) return index;
+                index++;
+            }
+            return -1;
+        }
+
+        /// <summary>
+        /// Вернуть фокус на опцию опроса после перерисовки (кнопки — новые объекты).
+        /// Отложено на кадр: до этого новые элементы ещё без layout, Focus() не сработает.
+        /// </summary>
+        private void RestorePollOptionFocus(int index)
+        {
+            if (index < 0 || _pollOptions == null || _root?.panel == null) return;
+
+            _root.schedule.Execute(() =>
+            {
+                int i = 0;
+                foreach (var option in _pollOptions.Children())
+                {
+                    if (i++ != index) continue;
+                    if (IsNavigable(option)) option.Focus();
+                    return;
+                }
+            }).ExecuteLater(1);
         }
 
         private void ShowAnnouncementCard(LiveOpsAnnouncement ann, string lang)

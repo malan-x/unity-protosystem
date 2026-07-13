@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.9] - 2026-07-13
+
+### Fixed
+- **Фокус слетал при голосовании в опросе**: ответ перерисовывает опции (`_pollOptions.Clear()`
+  уничтожает кнопки и создаёт новые — с процентами и галочкой), и фокус улетал вместе со
+  старой кнопкой. Теперь позиция запоминается до перерисовки и восстанавливается на той же
+  строке опроса.
+
 ## [1.19.8] - 2026-07-13
 
 ### Fixed
