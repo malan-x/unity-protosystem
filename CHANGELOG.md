@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.5] - 2026-07-13
+
+### Fixed
+- TODO-кнопка в главном тулбаре съезжала вверх относительно Play/Pause/Step: фиксированная
+  `height` без `alignSelf` уводила её по вертикали. Высоту теперь диктует полоса тулбара,
+  кнопка центрируется (`alignSelf: Center`). Шрифт увеличен до 12.
+
 ## [1.21.4] - 2026-07-13
 
 ### Changed

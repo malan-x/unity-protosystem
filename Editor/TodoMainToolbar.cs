@@ -136,29 +136,37 @@ namespace ProtoSystem.Editor
         {
             bool hasTasks = TodoListWindow.GetActiveCount() > 0;
 
-            // Компактно: кнопка соседствует с Play/Pause/Step и не должна их перевешивать
+            // Кнопка соседствует с Play/Pause/Step: высоту и вертикальное выравнивание берём
+            // как у них, иначе фиксированная height без alignSelf уводит её вверх по полосе.
             button.style.backgroundColor = hasTasks ? Accent : AccentIdle;
             button.style.unityFontStyleAndWeight = FontStyle.Bold;
             button.style.borderTopLeftRadius = 3;
             button.style.borderTopRightRadius = 3;
             button.style.borderBottomLeftRadius = 3;
             button.style.borderBottomRightRadius = 3;
-            button.style.paddingLeft = 5;
-            button.style.paddingRight = 5;
+            button.style.paddingLeft = 7;
+            button.style.paddingRight = 7;
             button.style.paddingTop = 0;
             button.style.paddingBottom = 0;
             button.style.marginLeft = 2;
             button.style.marginRight = 2;
-            button.style.height = 18;
+            button.style.marginTop = 0;
+            button.style.marginBottom = 0;
+
+            button.style.height = StyleKeyword.Null;        // высоту диктует полоса тулбара
+            button.style.alignSelf = Align.Center;          // без этого кнопка съезжает вверх
+            button.style.alignItems = Align.Center;
+            button.style.justifyContent = Justify.Center;
 
             // Цвет текста задаём и кнопке, и её подписи: у EditorToolbarButton подпись —
             // вложенный TextElement со своим стилем из темы, инлайн на родителе его не перебьёт
             button.style.color = Color.white;
-            button.style.fontSize = 10;
+            button.style.fontSize = 12;
             button.Query<TextElement>().ForEach(label =>
             {
                 label.style.color = Color.white;
-                label.style.fontSize = 10;
+                label.style.fontSize = 12;
+                label.style.unityTextAlign = TextAnchor.MiddleCenter;
             });
         }
     }
