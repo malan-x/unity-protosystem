@@ -34,11 +34,35 @@ namespace ProtoSystem.Editor.MCP
             EditorApplication.delayCall += () => ToolbarVisibility.EnsureShownOnce(ElementId);
             EditorApplication.delayCall += Restyle;
 
-            // ВАЖНО: НИКАКОГО опроса моста на EditorApplication.update.
-            // Bridge.IsRunning лезет в транспорт, а тот сам обрабатывает очередь команд MCP —
-            // опрос каждый тик вставал в клинч с TransportCommandDispatcher.ProcessQueue
-            // и вешал редактор («Waiting for user code in MCPForUnity.Editor.dll»).
-            // Состояние читаем только когда элемент создаётся и по клику.
+            // Возврат фокуса в редактор — хороший момент освежить состояние: пользователь
+            // как раз мог поднять/уронить мост снаружи (окно MCP, перезапуск Claude Code).
+            // Событие редкое и происходит, когда редактор простаивает.
+            //
+            // ВАЖНО: опроса на EditorApplication.update быть НЕ должно. Bridge.IsRunning лезет
+            // в транспорт, а тот сам крутит очередь команд MCP — опрос каждый тик вставал
+            // в клинч с TransportCommandDispatcher.ProcessQueue и вешал редактор
+            // («Waiting for user code in MCPForUnity.Editor.dll»).
+            EditorApplication.focusChanged += OnEditorFocusChanged;
+        }
+
+        /// <summary>
+        /// Освежаем статус, только когда редактор ПОЛУЧАЕТ фокус, и только если состояние
+        /// реально изменилось — лишний Refresh пересоздаёт элемент тулбара.
+        /// Отложено на delayCall: в момент события Unity ещё разбирает свои очереди.
+        /// </summary>
+        private static void OnEditorFocusChanged(bool focused)
+        {
+            if (!focused) return;
+
+            EditorApplication.delayCall += () =>
+            {
+                bool running = IsBridgeRunning();
+                if (running == _lastKnownRunning) return;
+
+                _lastKnownRunning = running;
+                MainToolbar.Refresh(ElementId);
+                EditorApplication.delayCall += Restyle;
+            };
         }
 
         [MainToolbarElement(ElementId,
