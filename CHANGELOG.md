@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.1] - 2026-07-13
+
+### Fixed
+- **Коллизия GUID с пакетами Unity ломала компиляцию LiveOps** (CS0246:
+  `LiveOpsAnnouncement`, `LiveOpsDevLog`, `LiveOpsMilestoneData`, `LiveOpsPanelConfig`,
+  `LiveOpsPlayerContext` «не найдены»). Часть `.meta` в `Runtime/LiveOps/Data/` несла
+  рукописные GUID-заглушки вида `d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9`; ровно такие же
+  GUID оказались у ассетов `com.unity.ai.assistant` (модуль Unity.AI.Mesh, приезжает
+  с Unity 6000.7). При дубле GUID Unity импортирует только один ассет — файлы пакета
+  выпадали из компиляции. GUID заменены на случайные:
+  `LiveOpsAnnouncement`, `LiveOpsDevLog`, `LiveOpsMilestone`, `LiveOpsWidgetConfig`
+  (конфликтовали), а также превентивно `LiveOpsDataPayload`, `LiveOpsRating`,
+  `LocalizedString` (та же серия заглушек). GUID `LiveOpsStubConfig` (ScriptableObject)
+  и `CommunityPanelWindow` (MonoBehaviour) НЕ менялись — на них ссылаются ассеты проектов.
+  Обновление пакета безопасно: перечисленные типы — обычные `[Serializable]`-классы,
+  ссылок по GUID на них нет.
+
 ## [1.19.0] - 2026-07-12
 
 ### Added
