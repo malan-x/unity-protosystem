@@ -94,7 +94,11 @@
             <ui:Label name="cp-goal-desc" class="cp-goal-desc" text="" picking-mode="Ignore" />
             <ui:VisualElement class="cp-goal-strip" picking-mode="Ignore">
                 <ui:VisualElement name="cp-goal-track" class="cp-goal-track" picking-mode="Ignore">
-                    <ui:VisualElement name="cp-goal-fill" class="cp-goal-fill" picking-mode="Ignore" />
+                    <!-- Заливка: горизонтальный градиент (USS не умеет linear-gradient —
+                         текстуру строит код), на её конце — свечение cp-goal-glow. -->
+                    <ui:VisualElement name="cp-goal-fill" class="cp-goal-fill" picking-mode="Ignore">
+                        <ui:VisualElement name="cp-goal-glow" class="cp-goal-glow" picking-mode="Ignore" />
+                    </ui:VisualElement>
                 </ui:VisualElement>
                 <ui:Label name="cp-goal-count" class="cp-goal-count" text="" picking-mode="Ignore" />
             </ui:VisualElement>

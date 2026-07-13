@@ -268,6 +268,8 @@ namespace ProtoSystem.UI
             _goalFill  = _root.Q("cp-goal-fill");
             _goalCount = _root.Q<Label>("cp-goal-count");
 
+            ApplyGoalArt();   // градиент заливки + свечение на её конце (текстуры из кода)
+
             _ratingRoot    = _root.Q("cp-rating");
             _ratingLabel   = _root.Q<Label>("cp-rating-label");
             _ratingVersion = _root.Q<Label>("cp-rating-version");
@@ -342,6 +344,82 @@ namespace ProtoSystem.UI
                 SetRatingPreview(StarFromPointer(e.position.x)));
             _ratingStars.RegisterCallback<PointerLeaveEvent>(_ => ResetRatingPreview());
         }
+
+        #region Арт полосы цели (градиент + свечение)
+
+        // USS не умеет linear-gradient, а класть спрайты в пакет ради двух полосок не хочется —
+        // строим текстуры процедурно один раз на домен. Проект может переопределить вид,
+        // задав свой background-image на .cp-goal-fill / .cp-goal-glow.
+        private static Texture2D _goalGradientTex;
+        private static Texture2D _goalGlowTex;
+
+        private static readonly Color GoalFillFrom = new(0.62f, 0.24f, 0.06f);  // тёмная латунь
+        private static readonly Color GoalFillTo   = new(1.00f, 0.66f, 0.25f);  // яркий янтарь
+
+        private void ApplyGoalArt()
+        {
+            if (_goalFill != null)
+                _goalFill.style.backgroundImage = new StyleBackground(GetGoalGradient());
+
+            var glow = _goalFill?.Q("cp-goal-glow");
+            if (glow != null)
+                glow.style.backgroundImage = new StyleBackground(GetGoalGlow());
+        }
+
+        /// <summary>Горизонтальный градиент 64×1: слева тускло, справа — ярко.</summary>
+        private static Texture2D GetGoalGradient()
+        {
+            if (_goalGradientTex != null) return _goalGradientTex;
+
+            const int width = 64;
+            var tex = new Texture2D(width, 1, TextureFormat.RGBA32, false)
+            {
+                name = "cp-goal-gradient",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave
+            };
+
+            for (int x = 0; x < width; x++)
+                tex.SetPixel(x, 0, Color.Lerp(GoalFillFrom, GoalFillTo, x / (float)(width - 1)));
+
+            tex.Apply();
+            return _goalGradientTex = tex;
+        }
+
+        /// <summary>Мягкий блик 32×32: яркий центр, прозрачные края (свечение на конце заливки).</summary>
+        private static Texture2D GetGoalGlow()
+        {
+            if (_goalGlowTex != null) return _goalGlowTex;
+
+            const int size = 32;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "cp-goal-glow",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.HideAndDontSave
+            };
+
+            float half = (size - 1) * 0.5f;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = (x - half) / half;
+                    float dy = (y - half) / half;
+                    float d = Mathf.Sqrt(dx * dx + dy * dy);          // 0 в центре, 1 на краю
+                    float a = Mathf.Clamp01(1f - d);
+                    a *= a;                                            // мягче спад
+                    tex.SetPixel(x, y, new Color(1f, 0.82f, 0.45f, a));
+                }
+            }
+
+            tex.Apply();
+            return _goalGlowTex = tex;
+        }
+
+        #endregion
 
         private void OnRatingNavMove(NavigationMoveEvent evt)
         {
@@ -1029,8 +1107,16 @@ namespace ProtoSystem.UI
             var lang = _stubConfig?.language ?? _liveOpsSystem?.Language ?? "en";
             LiveOpsLog.Info($"[CommunityPanelToolkit] RefreshGoal: {data.current}/{data.goal} Progress={data.Progress:F4}");
 
+            float progress = Mathf.Clamp01(data.Progress);
             if (_goalFill != null)
-                _goalFill.style.width = Length.Percent(Mathf.Clamp01(data.Progress) * 100f);
+            {
+                _goalFill.style.width = Length.Percent(progress * 100f);
+
+                // Блик на конце заливки: при нулевом прогрессе он висел бы в пустоте у левого края
+                var glow = _goalFill.Q("cp-goal-glow");
+                if (glow != null)
+                    glow.style.display = progress > 0.001f ? DisplayStyle.Flex : DisplayStyle.None;
+            }
             if (_goalCount != null)
                 _goalCount.text = $"{data.current:N0} / {data.goal:N0}";
             if (_goalDesc != null)

@@ -480,11 +480,27 @@
     border-color: var(--cp-border);
 }
 
+/* Заливка цели: горизонтальный градиент (тёмная латунь -> яркий янтарь).
+   USS не умеет linear-gradient, поэтому текстуру генерирует код
+   (CommunityPanelToolkit.ApplyGoalArt) и кладёт сюда как background-image.
+   Проект может переопределить вид: задайте свой background-image/цвет на .cp-goal-fill. */
 .cp-goal-fill {
     position: absolute;
     left: 2px; top: 2px; bottom: 2px;
     width: 0;
-    background-color: var(--cp-star-active);
+    background-color: var(--cp-star-active);   /* fallback, если текстуры нет */
+    background-size: 100% 100%;
+}
+
+/* Свечение на конце заливки — мягкий блик (радиальная текстура, тоже из кода).
+   Выступает за край заливки, поэтому overflow у .cp-goal-track не режем. */
+.cp-goal-glow {
+    position: absolute;
+    right: -7px;
+    top: -5px;
+    bottom: -5px;
+    width: 16px;
+    background-size: 100% 100%;
 }
 
 .cp-goal-count {
