@@ -26,7 +26,6 @@ namespace ProtoSystem.Editor.MCP
         private static readonly Color Online  = new(0.30f, 0.69f, 0.31f);   // мост поднят
         private static readonly Color Offline = new(0.32f, 0.32f, 0.32f);   // мост лежит
 
-        private static double _nextPoll;
         private static bool _lastKnownRunning;
 
         static McpStatusToolbar()
@@ -34,7 +33,12 @@ namespace ProtoSystem.Editor.MCP
             // Unity добавляет новые элементы тулбара СКРЫТЫМИ — включаем при первом появлении
             EditorApplication.delayCall += () => ToolbarVisibility.EnsureShownOnce(ElementId);
             EditorApplication.delayCall += Restyle;
-            EditorApplication.update += PollBridge;
+
+            // ВАЖНО: НИКАКОГО опроса моста на EditorApplication.update.
+            // Bridge.IsRunning лезет в транспорт, а тот сам обрабатывает очередь команд MCP —
+            // опрос каждый тик вставал в клинч с TransportCommandDispatcher.ProcessQueue
+            // и вешал редактор («Waiting for user code in MCPForUnity.Editor.dll»).
+            // Состояние читаем только когда элемент создаётся и по клику.
         }
 
         [MainToolbarElement(ElementId,
@@ -57,16 +61,26 @@ namespace ProtoSystem.Editor.MCP
             return button;
         }
 
+        /// <summary>
+        /// Клик: мост лежит — поднимаем; мост работает — просто обновляем состояние кнопки
+        /// (останавливать по случайному клику нельзя: оборвём Claude Code посреди работы —
+        /// для остановки есть окно MCP for Unity).
+        /// </summary>
         private static void ToggleBridge()
         {
             var bridge = MCPServiceLocator.Bridge;
             if (bridge == null) return;
 
-            if (bridge.IsRunning) _ = bridge.StopAsync();
-            else                  _ = bridge.StartAsync();
+            if (!IsBridgeRunning())
+                _ = bridge.StartAsync();
 
             // Состояние меняется асинхронно — обновим подпись, когда оно устаканится
-            EditorApplication.delayCall += () => MainToolbar.Refresh(ElementId);
+            EditorApplication.delayCall += () =>
+            {
+                _lastKnownRunning = IsBridgeRunning();
+                MainToolbar.Refresh(ElementId);
+                EditorApplication.delayCall += Restyle;
+            };
         }
 
         private static bool IsBridgeRunning()
@@ -79,20 +93,6 @@ namespace ProtoSystem.Editor.MCP
         {
             try { return MCPServiceLocator.Bridge?.CurrentPort ?? 0; }
             catch { return 0; }
-        }
-
-        /// <summary>Мост могли поднять/уронить извне (окно MCP, перезапуск) — следим и обновляем кнопку.</summary>
-        private static void PollBridge()
-        {
-            if (EditorApplication.timeSinceStartup < _nextPoll) return;
-            _nextPoll = EditorApplication.timeSinceStartup + 2.0;
-
-            bool running = IsBridgeRunning();
-            if (running == _lastKnownRunning) return;
-
-            _lastKnownRunning = running;
-            MainToolbar.Refresh(ElementId);      // пересоздаст подпись
-            EditorApplication.delayCall += Restyle;
         }
 
         /// <summary>

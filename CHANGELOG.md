@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.2] - 2026-07-13
+
+### Fixed
+- **Кнопка состояния MCP вешала редактор.** Она опрашивала мост каждые 2 секунды на
+  `EditorApplication.update`, а `Bridge.IsRunning` лезет в транспорт, который сам крутит
+  очередь команд MCP — опрос вставал в клинч с `TransportCommandDispatcher.ProcessQueue`
+  («Hold on… Waiting for user code in MCPForUnity.Editor.dll»).
+  Опрос убран полностью: состояние читается только при создании элемента и по клику.
+- Клик по кнопке больше не останавливает работающий мост (можно было оборвать Claude Code
+  посреди работы случайным нажатием) — только поднимает лежащий; остановка осталась
+  в окне MCP for Unity.
+
 ## [1.22.1] - 2026-07-13
 
 ### Fixed
