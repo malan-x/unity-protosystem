@@ -32,12 +32,17 @@ namespace ProtoSystem.Compat
         /// <summary>
         /// Стабильный id объекта в рамках сессии (ключ словарей, сравнение).
         /// 6000.7+ — GetEntityId(), раньше — GetInstanceID(). Null-безопасно (0).
+        ///
+        /// Через GetHashCode(), а не (int)-каст: implicit operator int(EntityId) сам помечен
+        /// Obsolete-as-error («EntityId will not be representable by an int in the future»).
+        /// Так же поступают пакеты самой Unity (2d.*, netcode, URP). Если понадобится
+        /// полноразмерный id — брать EntityId.ToULong(), а не расширять этот метод.
         /// </summary>
         public static int StableId(UnityEngine.Object obj)
         {
             if (obj == null) return 0;
 #if UNITY_6000_7_OR_NEWER
-            return (int)obj.GetEntityId();
+            return obj.GetEntityId().GetHashCode();
 #else
             return obj.GetInstanceID();
 #endif

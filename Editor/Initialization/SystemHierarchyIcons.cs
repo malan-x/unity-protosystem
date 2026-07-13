@@ -127,7 +127,8 @@ namespace ProtoSystem.ProEditor
 #if UNITY_6000_4_OR_NEWER
         private static void OnHierarchyGUIByEntityId(EntityId entityId, Rect selectionRect)
         {
-            DrawHierarchyItem(EditorUtility.EntityIdToObject(entityId) as GameObject, (int)entityId, selectionRect);
+            // (int)entityId нельзя: implicit operator int(EntityId) — Obsolete-as-error.
+            DrawHierarchyItem(EditorUtility.EntityIdToObject(entityId) as GameObject, entityId.GetHashCode(), selectionRect);
         }
 #else
         private static void OnHierarchyGUI(int instanceID, Rect selectionRect)
