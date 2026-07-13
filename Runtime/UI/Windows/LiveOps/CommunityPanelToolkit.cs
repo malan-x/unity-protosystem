@@ -289,6 +289,9 @@ namespace ProtoSystem.UI
             if (_collapseButton != null) _collapseButton.clicked += () => SetExpanded(false);
             if (_annUrlButton != null)   SetVisible(_annUrlButton, false);
 
+            // Общий обход вверх/вниз по панели (см. OnPanelNavMove)
+            _root.RegisterCallback<NavigationMoveEvent>(OnPanelNavMove);
+
             if (_messageInput != null)
             {
                 _messageInput.maxLength = MessageMaxChars;
@@ -323,7 +326,8 @@ namespace ProtoSystem.UI
 
             _ratingStars.clicked += () => SubmitRating(_ratingPreview);
 
-            // Геймпад/клавиатура: влево/вправо — значение, вверх/вниз — уход с контрола
+            // Геймпад/клавиатура: влево/вправо — значение; вверх/вниз всплывут до корня
+            // панели, где их обработает общий OnPanelNavMove
             _ratingStars.RegisterCallback<NavigationMoveEvent>(OnRatingNavMove);
             _ratingStars.RegisterCallback<FocusInEvent>(_ =>
                 SetRatingPreview(_userVote > 0 ? _userVote : 5));
@@ -343,19 +347,8 @@ namespace ProtoSystem.UI
                 case NavigationMoveEvent.Direction.Left:  delta = -1; break;
                 case NavigationMoveEvent.Direction.Right: delta = +1; break;
 
-                // Вверх/вниз — уйти с полоски. Полагаться на штатную навигацию UITK нельзя:
-                // она пространственная, а полоска рейтинга шире соседей и лежит в своей
-                // секции — «вверх» не находил цель, и фокус залипал на рейтинге (до кнопки
-                // «развернуть» было не добраться). Уводим фокус явно, по порядку дерева.
-                case NavigationMoveEvent.Direction.Up:
-                    FocusPanelNeighbour(-1);
-                    ConsumeRatingNav(evt);
-                    return;
-                case NavigationMoveEvent.Direction.Down:
-                    FocusPanelNeighbour(+1);
-                    ConsumeRatingNav(evt);
-                    return;
-
+                // Вверх/вниз с рейтинга не обрабатываем здесь — событие всплывёт до корня
+                // панели, где его подхватит общий OnPanelNavMove (симметричный обход).
                 default: return;
             }
 
@@ -373,32 +366,99 @@ namespace ProtoSystem.UI
 #endif
         }
 
-        /// <summary>
-        /// Сфокусировать соседний видимый focusable панели относительно полоски рейтинга
-        /// (dir = -1 вверх / +1 вниз) в порядке дерева. Если соседа нет — фокус не трогаем:
-        /// окно-хозяин само решит, куда уходить с краёв панели.
-        /// </summary>
-        private void FocusPanelNeighbour(int dir)
-        {
-            if (_root == null || _ratingStars == null) return;
+        #region Навигация внутри панели (вверх/вниз по порядку дерева)
 
-            var focusables = new List<VisualElement>();
+        /// <summary>
+        /// Up/Down внутри панели — явный обход видимых focusable по порядку дерева.
+        ///
+        /// Штатная навигация UITK пространственная и на этой вёрстке работает плохо:
+        /// полоска рейтинга шире соседей, кнопки лежат в разных секциях (карточки,
+        /// строка ввода, свёрнутая строка, рейтинг) — переходы находились через раз
+        /// и были несимметричны (вниз с рейтинга уводило, обратно вверх — нет).
+        ///
+        /// На КРАЯХ панели событие НЕ перехватываем: фокус должен уметь уйти в окно-хозяин.
+        /// </summary>
+        private void OnPanelNavMove(NavigationMoveEvent evt)
+        {
+            int dir = evt.direction switch
+            {
+                NavigationMoveEvent.Direction.Up   => -1,
+                NavigationMoveEvent.Direction.Down => +1,
+                _ => 0
+            };
+            if (dir == 0) return;
+            if (evt.target is not VisualElement focused) return;
+
+            var order = FocusablesInOrder();
+            int index = order.IndexOf(focused);
+            if (index < 0) return;
+
+            int next = index + dir;
+            if (next < 0 || next >= order.Count) return; // край панели — отдаём окну
+
+            order[next].Focus();
+            evt.StopPropagation();
+#if UNITY_2023_2_OR_NEWER
+            focused.focusController?.IgnoreEvent(evt);
+#else
+            evt.PreventDefault();
+#endif
+        }
+
+        /// <summary>Видимые фокусируемые элементы панели в порядке дерева (сверху вниз).</summary>
+        private List<VisualElement> FocusablesInOrder()
+        {
+            var list = new List<VisualElement>();
+            if (_root == null) return list;
+
             _root.Query<VisualElement>().ForEach(ve =>
             {
                 if (ve.focusable && ve.enabledInHierarchy &&
                     ve.resolvedStyle.display != DisplayStyle.None &&
                     ve.resolvedStyle.visibility == Visibility.Visible)
-                    focusables.Add(ve);
+                    list.Add(ve);
             });
-
-            int index = focusables.IndexOf(_ratingStars);
-            if (index < 0) return;
-
-            int next = index + dir;
-            if (next < 0 || next >= focusables.Count) return;
-
-            focusables[next].Focus();
+            return list;
         }
+
+        /// <summary>
+        /// Вход в панель извне (окно-хозяин: Tab на группу или «влево» из меню).
+        /// Фокус на первый видимый контрол — в свёрнутом виде это кнопка «развернуть».
+        /// </summary>
+        public void FocusEntry()
+        {
+            var order = FocusablesInOrder();
+            if (order.Count > 0) order[0].Focus();
+        }
+
+        /// <summary>
+        /// Удержать фокус в панели после сворачивания/разворачивания: нажатая кнопка
+        /// прячется (expand -> collapse и наоборот), и фокус улетал в никуда — приходилось
+        /// заново добираться табами. Фокус перехватываем ТОЛЬКО если он был внутри панели.
+        /// Отложено на кадр: до этого ApplyExpandedState ещё не переключил display.
+        /// </summary>
+        private void KeepFocusAfterExpandToggle()
+        {
+            if (_root?.panel == null) return;
+
+            var focused = _root.focusController?.focusedElement as VisualElement;
+            if (focused == null || !_root.Contains(focused)) return; // фокус не наш — не воруем
+
+            _root.schedule.Execute(() =>
+            {
+                var preferred = _isExpanded ? (VisualElement)_collapseButton : _expandButton;
+                if (preferred != null && preferred.enabledInHierarchy &&
+                    preferred.resolvedStyle.display != DisplayStyle.None &&
+                    preferred.resolvedStyle.visibility == Visibility.Visible)
+                {
+                    preferred.Focus();
+                    return;
+                }
+                FocusEntry();
+            }).ExecuteLater(1);
+        }
+
+        #endregion
 
         /// <summary>Индекс звезды под курсором (координата панели).</summary>
         private int StarFromPointer(float panelX)
@@ -1033,6 +1093,7 @@ namespace ProtoSystem.UI
             if (!expanded) MarkCurrentCardsAsSeen();
 
             ApplyExpandedState(animate: true);
+            KeepFocusAfterExpandToggle();
         }
 
         private void ApplyExpandedState(bool animate)
