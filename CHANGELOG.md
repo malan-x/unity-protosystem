@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.0] - 2026-07-13
+
+### Added
+- **Кнопка TODO в ГЛАВНОМ тулбаре, рядом с Play** (`#if UNITY_6000_7_OR_NEWER`).
+  Раньше публичного API главного тулбара не было и кнопку приходилось вешать оверлеем
+  на SceneView. Unity добавила `[MainToolbarElement]` (атрибут на статическом методе,
+  возвращающем `MainToolbarElement`) и `MainToolbarDockPosition.Middle` — это зона
+  Play/Pause/Step. Кнопка показывает число незакрытых задач и подсвечивается, только
+  когда они есть.
+  Оверлей в SceneView сохранён: на версиях без нового API он остаётся единственным
+  вариантом, пакет по-прежнему собирается на старых Unity.
+
 ## [1.20.1] - 2026-07-13
 
 ### Changed
