@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.5] - 2026-07-13
+
+### Fixed
+- **Фокус залипал на полоске рейтинга** в Community Panel (UI Toolkit): с неё нельзя было
+  уйти вверх, поэтому кнопка «развернуть» и остальная панель были недостижимы с
+  геймпада/клавиатуры. Штатная навигация UITK пространственная, а полоска шире соседей
+  и лежит в отдельной секции — «вверх» не находил цель. Теперь Up/Down с рейтинга уводят
+  фокус явно, к соседнему видимому focusable по порядку дерева (Left/Right по-прежнему
+  выбирают оценку 1–10). На краях панели фокус не перехватывается — решает окно-хозяин.
+
 ## [1.19.4] - 2026-07-13
 
 ### Fixed

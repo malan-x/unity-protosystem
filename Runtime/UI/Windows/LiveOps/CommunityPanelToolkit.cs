@@ -342,16 +342,62 @@ namespace ProtoSystem.UI
             {
                 case NavigationMoveEvent.Direction.Left:  delta = -1; break;
                 case NavigationMoveEvent.Direction.Right: delta = +1; break;
-                default: return; // вверх/вниз — обычный переход фокуса
+
+                // Вверх/вниз — уйти с полоски. Полагаться на штатную навигацию UITK нельзя:
+                // она пространственная, а полоска рейтинга шире соседей и лежит в своей
+                // секции — «вверх» не находил цель, и фокус залипал на рейтинге (до кнопки
+                // «развернуть» было не добраться). Уводим фокус явно, по порядку дерева.
+                case NavigationMoveEvent.Direction.Up:
+                    FocusPanelNeighbour(-1);
+                    ConsumeRatingNav(evt);
+                    return;
+                case NavigationMoveEvent.Direction.Down:
+                    FocusPanelNeighbour(+1);
+                    ConsumeRatingNav(evt);
+                    return;
+
+                default: return;
             }
 
             SetRatingPreview(Mathf.Clamp(_ratingPreview + delta, 1, 10));
+            ConsumeRatingNav(evt);
+        }
+
+        private void ConsumeRatingNav(NavigationMoveEvent evt)
+        {
             evt.StopPropagation();
 #if UNITY_2023_2_OR_NEWER
             _ratingStars.focusController?.IgnoreEvent(evt);
 #else
             evt.PreventDefault();
 #endif
+        }
+
+        /// <summary>
+        /// Сфокусировать соседний видимый focusable панели относительно полоски рейтинга
+        /// (dir = -1 вверх / +1 вниз) в порядке дерева. Если соседа нет — фокус не трогаем:
+        /// окно-хозяин само решит, куда уходить с краёв панели.
+        /// </summary>
+        private void FocusPanelNeighbour(int dir)
+        {
+            if (_root == null || _ratingStars == null) return;
+
+            var focusables = new List<VisualElement>();
+            _root.Query<VisualElement>().ForEach(ve =>
+            {
+                if (ve.focusable && ve.enabledInHierarchy &&
+                    ve.resolvedStyle.display != DisplayStyle.None &&
+                    ve.resolvedStyle.visibility == Visibility.Visible)
+                    focusables.Add(ve);
+            });
+
+            int index = focusables.IndexOf(_ratingStars);
+            if (index < 0) return;
+
+            int next = index + dir;
+            if (next < 0 || next >= focusables.Count) return;
+
+            focusables[next].Focus();
         }
 
         /// <summary>Индекс звезды под курсором (координата панели).</summary>
