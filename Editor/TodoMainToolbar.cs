@@ -38,6 +38,8 @@ namespace ProtoSystem.Editor
 
         static TodoMainToolbar()
         {
+            // Unity добавляет новые элементы тулбара СКРЫТЫМИ — включаем при первом появлении
+            EditorApplication.delayCall += () => ToolbarVisibility.EnsureShownOnce(ElementId);
             // Тулбар пересоздаётся после каждой перекомпиляции — красим заново
             EditorApplication.delayCall += StyleButton;
         }

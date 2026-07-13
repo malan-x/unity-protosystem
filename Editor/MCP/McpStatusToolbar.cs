@@ -31,6 +31,8 @@ namespace ProtoSystem.Editor.MCP
 
         static McpStatusToolbar()
         {
+            // Unity добавляет новые элементы тулбара СКРЫТЫМИ — включаем при первом появлении
+            EditorApplication.delayCall += () => ToolbarVisibility.EnsureShownOnce(ElementId);
             EditorApplication.delayCall += Restyle;
             EditorApplication.update += PollBridge;
         }

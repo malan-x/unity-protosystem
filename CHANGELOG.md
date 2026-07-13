@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.1] - 2026-07-13
+
+### Fixed
+- **Кнопки пакета не появлялись в главном тулбаре.** Unity регистрирует новые элементы
+  ([MainToolbarElement] находится, определение создаётся), но добавляет их СКРЫТЫМИ —
+  кнопка не рисуется, пока её не включат, а публичного способа для этого нет.
+  Новый `ToolbarVisibility.EnsureShownOnce(id)` включает элемент один раз на проект
+  (флаг в EditorPrefs): если пользователь потом сам спрячет кнопку через кастомизацию
+  тулбара, пакет не будет возвращать её при каждом запуске.
+  Применено к TODO и к кнопке состояния MCP-моста.
+
 ## [1.22.0] - 2026-07-13
 
 ### Added
