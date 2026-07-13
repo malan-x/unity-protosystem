@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityEditor;
+using ProtoSystem.Compat;
 
 namespace ProtoSystem
 {
@@ -69,7 +70,7 @@ namespace ProtoSystem
             var result = new List<ProtoSystemComponentInfo>();
 
             // Ищем во всех загруженных сборках
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in UnityVersionCompat.GetLoadedAssemblies())
             {
                 // Пропускаем системные сборки
                 if (assembly.FullName.StartsWith("System") || 

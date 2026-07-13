@@ -5,6 +5,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using ProtoSystem.Effects;
+using ProtoSystem.Compat;
 
 namespace ProtoSystem.Effects.Editor
 {
@@ -97,7 +98,7 @@ namespace ProtoSystem.Effects.Editor
             {
                 var projectNamespace = projectInfo.Namespace;
                 
-                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+                foreach (var assembly in UnityVersionCompat.GetLoadedAssemblies())
                 {
                     var name = assembly.GetName().Name;
                     if (name.StartsWith("Unity.") || name.StartsWith("UnityEngine") || 
@@ -119,7 +120,7 @@ namespace ProtoSystem.Effects.Editor
             }
 
             // 2. Fallback: ищем в глобальном namespace и стандартных местах
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in UnityVersionCompat.GetLoadedAssemblies())
             {
                 var name = assembly.GetName().Name;
                 
@@ -146,7 +147,7 @@ namespace ProtoSystem.Effects.Editor
             }
 
             // 3. Fallback: ищем класс с именем Evt/_Events среди ВСЕХ типов (для любого namespace, например Sheeps.Evt)
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in UnityVersionCompat.GetLoadedAssemblies())
             {
                 var name = assembly.GetName().Name;
 

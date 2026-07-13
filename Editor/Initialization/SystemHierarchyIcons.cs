@@ -41,7 +41,11 @@ namespace ProtoSystem.ProEditor
 
         static SystemHierarchyIcons()
         {
+#if UNITY_6000_4_OR_NEWER
+            EditorApplication.hierarchyWindowItemByEntityIdOnGUI += OnHierarchyGUIByEntityId;
+#else
             EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyGUI;
+#endif
             EditorApplication.playModeStateChanged += OnPlayModeChanged;
 
             // Добавляем пункт меню для настроек
@@ -117,13 +121,27 @@ namespace ProtoSystem.ProEditor
             EditorApplication.RepaintHierarchyWindow();
         }
 
+        // Unity 6000.4+ заменила hierarchyWindowItemOnGUI(int) на ...ByEntityIdOnGUI(EntityId),
+        // а в 6000.7 старые InstanceID-API стали Obsolete с уровнем ERROR.
+        // Обе ветки сводятся к общему DrawHierarchyItem.
+#if UNITY_6000_4_OR_NEWER
+        private static void OnHierarchyGUIByEntityId(EntityId entityId, Rect selectionRect)
+        {
+            DrawHierarchyItem(EditorUtility.EntityIdToObject(entityId) as GameObject, (int)entityId, selectionRect);
+        }
+#else
         private static void OnHierarchyGUI(int instanceID, Rect selectionRect)
+        {
+            DrawHierarchyItem(EditorUtility.InstanceIDToObject(instanceID) as GameObject, instanceID, selectionRect);
+        }
+#endif
+
+        private static void DrawHierarchyItem(GameObject gameObject, int instanceID, Rect selectionRect)
         {
             if (!showIcons) return;
 
             if (showOnlyInPlayMode && !Application.isPlaying) return;
 
-            GameObject gameObject = EditorUtility.InstanceIDToObject(instanceID) as GameObject;
             if (gameObject == null) return;
 
             // Используем кэш для оптимизации

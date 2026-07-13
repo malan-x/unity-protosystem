@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using UnityEngine;
 using UnityEditor;
+using ProtoSystem.Compat;
 
 namespace ProtoSystem.UI
 {
@@ -74,7 +75,7 @@ namespace ProtoSystem.UI
             int prefabsFound = 0;
 
             // Сканируем все сборки
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var assemblies = UnityVersionCompat.GetLoadedAssemblies();
             var windowTypes = new List<(Type type, UIWindowAttribute attr)>();
 
             foreach (var assembly in assemblies)

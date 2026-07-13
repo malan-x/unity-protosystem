@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+using ProtoSystem.Compat;
 
 namespace ProtoSystem.Effects
 {
@@ -132,7 +133,7 @@ namespace ProtoSystem.Effects
             // 1. По известным namespace + именам классов
             // 2. Fallback: поиск среди всех типов сборки по имени класса
 
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in UnityVersionCompat.GetLoadedAssemblies())
             {
                 var name = assembly.GetName().Name;
 
@@ -164,7 +165,7 @@ namespace ProtoSystem.Effects
             }
 
             // Fallback: ищем класс с именем Evt/_Events среди ВСЕХ типов (для любого namespace)
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in UnityVersionCompat.GetLoadedAssemblies())
             {
                 var name = assembly.GetName().Name;
 

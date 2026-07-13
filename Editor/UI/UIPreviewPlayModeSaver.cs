@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEditor;
 using TMPro;
+using ProtoSystem.Compat;
 
 namespace ProtoSystem.UI
 {
@@ -305,7 +306,7 @@ namespace ProtoSystem.UI
 
                 // Загружаем тип компонента
                 System.Type componentType = null;
-                foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
+                foreach (var assembly in UnityVersionCompat.GetLoadedAssemblies())
                 {
                     componentType = assembly.GetType(windowComponentType);
                     if (componentType != null)

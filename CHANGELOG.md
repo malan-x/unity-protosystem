@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.2] - 2026-07-13
+
+### Added
+- **`ProtoSystem.Compat.UnityVersionCompat`** — единая точка для API, которые Unity меняет
+  между минорными версиями. Весь `#if` по версиям живёт здесь, остальной код версий не знает:
+  - `GetLoadedAssemblies()` — на 6000.4+ использует `UnityEngine.Assemblies.CurrentAssemblies`
+    (в 6000.3 этот тип ещё `internal`), ниже — `AppDomain.CurrentDomain.GetAssemblies()`;
+  - `StableId(Object)` — на 6000.7+ `GetEntityId()`, ниже `GetInstanceID()`, null-безопасно.
+
+### Fixed
+- **Совместимость с Unity 6000.7** (пакет по-прежнему собирается на 6000.3+):
+  - `SystemHierarchyIcons` — `EditorApplication.hierarchyWindowItemOnGUI` и
+    `EditorUtility.InstanceIDToObject` стали Obsolete-as-**error**; на 6000.4+ используются
+    `hierarchyWindowItemByEntityIdOnGUI` / `EditorUtility.EntityIdToObject`, обе ветки сведены
+    к общему `DrawHierarchyItem`;
+  - `UIWindowPrefabGenerator` — `TMP_Text.enableWordWrapping` → `textWrappingMode`
+    (`TextWrappingModes.Normal/NoWrap`);
+  - 13 вызовов `AppDomain.CurrentDomain.GetAssemblies()` заменены на
+    `UnityVersionCompat.GetLoadedAssemblies()` — снимает предупреждение анализатора UAC0005
+    (Unity 6.5+) и готовит пакет к CoreCLR в 6.8, где `AppDomain` может отдавать
+    уже выгруженные сборки.
+
 ## [1.19.1] - 2026-07-13
 
 ### Fixed

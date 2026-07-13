@@ -9,6 +9,7 @@ using UnityEditor.PackageManager;
 using UnityEngine.UIElements;
 using UnityEditor.Overlays;
 using UnityEditor.Toolbars;
+using ProtoSystem.Compat;
 
 namespace ProtoSystem.Editor
 {
@@ -657,7 +658,7 @@ namespace ProtoSystem.Editor
             _allEvents = new List<(string, string, int)>();
             _eventIdToPath = new Dictionary<int, string>();
 
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in UnityVersionCompat.GetLoadedAssemblies())
             {
                 var asmName = assembly.GetName().Name;
                 if (asmName.StartsWith("Unity.") || asmName.StartsWith("UnityEngine") ||

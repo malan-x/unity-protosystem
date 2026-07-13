@@ -1,6 +1,7 @@
 // Packages/com.protosystem.core/Editor/UI/UISystemEditor.cs
 using UnityEngine;
 using UnityEditor;
+using ProtoSystem.Compat;
 
 namespace ProtoSystem.UI
 {
@@ -277,7 +278,7 @@ namespace ProtoSystem.UI
         private System.Type FindExampleInitializerType()
         {
             // Ищем класс с названием *ExampleGameplayInitializer* или *ExampleInitializer*
-            var assemblies = System.AppDomain.CurrentDomain.GetAssemblies();
+            var assemblies = UnityVersionCompat.GetLoadedAssemblies();
             foreach (var assembly in assemblies)
             {
                 try

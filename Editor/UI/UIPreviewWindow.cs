@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using ProtoSystem.Compat;
 
 namespace ProtoSystem.UI
 {
@@ -418,7 +419,7 @@ namespace ProtoSystem.UI
             string fullTypeName = $"{scriptNamespace}.{windowClassName}";
             System.Type windowType = null;
 
-            foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in UnityVersionCompat.GetLoadedAssemblies())
             {
                 windowType = assembly.GetType(fullTypeName);
                 if (windowType != null) break;

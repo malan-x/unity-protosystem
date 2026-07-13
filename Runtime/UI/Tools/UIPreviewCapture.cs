@@ -4,6 +4,7 @@ using System.IO;
 using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
+using ProtoSystem.Compat;
 #endif
 
 namespace ProtoSystem.UI
@@ -420,7 +421,7 @@ namespace ProtoSystem.UI
                 if (type == null)
                 {
                     // Try to find in all loaded assemblies
-                    foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
+                    foreach (var assembly in UnityVersionCompat.GetLoadedAssemblies())
                     {
                         type = assembly.GetType(fullTypeName);
                         if (type != null) break;

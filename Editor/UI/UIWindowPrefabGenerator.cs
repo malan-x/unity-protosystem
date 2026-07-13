@@ -486,7 +486,7 @@ namespace ProtoSystem.UI
             annTitle.AddComponent<LocalizeTMP>();
             var annBody = CreateText("Body", annCard.transform, "Текст новости.", 13);
             annBody.GetComponent<TMP_Text>().color = new Color(0.8f, 0.8f, 0.8f);
-            annBody.GetComponent<TMP_Text>().enableWordWrapping = true;
+            annBody.GetComponent<TMP_Text>().textWrappingMode = TextWrappingModes.Normal;
             annBody.AddComponent<LayoutElement>().preferredHeight = 60;
             annBody.AddComponent<LocalizeTMP>();
             var annUrlBtn = CreateButton("UrlButton", annCard.transform, "Читать полностью →", new Vector2(170, 28));

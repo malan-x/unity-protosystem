@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
+using ProtoSystem.Compat;
 
 namespace ProtoSystem
 {
@@ -174,7 +175,7 @@ namespace ProtoSystem
             if (type != null) return type;
             
             // Ищем во всех сборках
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in UnityVersionCompat.GetLoadedAssemblies())
             {
                 try
                 {
