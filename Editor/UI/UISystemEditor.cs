@@ -1,7 +1,9 @@
 // Packages/com.protosystem.core/Editor/UI/UISystemEditor.cs
+using System.Linq;
 using UnityEngine;
 using UnityEditor;
 using ProtoSystem.Compat;
+using ProtoSystem.Editor.UI;
 
 namespace ProtoSystem.UI
 {
@@ -13,6 +15,8 @@ namespace ProtoSystem.UI
     {
         private bool _showStartupSection = true;
         private bool _showCanvasSection = true;
+        private bool _showBakingSection = true;
+        private int _bakeWindowIndex;
 
         public override void OnInspectorGUI()
         {
@@ -144,8 +148,12 @@ namespace ProtoSystem.UI
                 EditorGUI.indentLevel--;
             }
             
+            EditorGUILayout.Space(5);
+
+            DrawBakingSection();
+
             EditorGUILayout.Space(10);
-            
+
             // === Actions ===
             EditorGUILayout.LabelField("Actions", EditorStyles.boldLabel);
             
@@ -173,8 +181,111 @@ namespace ProtoSystem.UI
             {
                 UIWindowPrefabGenerator.GenerateAllBaseWindows();
             }
-            
+
             serializedObject.ApplyModifiedProperties();
+        }
+
+        /// <summary>
+        /// Чем закрыть 3D-мир на старте: UISystem поднимается в общей очереди инициализации и
+        /// открывает стартовое окно только в конце — до этого камера рисует голую сцену.
+        /// </summary>
+        private void DrawBakingSection()
+        {
+            _showBakingSection = EditorGUILayout.Foldout(_showBakingSection, "Запекание в сцену", true);
+            if (!_showBakingSection) return;
+
+            EditorGUI.indentLevel++;
+
+            EditorGUILayout.HelpBox(
+                "Стартовое окно открывается только в конце инициализации — до этого игрок видит " +
+                "голую 3D-сцену. Закрыть её можно заставкой (рекомендуется) или запечённым окном.",
+                MessageType.Info);
+
+            // ── Boot Splash ──
+            EditorGUILayout.LabelField("Заставка (картинка)", EditorStyles.boldLabel);
+
+            var splash = BakeTools.FindSplash();
+            if (splash != null)
+            {
+                EditorGUILayout.ObjectField("В сцене", splash, typeof(BootSplash), true);
+                if (GUILayout.Button("Убрать заставку"))
+                    BakeTools.RemoveSplash();
+            }
+            else
+            {
+                EditorGUILayout.LabelField("Полноэкранная картинка с первого кадра. Гаснет, когда " +
+                                           "откроется первое окно.", EditorStyles.wordWrappedMiniLabel);
+                if (GUILayout.Button("Создать заставку"))
+                    BakeTools.CreateSplash();
+            }
+
+            EditorGUILayout.Space(6);
+
+            // ── Запечённое окно ──
+            EditorGUILayout.LabelField("Запечённое окно", EditorStyles.boldLabel);
+
+            var graph = Resources.Load<UIWindowGraph>(BakeTools.GraphResource);
+            if (graph == null)
+            {
+                EditorGUILayout.HelpBox("Не найден UIWindowGraph.", MessageType.Warning);
+                EditorGUI.indentLevel--;
+                return;
+            }
+
+            var ids = graph.windows
+                .Where(w => w != null && w.prefab != null && !string.IsNullOrEmpty(w.id))
+                .Select(w => w.id)
+                .OrderBy(id => id)
+                .ToArray();
+
+            if (ids.Length == 0)
+            {
+                EditorGUILayout.HelpBox("В графе нет окон с префабами.", MessageType.Warning);
+                EditorGUI.indentLevel--;
+                return;
+            }
+
+            var baked = BakeTools.FindBakedWindow();
+            if (baked != null)
+            {
+                EditorGUILayout.ObjectField("В сцене", baked, typeof(UIWindowBase), true);
+                EditorGUILayout.HelpBox(
+                    "Окно видно с первого кадра, но до Show() у него не вызывается OnBuildUI: " +
+                    "кнопки ни на что не подписаны, данные не подтянуты. Игрок может нажать " +
+                    "мёртвую кнопку — для простого перекрытия сцены надёжнее заставка.",
+                    MessageType.Warning);
+
+                if (GUILayout.Button("Убрать запечённое окно"))
+                    BakeTools.UnbakeWindow(baked);
+
+                EditorGUI.indentLevel--;
+                return;
+            }
+
+            _bakeWindowIndex = Mathf.Clamp(_bakeWindowIndex, 0, ids.Length - 1);
+
+            // По умолчанию подставляем стартовое окно графа
+            if (_bakeWindowIndex == 0)
+            {
+                int startIndex = System.Array.IndexOf(ids, graph.startWindowId);
+                if (startIndex >= 0) _bakeWindowIndex = startIndex;
+            }
+
+            _bakeWindowIndex = EditorGUILayout.Popup("Окно", _bakeWindowIndex, ids);
+
+            string selectedId = ids[_bakeWindowIndex];
+            if (selectedId != graph.startWindowId)
+            {
+                EditorGUILayout.HelpBox(
+                    $"'{selectedId}' не стартовое окно графа (сейчас '{graph.startWindowId}') — " +
+                    "UISystem погасит его при инициализации.",
+                    MessageType.Warning);
+            }
+
+            if (GUILayout.Button("Запечь в текущую сцену"))
+                BakeTools.BakeWindow(graph.GetWindow(selectedId));
+
+            EditorGUI.indentLevel--;
         }
 
         private void DrawFieldWithCreateButton(SerializedProperty prop, string label, System.Func<Object> createFunc)
