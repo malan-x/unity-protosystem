@@ -198,26 +198,12 @@ namespace ProtoSystem.UI
 
             EditorGUILayout.HelpBox(
                 "Стартовое окно открывается только в конце инициализации — до этого игрок видит " +
-                "голую 3D-сцену. Закрыть её можно заставкой (рекомендуется) или запечённым окном.",
+                "голую 3D-сцену. Лечится так: окно заставки (Splash) делаем стартовым в графе и " +
+                "запекаем в сцену — оно рисуется с первого кадра, а после кадров само уходит в меню.",
                 MessageType.Info);
 
-            // ── Boot Splash ──
-            EditorGUILayout.LabelField("Заставка (картинка)", EditorStyles.boldLabel);
-
-            var splash = BakeTools.FindSplash();
-            if (splash != null)
-            {
-                EditorGUILayout.ObjectField("В сцене", splash, typeof(BootSplash), true);
-                if (GUILayout.Button("Убрать заставку"))
-                    BakeTools.RemoveSplash();
-            }
-            else
-            {
-                EditorGUILayout.LabelField("Полноэкранная картинка с первого кадра. Гаснет, когда " +
-                                           "откроется первое окно.", EditorStyles.wordWrappedMiniLabel);
-                if (GUILayout.Button("Создать заставку"))
-                    BakeTools.CreateSplash();
-            }
+            if (GUILayout.Button("Создать префаб окна заставки"))
+                BakeTools.CreateSplashPrefab();
 
             EditorGUILayout.Space(6);
 
@@ -249,11 +235,15 @@ namespace ProtoSystem.UI
             if (baked != null)
             {
                 EditorGUILayout.ObjectField("В сцене", baked, typeof(UIWindowBase), true);
-                EditorGUILayout.HelpBox(
-                    "Окно видно с первого кадра, но до Show() у него не вызывается OnBuildUI: " +
-                    "кнопки ни на что не подписаны, данные не подтянуты. Игрок может нажать " +
-                    "мёртвую кнопку — для простого перекрытия сцены надёжнее заставка.",
-                    MessageType.Warning);
+
+                if (!(baked is SplashWindow))
+                {
+                    EditorGUILayout.HelpBox(
+                        "У этого окна до Show() не вызывается OnBuildUI: кнопки ни на что не " +
+                        "подписаны, данные не подтянуты. Игрок увидит живое на вид окно и нажмёт " +
+                        "мёртвую кнопку. Для перекрытия старта запекайте окно заставки.",
+                        MessageType.Warning);
+                }
 
                 if (GUILayout.Button("Убрать запечённое окно"))
                     BakeTools.UnbakeWindow(baked);

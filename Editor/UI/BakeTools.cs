@@ -1,13 +1,12 @@
-// Операции запекания в сцену. UI живёт в инспекторе UISystem (см. UISystemEditor).
+// Операции запекания окна в сцену. UI живёт в инспекторе UISystem (см. UISystemEditor).
 //
-// Два способа закрыть 3D-мир на старте, пока UISystem ещё поднимается:
+// Зачем: UISystem открывает стартовое окно только в конце общей очереди инициализации — до этого
+// камера рисует голый 3D-мир. Запечённое окно (экземпляр в сцене, флаг UIWindowBase.bakedInScene)
+// рисуется с первого кадра и закрывает эту дыру; система потом забирает его вместо создания нового.
 //
-// 1. Boot Splash — полноэкранная картинка (ProtoSystem.UI.BootSplash). Ничего не обещает игроку
-//    и гаснет, когда открылось первое окно. Способ по умолчанию.
-//
-// 2. Запечённое окно — экземпляр настоящего окна, сохранённый в сцене активным. Видно с первого
-//    кадра, но до Show() у него не вызывается OnBuildUI: кнопки ни на что не подписаны, данные
-//    не подтянуты. Игрок видит «живое» меню и жмёт мёртвые кнопки — поэтому осознанный выбор.
+// Штатный кандидат на запекание — окно заставки (ProtoSystem.UI.SplashWindow): у него нет кнопок,
+// поэтому «мёртвого интерактива» до Show() не возникает. Запекать окно с кнопками можно, но игрок
+// увидит живое на вид меню, у которого до Show() ничего не подписано.
 
 using System.IO;
 using ProtoSystem.UI;
@@ -22,54 +21,6 @@ namespace ProtoSystem.Editor.UI
     {
         public const string GraphResource = "ProtoSystem/UIWindowGraph";
         public const string ConfigResource = "ProtoSystem/UISystemConfig";
-
-        /// <summary>Порядок панели заставки: выше любого слоя окон — она перекрывает всё.</summary>
-        private const int SplashSortingOrder = 32000;
-
-        #region Boot Splash
-
-        public static BootSplash FindSplash()
-        {
-            return Object.FindFirstObjectByType<BootSplash>(FindObjectsInactive.Include);
-        }
-
-        public static BootSplash CreateSplash()
-        {
-            var existing = FindSplash();
-            if (existing != null)
-            {
-                Selection.activeGameObject = existing.gameObject;
-                return existing;
-            }
-
-            var go = new GameObject("[Boot Splash]");
-            Undo.RegisterCreatedObjectUndo(go, "Создать Boot Splash");
-
-            var doc = go.AddComponent<UIDocument>();
-            doc.panelSettings = GetOrCreatePanelSettings("PanelSettings_BootSplash", SplashSortingOrder);
-            doc.sortingOrder = SplashSortingOrder;
-
-            var splash = go.AddComponent<BootSplash>();
-
-            Selection.activeGameObject = go;
-            EditorSceneManager.MarkSceneDirty(go.scene);
-
-            Debug.Log("[ProtoSystem] Boot Splash создан. Назначьте ему картинку в инспекторе " +
-                      "и сохраните сцену.");
-            return splash;
-        }
-
-        public static void RemoveSplash()
-        {
-            var splash = FindSplash();
-            if (splash == null) return;
-
-            var scene = splash.gameObject.scene;
-            Undo.DestroyObjectImmediate(splash.gameObject);
-            EditorSceneManager.MarkSceneDirty(scene);
-        }
-
-        #endregion
 
         #region Запечённое окно
 
@@ -149,6 +100,49 @@ namespace ProtoSystem.Editor.UI
             doc.panelSettings = GetOrCreatePanelSettings(
                 $"PanelSettings_Baked_{definition.layer}", (int)definition.layer);
             EditorUtility.SetDirty(doc);
+        }
+
+        #endregion
+
+        #region Окно заставки
+
+        /// <summary>
+        /// Префаб окна заставки. Дерево оно строит кодом, поэтому UXML-ассет не нужен —
+        /// в префабе только UIDocument и сам SplashWindow.
+        /// Метки берём из UISystemConfig: по ним окно попадает в граф.
+        /// </summary>
+        public static GameObject CreateSplashPrefab()
+        {
+            string path = EditorUtility.SaveFilePanelInProject(
+                "Префаб окна заставки", "SplashWindow", "prefab",
+                "Куда сохранить префаб окна заставки?");
+
+            if (string.IsNullOrEmpty(path)) return null;
+
+            var go = new GameObject("SplashWindow");
+            go.AddComponent<UIDocument>();      // PanelSettings назначит фабрика (или запекание)
+            go.AddComponent<SplashWindow>();
+
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
+            Object.DestroyImmediate(go);
+
+            if (prefab == null) return null;
+
+            var config = Resources.Load<UISystemConfig>(ConfigResource);
+            var labels = config != null ? config.windowPrefabLabels : null;
+            if (labels != null && labels.Count > 0)
+                AssetDatabase.SetLabels(prefab, labels.ToArray());
+            else
+                Debug.LogWarning("[ProtoSystem] В UISystemConfig не заданы windowPrefabLabels — " +
+                                 "пометьте префаб заставки вручную, иначе он не попадёт в граф окон.");
+
+            AssetDatabase.SaveAssets();
+            UIWindowGraphBuilder.RebuildGraph();
+
+            EditorGUIUtility.PingObject(prefab);
+            Debug.Log($"[ProtoSystem] Создан {path}. Назначьте кадры заставки в префабе, " +
+                      "сделайте 'Splash' стартовым окном графа и запеките его в стартовую сцену.");
+            return prefab;
         }
 
         #endregion
