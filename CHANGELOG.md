@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.26.2] - 2026-07-14
+
+### Fixed
+- **Запечённое окно, которого нет в графе, висело поверх всего.** Граф в рантайме строится из
+  `UISystemConfig.windowPrefabs`, а не из ассета графа — если префаб запечённого окна забыли добавить
+  в этот список, UISystem его не находила, не подхватывала и не гасила: экземпляр так и оставался
+  рисовать свою картинку (заставка перекрывала глобальную карту). Теперь такое окно гасится,
+  а в лог идёт предупреждение с указанием, что добавить префаб в `UISystemConfig.windowPrefabs`.
+
 ## [1.26.1] - 2026-07-14
 
 ### Fixed

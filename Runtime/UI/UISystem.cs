@@ -541,7 +541,13 @@ namespace ProtoSystem.UI
                 var definition = _windowGraph.GetWindow(attribute.WindowId);
                 if (definition == null)
                 {
-                    LogWarning($"Запечённое окно '{attribute.WindowId}' не найдено в графе — пропущено");
+                    // Окно есть в сцене, но система про него не знает — управлять им она не сможет,
+                    // а экземпляр останется висеть поверх всего (мы так поймали заставку, которая
+                    // перекрывала глобальную карту). Гасим и говорим, что чинить.
+                    window.gameObject.SetActive(false);
+                    LogWarning($"Запечённое окно '{attribute.WindowId}' не найдено в графе — погашено. " +
+                               "Добавьте его префаб в UISystemConfig.windowPrefabs " +
+                               "(граф в рантайме строится из этого списка, а не из ассета графа).");
                     continue;
                 }
 
