@@ -493,6 +493,13 @@ namespace ProtoSystem.UI
 
         /// <summary>
         /// Одноразовая (на жизнь дерева) настройка корня: Cancel → Back.
+        ///
+        /// Back идёт ЕДИНЫМ каналом через EventBus (UISystem сам решит, кому его отдать —
+        /// модалке или текущему окну), а не прямым вызовом OnBackPressed().
+        /// Причина: Escape порождает Cancel и здесь, и в UISystem.Update() — при прямом вызове
+        /// один Escape обрабатывался дважды (первое нажатие закрывало окно, второе прилетало
+        /// уже окну под ним: из базы это закрывало базу И открывало паузу на карте).
+        /// Дедупликацию по кадру делает UISystem.OnBackPressed.
         /// </summary>
         private void PrepareRoot(VisualElement root)
         {
@@ -503,7 +510,7 @@ namespace ProtoSystem.UI
             {
                 if (State != WindowState.Visible) return;
                 if (!AllowBack) return;
-                OnBackPressed();
+                EventBus.Publish(EventBus.UI.BackPressed, null);
                 evt.StopPropagation();
             });
         }

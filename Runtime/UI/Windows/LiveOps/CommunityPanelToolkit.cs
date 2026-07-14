@@ -484,7 +484,7 @@ namespace ProtoSystem.UI
         private bool MoveFocus(VisualElement from, int dir)
         {
             var order = FocusablesInOrder();
-            int index = order.IndexOf(from);
+            int index = IndexOfOwner(order, from);
             if (index < 0) return false;
 
             int next = index + dir;
@@ -492,6 +492,27 @@ namespace ProtoSystem.UI
 
             order[next].Focus();
             return true;
+        }
+
+        /// <summary>
+        /// Индекс контрола, которому принадлежит сфокусированный элемент.
+        ///
+        /// Точное сравнение здесь не годится: составные контролы (TextField) держат фокус
+        /// на ВНУТРЕННЕМ элементе ввода, и событие навигации приходит от него, а не от самого
+        /// TextField. С IndexOf такой элемент в списке не находился, панель считала это своим
+        /// краем и отпускала фокус в окно-хозяин — с геймпада фокус «пропадал» из поля ввода,
+        /// а следующее нажатие вверх/вниз уводило в рейтинг.
+        /// </summary>
+        private static int IndexOfOwner(List<VisualElement> order, VisualElement focused)
+        {
+            if (focused == null) return -1;
+
+            for (int i = 0; i < order.Count; i++)
+            {
+                if (order[i] == focused || order[i].Contains(focused))
+                    return i;
+            }
+            return -1;
         }
 
         // ── Поле ввода сообщения ──────────────────────────────────────────────

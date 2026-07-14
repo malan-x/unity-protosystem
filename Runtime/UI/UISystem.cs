@@ -497,8 +497,17 @@ namespace ProtoSystem.UI
 
         #region Event Handlers
 
+        private int _lastBackFrame = -1;
+
         private void OnBackPressed(object data)
         {
+            // Back обрабатываем не чаще раза за кадр: один Escape приходит из двух источников —
+            // Update() ниже (клавиша) и NavigationCancelEvent панели UI Toolkit (Esc/геймпад B).
+            // Без этого первый вызов закрывал окно, а второй в том же кадре доставался окну
+            // под ним (Esc в базе закрывал базу и тут же открывал паузу на глобальной карте).
+            if (_lastBackFrame == Time.frameCount) return;
+            _lastBackFrame = Time.frameCount;
+
             // Give the active window a chance to handle Back/Escape.
             // This enables window-specific behavior (e.g. GameHUD -> open PauseMenu) and prevents
             // generic stack back from overriding custom flows.
