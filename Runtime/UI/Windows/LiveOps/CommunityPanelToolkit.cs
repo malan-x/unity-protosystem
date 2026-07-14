@@ -298,7 +298,27 @@ namespace ProtoSystem.UI
             {
                 _messageInput.maxLength = MessageMaxChars;
                 _messageInput.RegisterValueChangedCallback(e => OnMessageInputChanged(e.newValue));
-                _messageInput.RegisterCallback<FocusInEvent>(_ => TryShowVirtualKeyboard());
+
+                // Поле ввода — ДВА разных состояния, и их нельзя смешивать:
+                //   фокус НА поле  — навигация проходит мимо, набор не начат, клавиатуры нет;
+                //   набор В поле   — по явному Submit (A / Enter / клик мышью).
+                // Раньше фокус сразу проваливался внутрь (delegatesFocus) и по FocusIn поднималась
+                // системная клавиатура. На Steam Deck она вылезала просто при проходе фокуса вверх,
+                // а после её закрытия фокус терялся — до кнопок переключения новостей было не дойти.
+                _messageInput.delegatesFocus = false;
+
+                _messageInput.RegisterCallback<NavigationSubmitEvent>(OnInputSubmit);
+
+                var textInput = _messageInput.Q(TextField.textInputUssName);
+                if (textInput != null)
+                {
+                    // Клавиатуру поднимаем только когда набор реально начался
+                    textInput.RegisterCallback<FocusInEvent>(_ => TryShowVirtualKeyboard());
+
+                    // Выйти из набора обратно на поле, не закрывая панель/окно
+                    textInput.RegisterCallback<NavigationCancelEvent>(OnInputCancel);
+                    textInput.RegisterCallback<KeyDownEvent>(OnInputEscape, TrickleDown.TrickleDown);
+                }
 
                 // Выход стрелками вверх/вниз из поля ввода (TextField иначе съедает их)
                 _messageInput.RegisterCallback<NavigationMoveEvent>(OnInputNavMove, TrickleDown.TrickleDown);
@@ -538,6 +558,54 @@ namespace ProtoSystem.UI
 #else
             evt.PreventDefault();
 #endif
+        }
+
+        /// <summary>
+        /// Submit на поле ввода — начать набор: фокус уходит внутрь, и уже это поднимает
+        /// системную клавиатуру (Steam Deck). Пока фокус просто стоит на поле, клавиатуры нет.
+        /// </summary>
+        private void OnInputSubmit(NavigationSubmitEvent evt)
+        {
+            var textInput = _messageInput?.Q(TextField.textInputUssName);
+            if (textInput == null) return;
+
+            textInput.Focus();
+
+            evt.StopPropagation();
+#if UNITY_2023_2_OR_NEWER
+            _messageInput.focusController?.IgnoreEvent(evt);
+#else
+            evt.PreventDefault();
+#endif
+        }
+
+        /// <summary>
+        /// Cancel во время набора — выйти обратно на поле, а НЕ отдать Back окну
+        /// (иначе панель/окно закрылись бы прямо из-под набора текста).
+        /// </summary>
+        private void OnInputCancel(NavigationCancelEvent evt)
+        {
+            if (_messageInput == null) return;
+
+            _messageInput.Focus();   // delegatesFocus=false → фокус останется на самом поле
+
+            evt.StopPropagation();
+#if UNITY_2023_2_OR_NEWER
+            _messageInput.focusController?.IgnoreEvent(evt);
+#else
+            evt.PreventDefault();
+#endif
+        }
+
+        /// <summary>Escape во время набора — то же, что Cancel (клавиатурный путь).</summary>
+        private void OnInputEscape(KeyDownEvent evt)
+        {
+            if (evt.keyCode != KeyCode.Escape || _messageInput == null) return;
+
+            _messageInput.Focus();
+
+            evt.StopPropagation();
+            evt.PreventDefault();
         }
 
         private void OnInputKeyDown(KeyDownEvent evt)
