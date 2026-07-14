@@ -530,8 +530,9 @@ namespace ProtoSystem.UI
 
             foreach (var window in candidates)
             {
-                // Окна, созданные фабрикой, живут под корнем UI — их не трогаем
-                if (_canvas != null && window.transform.IsChildOf(_canvas.transform)) continue;
+                // Запечённые окна помечены флагом в инспекторе (его ставит команда запекания).
+                // Окна, созданные фабрикой, флага не несут — их не трогаем.
+                if (!window.BakedInScene) continue;
 
                 var attribute = window.GetType()
                     .GetCustomAttribute(typeof(UIWindowAttribute)) as UIWindowAttribute;

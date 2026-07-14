@@ -49,6 +49,18 @@ namespace ProtoSystem.UI
         /// </summary>
         internal bool SkipShowAnimation { get; set; }
 
+        [Header("Запекание в сцену")]
+        [Tooltip("Экземпляр окна сохранён прямо в сцене и должен быть виден с первого кадра — " +
+                 "ещё до того, как поднимется UISystem (иначе игрок успевает увидеть голый 3D-мир). " +
+                 "Ставится командой ProtoSystem/UI/Запечь окно в сцену.")]
+        [SerializeField] private bool bakedInScene;
+
+        /// <summary>
+        /// Окно запечено в сцену: оно уже нарисовано и НЕ должно прятать себя при Awake.
+        /// По этому флагу UISystem находит такие экземпляры и забирает их вместо создания новых.
+        /// </summary>
+        public bool BakedInScene => bakedInScene;
+
         // Корутина анимации
         private Coroutine _animationCoroutine;
 

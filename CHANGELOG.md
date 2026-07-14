@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.24.1] - 2026-07-14
+
+### Fixed
+- **Запечённое окно всё равно не было видно на старте.** `UIToolkitWindowBase.Awake()` прячет корень
+  (`HideRootImmediate`, чтобы UXML не мигал после Instantiate) — запечённое окно пряталось вместе
+  со всеми, и до `Show()` экран оставался пустым: игрок по-прежнему видел 3D-мир. Теперь у окна есть
+  сериализованный флаг `bakedInScene`: по нему окно НЕ прячет себя в Awake, а UISystem по нему же
+  находит запечённые экземпляры (раньше искала эвристикой по иерархии).
+
+### Changed
+- Команда запекания стала окном с выбором: `ProtoSystem/UI/Запечь окно в сцену` — выпадающий список
+  окон графа (по умолчанию — стартовое), кнопки «Запечь» / «Убрать», предупреждение, если выбрано
+  не стартовое окно (UISystem погасит его при инициализации).
+
 ## [1.24.0] - 2026-07-14
 
 ### Added
