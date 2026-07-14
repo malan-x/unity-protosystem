@@ -31,8 +31,12 @@ namespace ProtoSystem.UI
         [Serializable]
         public class Frame
         {
-            [Tooltip("Картинка кадра. Растягивается по экрану (cover).")]
+            [Tooltip("Картинка кадра.")]
             public Sprite image;
+
+            [Tooltip("Вписать картинку целиком (логотип), а не заполнять экран с обрезкой (арт). " +
+                     "Логотип на всю ширину растянулся бы и обрезался — ему нужен именно этот режим.")]
+            public bool fitInside;
 
             [Tooltip("Сколько держать кадр на экране, секунды.")]
             public float duration = 2f;
@@ -169,17 +173,18 @@ namespace ProtoSystem.UI
         {
             if (_image == null || index < 0 || index >= frames.Count) return;
 
-            var sprite = frames[index].image;
+            var frame = frames[index];
             _image.style.opacity = 1f;
 
-            if (sprite == null)
+            if (frame.image == null)
             {
                 _image.style.backgroundImage = StyleKeyword.None;
                 return;
             }
 
-            _image.style.backgroundImage = new StyleBackground(sprite);
-            _image.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
+            _image.style.backgroundImage = new StyleBackground(frame.image);
+            _image.style.backgroundSize = new BackgroundSize(
+                frame.fitInside ? BackgroundSizeType.Contain : BackgroundSizeType.Cover);
             _image.style.unityBackgroundImageTintColor = Color.white;
         }
 
