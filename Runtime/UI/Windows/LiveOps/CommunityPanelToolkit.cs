@@ -66,6 +66,7 @@ namespace ProtoSystem.UI
         private Button _convBackButton, _translationToggle;
         private Label  _convTitle, _translationLang, _convEmpty;
         private VisualElement _convMessages;
+        private ScrollView _convScroll;
 
         private VisualElement _collapsedRow;
         private Button _expandButton, _collapseButton;
@@ -256,6 +257,7 @@ namespace ProtoSystem.UI
             _translationToggle = _root.Q<Button>("cp-translation-toggle");
             _convEmpty         = _root.Q<Label>("cp-conv-empty");
             _convMessages      = _root.Q("cp-conv-messages");
+            _convScroll        = _root.Q<ScrollView>("cp-conv-scroll");
 
             _collapsedRow   = _root.Q("cp-collapsed-row");
             _expandButton   = _root.Q<Button>("cp-expand-button");
@@ -482,15 +484,17 @@ namespace ProtoSystem.UI
         /// </summary>
         private void OnPanelNavMove(NavigationMoveEvent evt)
         {
-            int dir = evt.direction switch
+            var dir = evt.direction switch
             {
-                NavigationMoveEvent.Direction.Up   => -1,
-                NavigationMoveEvent.Direction.Down => +1,
-                _ => 0
+                NavigationMoveEvent.Direction.Up    => NavDir.Up,
+                NavigationMoveEvent.Direction.Down  => NavDir.Down,
+                NavigationMoveEvent.Direction.Left  => NavDir.Left,
+                NavigationMoveEvent.Direction.Right => NavDir.Right,
+                _ => NavDir.None
             };
-            if (dir == 0) return;
+            if (dir == NavDir.None) return;
             if (evt.target is not VisualElement focused) return;
-            if (!MoveFocus(focused, dir)) return; // край панели — отдаём окну
+            if (!MoveFocus(focused, dir)) return; // соседа нет — край панели, отдаём окну
 
             evt.StopPropagation();
 #if UNITY_2023_2_OR_NEWER
@@ -500,18 +504,111 @@ namespace ProtoSystem.UI
 #endif
         }
 
-        /// <summary>Сместить фокус на соседний контрол по списку навигации. false — упёрлись в край.</summary>
-        private bool MoveFocus(VisualElement from, int dir)
+        private enum NavDir { None, Up, Down, Left, Right }
+
+        /// <summary>
+        /// Сместить фокус на соседний контрол ПО ГЕОМЕТРИИ. false — соседа в эту сторону нет
+        /// (край панели: событие отдаём окну-хозяину, чтобы фокус мог уйти в меню).
+        ///
+        /// Соседей ищем сами, а не полагаемся на FocusController: его правила непрозрачны, он
+        /// цепляет служебные внутренности (скроллеры, input внутри TextField) и уводит фокус
+        /// «в никуда». Здесь всё явно: вверх/вниз — ближайшая строка, влево/вправо — сосед
+        /// в текущей строке.
+        /// </summary>
+        private bool MoveFocus(VisualElement from, NavDir dir)
         {
-            var order = FocusablesInOrder();
-            int index = IndexOfOwner(order, from);
+            var controls = FocusablesInOrder();
+
+            int index = IndexOfOwner(controls, from);
             if (index < 0) return false;
 
-            int next = index + dir;
-            if (next < 0 || next >= order.Count) return false;
+            var origin = controls[index];
+            var target = FindNeighbor(origin, controls, dir);
+            if (target == null) return false;
 
-            order[next].Focus();
+            FocusControl(target);
             return true;
+        }
+
+        /// <summary>
+        /// Ближайший сосед в направлении dir.
+        /// Строка — контролы с близким центром по Y (допуск = половина высоты контрола).
+        /// Влево/вправо ищем только в своей строке, вверх/вниз — в ближайшей другой строке,
+        /// и там берём контрол с самым близким X (так фокус не «телепортируется» через панель).
+        /// </summary>
+        private static VisualElement FindNeighbor(VisualElement origin, List<VisualElement> controls, NavDir dir)
+        {
+            Rect from = origin.worldBound;
+            float fromX = from.center.x;
+            float fromY = from.center.y;
+            float rowTolerance = Mathf.Max(from.height * 0.5f, 4f);
+
+            VisualElement best = null;
+            float bestPrimary = float.MaxValue;   // расстояние вдоль направления
+            float bestSecondary = float.MaxValue; // отклонение поперёк
+
+            foreach (var candidate in controls)
+            {
+                if (candidate == origin) continue;
+
+                Rect rect = candidate.worldBound;
+                if (rect.width <= 0f || rect.height <= 0f) continue;   // не в layout
+
+                float dx = rect.center.x - fromX;
+                float dy = rect.center.y - fromY;
+
+                float primary, secondary;
+
+                switch (dir)
+                {
+                    case NavDir.Left:
+                    case NavDir.Right:
+                        // Только своя строка: иначе «влево» прыгало бы в соседнюю секцию
+                        if (Mathf.Abs(dy) > rowTolerance) continue;
+                        if (dir == NavDir.Left && dx >= -1f) continue;
+                        if (dir == NavDir.Right && dx <= 1f) continue;
+
+                        primary = Mathf.Abs(dx);
+                        secondary = Mathf.Abs(dy);
+                        break;
+
+                    case NavDir.Up:
+                    case NavDir.Down:
+                        // Другая строка (внутри своей строки вертикали нет)
+                        if (Mathf.Abs(dy) <= rowTolerance) continue;
+                        if (dir == NavDir.Up && dy >= 0f) continue;
+                        if (dir == NavDir.Down && dy <= 0f) continue;
+
+                        primary = Mathf.Abs(dy);
+                        secondary = Mathf.Abs(dx);
+                        break;
+
+                    default:
+                        continue;
+                }
+
+                // Ближайшая строка важнее совпадения по X: строку выбираем первой,
+                // и только внутри неё — самый близкий по горизонтали контрол
+                bool better = primary < bestPrimary - 1f ||
+                              (Mathf.Abs(primary - bestPrimary) <= 1f && secondary < bestSecondary);
+
+                if (!better) continue;
+
+                best = candidate;
+                bestPrimary = primary;
+                bestSecondary = secondary;
+            }
+
+            return best;
+        }
+
+        /// <summary>Фокус + подкрутить ленту переписки, если контрол внутри неё.</summary>
+        private void FocusControl(VisualElement control)
+        {
+            control.Focus();
+
+            if (_convScroll != null && _convScroll.Contains(control))
+                _convScroll.ScrollTo(control);
         }
 
         /// <summary>
@@ -544,13 +641,15 @@ namespace ProtoSystem.UI
 
         private void OnInputNavMove(NavigationMoveEvent evt)
         {
-            int dir = evt.direction switch
+            var dir = evt.direction switch
             {
-                NavigationMoveEvent.Direction.Up   => -1,
-                NavigationMoveEvent.Direction.Down => +1,
-                _ => 0
+                NavigationMoveEvent.Direction.Up    => NavDir.Up,
+                NavigationMoveEvent.Direction.Down  => NavDir.Down,
+                NavigationMoveEvent.Direction.Left  => NavDir.Left,
+                NavigationMoveEvent.Direction.Right => NavDir.Right,
+                _ => NavDir.None
             };
-            if (dir == 0 || !MoveFocus(_messageInput, dir)) return;
+            if (dir == NavDir.None || !MoveFocus(_messageInput, dir)) return;
 
             evt.StopPropagation();
 #if UNITY_2023_2_OR_NEWER
@@ -610,13 +709,14 @@ namespace ProtoSystem.UI
 
         private void OnInputKeyDown(KeyDownEvent evt)
         {
-            int dir = evt.keyCode switch
+            // Стрелки влево/вправо не трогаем: пока идёт набор, это движение каретки по тексту
+            var dir = evt.keyCode switch
             {
-                KeyCode.UpArrow   => -1,
-                KeyCode.DownArrow => +1,
-                _ => 0
+                KeyCode.UpArrow   => NavDir.Up,
+                KeyCode.DownArrow => NavDir.Down,
+                _ => NavDir.None
             };
-            if (dir == 0 || !MoveFocus(_messageInput, dir)) return;
+            if (dir == NavDir.None || !MoveFocus(_messageInput, dir)) return;
 
             evt.StopPropagation();
             evt.PreventDefault();
@@ -642,6 +742,12 @@ namespace ProtoSystem.UI
                 {
                     Add(_convBackButton);
                     Add(_translationToggle);
+
+                    // Сообщения ленты — тоже контролы: их выделяют и по ним ходят вверх/вниз
+                    // (лента подкручивается за фокусом, см. FocusControl)
+                    if (_convMessages != null)
+                        foreach (var message in _convMessages.Children())
+                            Add(message);
                 }
                 else
                 {
@@ -1346,6 +1452,7 @@ namespace ProtoSystem.UI
 
                 var row = new VisualElement();
                 row.AddToClassList("cp-conv-item");
+                row.focusable = true;   // сообщения выделяются и участвуют в навигации панели
 
                 var msg = new Label(item.message ?? "");
                 msg.AddToClassList("cp-conv-msg");

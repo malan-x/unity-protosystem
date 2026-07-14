@@ -401,6 +401,14 @@
     border-bottom-color: var(--cp-input-border);
 }
 
+/* Сообщения ленты фокусируемы (навигация геймпадом ходит по ним) — выделение обязательно,
+   иначе с геймпада не видно, где фокус */
+.cp-conv-item:focus {
+    background-color: rgba(232, 174, 88, 0.10);
+    border-left-width: 2px;
+    border-left-color: rgb(232, 174, 88);
+}
+
 .cp-conv-msg  { font-size: 18px; color: var(--cp-text); white-space: normal; }
 .cp-conv-time { font-size: 13px; color: var(--cp-meta); margin-top: 2px; }
 .cp-conv-cat  { font-size: 13px; color: var(--cp-meta); }
