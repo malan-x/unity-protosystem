@@ -42,6 +42,13 @@ namespace ProtoSystem.UI
         public WindowLayer Layer { get; internal set; }
         public bool AllowBack { get; internal set; } = true;
 
+        /// <summary>
+        /// Окно уже на экране (запечено в сцену) — ближайший Show() должен пройти без fade-in,
+        /// иначе картинка моргнёт из прозрачности в тот момент, когда UISystem его подхватит.
+        /// Сбрасывается этим же Show(). См. UIWindowFactory.RegisterBaked.
+        /// </summary>
+        internal bool SkipShowAnimation { get; set; }
+
         // Корутина анимации
         private Coroutine _animationCoroutine;
 

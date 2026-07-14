@@ -215,13 +215,25 @@ namespace ProtoSystem.UI
             root.style.display = DisplayStyle.Flex;
             SetPicking(root, PickingMode.Position);   // учитывает PointerTransparentRoot
 
-            StartFade(root, show: true, () =>
+            void FinishShow()
             {
                 SetState(WindowState.Visible);
                 FocusDefaultElement();
                 OnShow();
                 onComplete?.Invoke();
-            });
+            }
+
+            // Запечённое в сцену окно уже нарисовано с первого кадра — fade-in «из прозрачности»
+            // дал бы моргание ровно в момент подхвата окна системой
+            if (SkipShowAnimation)
+            {
+                SkipShowAnimation = false;
+                root.style.opacity = 1f;
+                FinishShow();
+                return;
+            }
+
+            StartFade(root, show: true, FinishShow);
         }
 
         public override void Hide(Action onComplete = null)

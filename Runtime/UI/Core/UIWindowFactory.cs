@@ -64,6 +64,51 @@ namespace ProtoSystem.UI
         #region Create/Release
 
         /// <summary>
+        /// Принять окно, ЗАПЕЧЁННОЕ в сцену: его экземпляр уже лежит в сцене активным и потому
+        /// рисуется с первого кадра — задолго до того, как поднимется UISystem. Это убирает
+        /// «дыру» в начале запуска, когда стартовое окно ещё не открыто и виден голый 3D-мир.
+        ///
+        /// Экземпляр кладётся в пул, поэтому обычный Create() возьмёт именно его и не станет
+        /// инстанцировать префаб заново.
+        ///
+        /// isStartWindow — окно останется видимым и покажется без fade-in (оно уже на экране,
+        /// анимация «из прозрачности» дала бы моргание). Остальные запечённые окна гасим:
+        /// в сцене они лежат активными, иначе так и висели бы поверх.
+        /// </summary>
+        public void RegisterBaked(WindowDefinition definition, UIWindowBase window, bool isStartWindow)
+        {
+            if (definition == null || window == null) return;
+
+            _definitions[definition.id] = definition;
+
+            // Панель, назначенная запечённому окну в сцене, становится панелью всего слоя:
+            // иначе рантайм создал бы для слоя свою копию PanelSettings, окно переехало бы
+            // в другую панель (свой FocusController, свой порядок) и моргнуло при переключении.
+            var doc = window.GetComponent<UIDocument>();
+            if (doc != null && doc.panelSettings != null &&
+                !_panelSettingsByLayer.ContainsKey(definition.layer))
+            {
+                _panelSettingsByLayer[definition.layer] = doc.panelSettings;
+            }
+
+            if (isStartWindow)
+            {
+                window.SkipShowAnimation = true;
+            }
+            else
+            {
+                window.gameObject.SetActive(false);
+            }
+
+            if (!_pool.TryGetValue(definition.id, out var pool))
+            {
+                pool = new Queue<UIWindowBase>();
+                _pool[definition.id] = pool;
+            }
+            pool.Enqueue(window);
+        }
+
+        /// <summary>
         /// Создать экземпляр окна
         /// </summary>
         public UIWindowBase Create(WindowDefinition definition)

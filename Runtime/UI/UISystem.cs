@@ -2,6 +2,7 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
@@ -221,6 +222,10 @@ namespace ProtoSystem.UI
                 _dialogBuilder = new DialogBuilder(this);
                 _toastBuilder = new ToastBuilder(this);
                 _tooltipBuilder = new TooltipBuilder(this);
+
+                // Окна, запечённые в сцену, забираем ДО открытия стартового: иначе фабрика
+                // создала бы второй экземпляр, а запечённый так и висел бы поверх
+                AdoptBakedWindows();
 
                 // Инициализация через SceneInitializer или стандартный flow
                 if (_sceneInitializer != null)
@@ -496,6 +501,54 @@ namespace ProtoSystem.UI
         #endregion
 
         #region Event Handlers
+
+        /// <summary>
+        /// Запечённое окно — экземпляр окна, лежащий прямо в сцене (а не созданный фабрикой).
+        /// Он активен с первого кадра, поэтому его картинка закрывает 3D-мир ещё до того,
+        /// как поднимется UI-система: это убирает мелькание сцены перед стартовым окном.
+        ///
+        /// Здесь мы такие экземпляры находим и отдаём фабрике: стартовое остаётся на экране
+        /// и покажется без fade-in, остальные гасятся. Дубликатов не возникает — Create()
+        /// возьмёт запечённый экземпляр из пула вместо инстанцирования префаба.
+        ///
+        /// Важно: до Show() у окна не вызывается OnBuildUI, поэтому в первом кадре видно ровно
+        /// то, что описано в UXML/USS. Всё, что окно рисует кодом (например фон из спрайта),
+        /// появится только при подхвате — такой фон нужно дублировать в USS.
+        /// </summary>
+        private void AdoptBakedWindows()
+        {
+            if (_factory == null || _windowGraph == null) return;
+
+            string startId = !string.IsNullOrEmpty(_sceneInitializer?.StartWindowId)
+                ? _sceneInitializer.StartWindowId
+                : !string.IsNullOrEmpty(overrideStartWindowId)
+                    ? overrideStartWindowId
+                    : _windowGraph.startWindowId;
+
+            var candidates = FindObjectsByType<UIWindowBase>(
+                FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+
+            foreach (var window in candidates)
+            {
+                // Окна, созданные фабрикой, живут под корнем UI — их не трогаем
+                if (_canvas != null && window.transform.IsChildOf(_canvas.transform)) continue;
+
+                var attribute = window.GetType()
+                    .GetCustomAttribute(typeof(UIWindowAttribute)) as UIWindowAttribute;
+                if (attribute == null) continue;
+
+                var definition = _windowGraph.GetWindow(attribute.WindowId);
+                if (definition == null)
+                {
+                    LogWarning($"Запечённое окно '{attribute.WindowId}' не найдено в графе — пропущено");
+                    continue;
+                }
+
+                bool isStart = attribute.WindowId == startId;
+                _factory.RegisterBaked(definition, window, isStart);
+                LogMessage($"Adopted baked window '{attribute.WindowId}'{(isStart ? " (start)" : "")}");
+            }
+        }
 
         private int _lastBackFrame = -1;
 
