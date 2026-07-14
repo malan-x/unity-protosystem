@@ -2,9 +2,9 @@
 using System;
 using System.IO;
 using UnityEngine;
+using ProtoSystem.Compat;   // рантайм-обёртка: используется и в плеере — под #if UNITY_EDITOR не прятать
 #if UNITY_EDITOR
 using UnityEditor;
-using ProtoSystem.Compat;
 #endif
 
 namespace ProtoSystem.UI
