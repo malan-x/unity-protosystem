@@ -21,52 +21,22 @@ namespace ProtoSystem.Editor
         public const string PackageName = "com.coplaydev.unity-mcp";
 
         /// <summary>
-        /// Наш форк (malan-x/unity-mcp, корень репозитория = пакет): v10.0.1 делает ключ
-        /// порта HTTP-сервера пер-проектным — два открытых проекта больше не делят один
-        /// сервер и не перетирают настройку друг друга (у upstream ключ глобальный).
-        /// Пин на ТЕГ, а не на main: обновление версии — осознанный шаг.
+        /// Пин на ТЕГ, а не на main: пакет активно развивается, и произвольный коммит
+        /// из main способен сломать сборку проекта. Обновление версии — осознанный шаг.
         /// </summary>
         private const string PackageUrl =
-            "https://github.com/malan-x/unity-mcp.git#v10.0.1";
+            "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#v10.0.0";
 
-        /// <summary>
-        /// Пер-проектный HTTP-порт: 8080 + сдвиг из SHA1 пути проекта (8080–8179).
-        /// Детерминирован — у проекта всегда один и тот же порт, у разных проектов
-        /// (почти наверняка) разные. Тот же порт пишется и в .mcp.json, и в
-        /// пер-проектный ключ EditorPrefs форка — сервер и Claude сходятся сами.
-        /// </summary>
-        public static int ProjectPort => 8080 + ProjectHashByte() % 100;
-
-        public static string ProjectHttpUrl => $"http://127.0.0.1:{ProjectPort}";
-
-        private static string ClaudeConfigJson =>
+        /// <summary>Конфиг MCP-сервера для Claude Code. Мост пакета слушает HTTP на 8080.</summary>
+        private const string ClaudeConfigJson =
             "{\n" +
             "  \"mcpServers\": {\n" +
             "    \"unity-mcp\": {\n" +
             "      \"type\": \"http\",\n" +
-            $"      \"url\": \"{ProjectHttpUrl}/mcp\"\n" +
+            "      \"url\": \"http://127.0.0.1:8080/mcp\"\n" +
             "    }\n" +
             "  }\n" +
             "}\n";
-
-        // Ключ форка: "MCPForUnity.HttpUrl." + 8 hex-символов SHA1(dataPath) —
-        // ДОЛЖЕН совпадать с EditorPrefKeys.HttpBaseUrl форка (см. FORK.md пакета).
-        private static string ForkHttpUrlPrefKey => "MCPForUnity.HttpUrl." + ProjectHashHex8();
-
-        private static byte ProjectHashByte()
-        {
-            using var sha1 = System.Security.Cryptography.SHA1.Create();
-            return sha1.ComputeHash(System.Text.Encoding.UTF8.GetBytes(Application.dataPath ?? ""))[0];
-        }
-
-        private static string ProjectHashHex8()
-        {
-            using var sha1 = System.Security.Cryptography.SHA1.Create();
-            var hash = sha1.ComputeHash(System.Text.Encoding.UTF8.GetBytes(Application.dataPath ?? ""));
-            var sb = new System.Text.StringBuilder();
-            for (int i = 0; i < 4; i++) sb.Append(hash[i].ToString("x2"));
-            return sb.ToString();
-        }
 
         private static AddRequest _addRequest;
 
@@ -92,7 +62,7 @@ namespace ProtoSystem.Editor
                     "  • Python 3.10+\n" +
                     "  • uv (менеджер окружений Astral)\n\n" +
                     "Пакет разворачивает локальный Python-сервер и шлёт телеметрию разработчику " +
-                    "(CoplayDev). Ставится наш форк v10.0.1 (пер-проектный порт сервера).",
+                    "(CoplayDev). Ставится версия v10.0.0.",
                     "Установить", "Отмена"))
                 return;
 
@@ -149,32 +119,7 @@ namespace ProtoSystem.Editor
                 return;
 
             File.WriteAllText(path, ClaudeConfigJson);
-            EditorPrefs.SetString(ForkHttpUrlPrefKey, ProjectHttpUrl);
-            Debug.Log($"[ProtoSystem] Создан .mcp.json (порт {ProjectPort}) — Claude Code подхватит " +
-                      "unity-mcp при старте сессии.");
-        }
-
-        /// <summary>
-        /// Миграция на пер-проектный порт для УЖЕ настроенных проектов: перезаписывает
-        /// url в .mcp.json и ставит пер-проектный ключ EditorPrefs форка. После —
-        /// перезапустить редактор (сервер) и Claude-сессию.
-        /// </summary>
-        [MenuItem("ProtoSystem/MCP for Unity/Перевести на пер-проектный порт (мульти-проект)", priority = 402)]
-        public static void MigrateToProjectPort()
-        {
-            const string path = ".mcp.json";
-            if (!EditorUtility.DisplayDialog("Пер-проектный порт MCP",
-                    $"Порт этого проекта: {ProjectPort} (выводится из пути проекта, стабилен).\n\n" +
-                    "Будут обновлены .mcp.json и настройка сервера. Требуется форк пакета " +
-                    "v10.0.1+ (ProtoSystem ставит именно его).\n\n" +
-                    "После — перезапустите Unity и Claude-сессию.",
-                    "Перевести", "Отмена"))
-                return;
-
-            File.WriteAllText(path, ClaudeConfigJson);
-            EditorPrefs.SetString(ForkHttpUrlPrefKey, ProjectHttpUrl);
-            Debug.Log($"[ProtoSystem] Проект переведён на порт {ProjectPort}: .mcp.json и " +
-                      $"настройка сервера ({ForkHttpUrlPrefKey}) обновлены.");
+            Debug.Log("[ProtoSystem] Создан .mcp.json — Claude Code подхватит unity-mcp при старте сессии.");
         }
 
         [MenuItem("ProtoSystem/MCP for Unity/Установить (Claude Code управляет редактором)", true)]
