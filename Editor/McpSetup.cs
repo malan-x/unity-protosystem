@@ -21,22 +21,38 @@ namespace ProtoSystem.Editor
         public const string PackageName = "com.coplaydev.unity-mcp";
 
         /// <summary>
-        /// Пин на ТЕГ, а не на main: пакет активно развивается, и произвольный коммит
-        /// из main способен сломать сборку проекта. Обновление версии — осознанный шаг.
+        /// Версия закреплена (пин на тег/PyPI-версию, не на main): пакет активно развивается,
+        /// и произвольный коммит способен сломать сборку. Обновление — осознанный шаг;
+        /// Unity-пакет и Python-сервер обновляются ВМЕСТЕ (одна константа).
         /// </summary>
-        private const string PackageUrl =
-            "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#v10.0.0";
+        private const string McpVersion = "10.0.0";
 
-        /// <summary>Конфиг MCP-сервера для Claude Code. Мост пакета слушает HTTP на 8080.</summary>
+        private const string PackageUrl =
+            "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#v" + McpVersion;
+
+        /// <summary>
+        /// Конфиг MCP-сервера для Claude Code — транспорт STDIO: каждая сессия поднимает
+        /// СВОЙ Python-сервер (uvx с PyPI), который находит Unity этого проекта по
+        /// статус-файлам ~/.unity-mcp (порт 6400+ на проект). В отличие от http-варианта
+        /// с общим сервером на фиксированном порту, несколько одновременно открытых
+        /// проектов изолированы из коробки. Требование: в окне MCP For Unity транспорт
+        /// тоже должен быть Stdio — WriteClaudeConfig переключает его сам.
+        /// </summary>
         private const string ClaudeConfigJson =
             "{\n" +
             "  \"mcpServers\": {\n" +
             "    \"unity-mcp\": {\n" +
-            "      \"type\": \"http\",\n" +
-            "      \"url\": \"http://127.0.0.1:8080/mcp\"\n" +
+            "      \"type\": \"stdio\",\n" +
+            "      \"command\": \"uvx\",\n" +
+            "      \"args\": [\"--from\", \"mcpforunityserver==" + McpVersion + "\", \"mcp-for-unity\"]\n" +
             "    }\n" +
             "  }\n" +
             "}\n";
+
+        // Ключ пакета MCP (строкой — McpSetup сознательно не ссылается на его сборки):
+        // false = транспорт Stdio в окне MCP For Unity. Ключ глобальный для пользователя,
+        // но для stdio это и нужно — все проекты в одном режиме.
+        private const string UseHttpTransportPrefKey = "MCPForUnity.UseHttpTransport";
 
         private static AddRequest _addRequest;
 
@@ -62,7 +78,8 @@ namespace ProtoSystem.Editor
                     "  • Python 3.10+\n" +
                     "  • uv (менеджер окружений Astral)\n\n" +
                     "Пакет разворачивает локальный Python-сервер и шлёт телеметрию разработчику " +
-                    "(CoplayDev). Ставится версия v10.0.0.",
+                    "(CoplayDev). Ставится версия v" + McpVersion + ", транспорт stdio — " +
+                    "у каждого проекта свой сервер, несколько открытых проектов не конфликтуют.",
                     "Установить", "Отмена"))
                 return;
 
@@ -97,29 +114,46 @@ namespace ProtoSystem.Editor
         }
 
         /// <summary>
-        /// Регистрирует сервер в Claude Code. Окно самого пакета этого не делает для CLI —
-        /// приходится писать .mcp.json руками. Транспорт именно http: мост пакета слушает
-        /// 127.0.0.1:8080, а stdio-вариант ищет Unity по TCP и не находит.
+        /// Регистрирует сервер в Claude Code (.mcp.json в корне проекта) и переключает
+        /// мост пакета на stdio. Окно самого пакета для CLI этого не делает — пишем руками.
+        /// Старый http-конфиг (общий сервер на 8080) переписывается с подтверждением.
         /// </summary>
-        [MenuItem("ProtoSystem/MCP for Unity/Зарегистрировать сервер в Claude Code", priority = 401)]
+        [MenuItem("ProtoSystem/MCP for Unity/Зарегистрировать сервер в Claude Code (stdio)", priority = 401)]
         public static void WriteClaudeConfig()
         {
             const string path = ".mcp.json";
+            string existing = File.Exists(path) ? File.ReadAllText(path) : "";
 
-            if (File.Exists(path) && File.ReadAllText(path).Contains("unity-mcp"))
+            bool hasStdio = existing.Contains("unity-mcp") && existing.Contains("\"stdio\"");
+            if (hasStdio)
             {
-                Debug.Log("[ProtoSystem] .mcp.json уже содержит unity-mcp — не трогаю.");
+                Debug.Log("[ProtoSystem] .mcp.json уже содержит stdio-конфиг unity-mcp — не трогаю.");
+            }
+            else if (existing.Length > 0 &&
+                !EditorUtility.DisplayDialog(".mcp.json уже существует",
+                    existing.Contains("unity-mcp")
+                        ? "В .mcp.json старая (http) регистрация unity-mcp. Переписать на stdio — " +
+                          "у каждого проекта будет свой сервер, без конфликтов портов?"
+                        : "В корне проекта есть .mcp.json с другими серверами. Перезаписать его " +
+                          "конфигурацией unity-mcp?",
+                    "Переписать", "Отмена"))
+            {
                 return;
             }
+            else
+            {
+                File.WriteAllText(path, ClaudeConfigJson);
+                Debug.Log("[ProtoSystem] Создан .mcp.json (stdio) — Claude Code подхватит unity-mcp " +
+                          "при старте сессии.");
+            }
 
-            if (File.Exists(path) &&
-                !EditorUtility.DisplayDialog(".mcp.json уже существует",
-                    "В корне проекта есть .mcp.json с другими серверами. Перезаписать его " +
-                    "конфигурацией unity-mcp?", "Перезаписать", "Отмена"))
-                return;
-
-            File.WriteAllText(path, ClaudeConfigJson);
-            Debug.Log("[ProtoSystem] Создан .mcp.json — Claude Code подхватит unity-mcp при старте сессии.");
+            // Мост редактора — тоже в stdio, иначе сервер сессии не найдёт Unity
+            if (EditorPrefs.GetBool(UseHttpTransportPrefKey, true))
+            {
+                EditorPrefs.SetBool(UseHttpTransportPrefKey, false);
+                Debug.Log("[ProtoSystem] Транспорт MCP For Unity переключён на Stdio — " +
+                          "перезапустите Unity, чтобы мост пересоздался.");
+            }
         }
 
         [MenuItem("ProtoSystem/MCP for Unity/Установить (Claude Code управляет редактором)", true)]

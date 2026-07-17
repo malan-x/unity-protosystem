@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.28.0] - 2026-07-17
+
+### Changed
+- **`McpSetup`: регистрация Claude Code переведена с http на stdio.** Общий http-сервер
+  на фиксированном порту 8080 конфликтовал при нескольких открытых проектах (порт один
+  на всех, выбор активного инстанса глобален). Stdio изолирует проекты из коробки:
+  каждая сессия поднимает свой Python-сервер (`uvx --from mcpforunityserver==<пин>
+  mcp-for-unity`), Unity каждого проекта слушает свой порт (6400+), связка — через
+  статус-файлы `~/.unity-mcp`.
+- `McpSetup.WriteClaudeConfig` переключает и мост редактора на Stdio (ключ пакета,
+  строкой — без ссылки на его сборки); старый http-`.mcp.json` переписывается
+  с подтверждением. Версии Unity-пакета и Python-сервера закреплены одной константой.
+
 ## [1.27.1] - 2026-07-14
 
 ### Added
