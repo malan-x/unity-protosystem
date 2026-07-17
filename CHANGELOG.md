@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.28.0] - 2026-07-17
+
+### Changed
+- `McpSetup`: ставится наш форк MCP for Unity (`malan-x/unity-mcp#v10.0.1`,
+  корень репозитория = пакет, без `?path=`) вместо upstream. Форк делает ключ
+  порта HTTP-сервера пер-проектным — два одновременно открытых проекта больше
+  не делят один сервер и не перетирают настройку друг друга.
+- `McpSetup`: порт выводится из SHA1 пути проекта (8080–8179, детерминирован);
+  `.mcp.json` и пер-проектный ключ EditorPrefs форка пишутся согласованно.
+
+### Added
+- Меню `ProtoSystem → MCP for Unity → Перевести на пер-проектный порт
+  (мульти-проект)` — миграция уже настроенных проектов одним кликом
+  (перезаписывает url в .mcp.json и настройку сервера; после — перезапуск
+  Unity и Claude-сессии).
+
 ## [1.27.1] - 2026-07-14
 
 ### Added
