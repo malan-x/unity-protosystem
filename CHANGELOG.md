@@ -11,10 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CaptureSystem: скриншоты текущего экрана на всех языках за один прогон.**
   `CaptureSystem.CaptureAllLanguages()` + кнопка в инспекторе системы (клик в инспекторе
   не уходит в игру и не сбивает кадр — в отличие от меню/хоткея). Для каждого языка из
-  `Loc.AvailableLanguages` меняет язык, ДОЖИДАЕТСЯ применения локали и перестройки UI по
-  РЕАЛЬНОМУ времени (`CaptureConfig.multiLangSettleSeconds`) — важно, т.к. `Loc.SetLanguage`
-  асинхронный, а часть окон перелокализуется отложенно; ждать N кадров ненадёжно (снимок
-  берёт ещё предыдущий язык). Кадр всегда PNG, в конце возвращается исходный язык.
+  `Loc.AvailableLanguages` меняет язык и **ждёт фактической смены интерфейса по событию**
+  `EventBus.Localization.LanguageChanged` (оно публикуется ПОСЛЕ выбора локали и догрузки
+  таблиц) — без фиксированной задержки; затем `multiLangWaitFrames` кадров на окна с
+  отложенной перелокализацией — и снимает. Кадр всегда PNG, в конце возвращается исходный язык.
+- **Пауза игры на время прогона** (`CaptureConfig.multiLangPauseGame`, по умолчанию вкл):
+  `Time.timeScale=0` — снимается ОДИН И ТОТ ЖЕ момент на всех языках; по завершении
+  восстанавливается. Корутина работает на кадрах/unscaled-времени, поэтому идёт при паузе.
 - **Имя файла — шаблон с тегами** (`CaptureConfig.multiLangNameTemplate`): `<lang>` — код
   языка, `<screen name>` — имя активного окна UI. Напр. «`<screen name> <lang>`» →
   «GlobalMap en.png», «`Global Map <lang>`» → «Global Map en.png». Если `<lang>` нет —
@@ -22,7 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Inline-кнопка «Обзор…»** у поля `multiLangFolder` в инспекторе конфига — модальный выбор
   папки (`EditorUtility.OpenFolderPanel`).
 - `CaptureConfig`: поля `multiLangFolder` (пусто → подпапка «Localized»; можно абсолютный
-  путь, напр. папку поста), `multiLangNameTemplate`, `multiLangSettleSeconds`, `multiLangIncludeUI`.
+  путь, напр. папку поста), `multiLangNameTemplate`, `multiLangPauseGame`,
+  `multiLangWaitFrames`, `multiLangIncludeUI`.
 
 ## [1.28.0] - 2026-07-17
 

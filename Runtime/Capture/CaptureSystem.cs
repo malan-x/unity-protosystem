@@ -276,14 +276,15 @@ namespace ProtoSystem
 
         /// <summary>
         /// Снять ТЕКУЩИЙ экран на всех доступных языках за один прогон: меняет язык → ждёт
-        /// применения локали и перестройки UI → снимает кадр → следующий язык. В конце
-        /// возвращает исходный язык. Файлы: «&lt;префикс&gt; &lt;код языка&gt;.png».
+        /// фактической смены интерфейса → снимает кадр → следующий язык. В конце возвращает
+        /// исходный язык. Имя файла — по шаблону config.multiLangNameTemplate.
         ///
-        /// ВАЖНО про ожидание: Loc.SetLanguage АСИНХРОННЫЙ (таблицы локали догружаются), а часть
-        /// окон перестраивает текст отложенно. Поэтому ждём по РЕАЛЬНОМУ времени
-        /// (config.multiLangSettleSeconds), а не N кадров — иначе кадр снимется на предыдущем языке.
+        /// Ожидание БЕЗ фиксированной задержки: ждём событие EventBus.Localization.LanguageChanged
+        /// (публикуется ПОСЛЕ выбора локали и догрузки таблиц), затем config.multiLangWaitFrames
+        /// кадров на окна с отложенной перелокализацией.
         ///
-        /// Нужный экран открой заранее: снимается то, что сейчас на экране.
+        /// Опционально ставит игру на паузу (config.multiLangPauseGame) — чтобы снять один и тот
+        /// же момент на всех языках. Нужный экран открой заранее: снимается то, что на экране.
         /// </summary>
         public void CaptureAllLanguages()
         {
@@ -705,24 +706,39 @@ namespace ProtoSystem
 
             string template = string.IsNullOrEmpty(config.multiLangNameTemplate)
                 ? "<screen name> <lang>" : config.multiLangNameTemplate;
-            float settle = Mathf.Max(0.1f, config.multiLangSettleSeconds);
+            int waitFrames = Mathf.Max(1, config.multiLangWaitFrames);
             bool includeUI = config.multiLangIncludeUI;
             string original = Loc.CurrentLanguage;
 
-            // Снимок списка языков (AvailableLanguages может быть «живым»)
+            // Пауза игры: снимаем ОДИН И ТОТ ЖЕ момент на всех языках. Корутина живёт на кадрах/
+            // unscaled-времени, поэтому продолжает работать при timeScale = 0.
+            float prevScale = Time.timeScale;
+            if (config.multiLangPauseGame) Time.timeScale = 0f;
+
+            // Точный сигнал «язык применился»: LocalizationSystem публикует LanguageChanged ПОСЛЕ
+            // выбора локали и догрузки таблиц (OnUnityLocaleChanged ждёт PreloadTable). Ждём его,
+            // а не фиксированную паузу.
+            bool localeApplied = false;
+            Action<object> onLangChanged = _ => localeApplied = true;
+            EventBus.Subscribe(EventBus.Localization.LanguageChanged, onLangChanged);
+
             var codes = new List<string>(Loc.AvailableLanguages);
             int n = 0;
 
             foreach (var code in codes)
             {
-                Loc.SetLanguage(code);
+                // 1) Сменить язык и ДОЖДАТЬСЯ фактической смены (событие = локаль + таблицы готовы).
+                //    Если язык уже текущий — SetLanguage событие не шлёт, ждать нечего.
+                if (Loc.CurrentLanguage != code)
+                {
+                    localeApplied = false;
+                    Loc.SetLanguage(code);
+                    float t = 0f;
+                    while (!localeApplied && t < 5f) { t += Time.unscaledDeltaTime; yield return null; }
+                }
 
-                // 1) Дождаться, пока локаль реально выбрана (SetLanguage async)
-                float t = 0f;
-                while (Loc.CurrentLanguage != code && t < 3f) { t += Time.unscaledDeltaTime; yield return null; }
-
-                // 2) Пауза по реальному времени: догрузка таблиц локали + перелокализация окон
-                yield return new WaitForSecondsRealtime(settle);
+                // 2) Дать окнам достроить текст (часть перелокализуется отложенно на кадр).
+                for (int i = 0; i < waitFrames; i++) yield return null;
 
                 // 3) Снять кадр (по желанию без UI — временно гасим Canvas'ы)
                 List<Canvas> disabled = null;
@@ -750,8 +766,12 @@ namespace ProtoSystem
                 n++;
             }
 
-            // Вернуть исходный язык
+            EventBus.Unsubscribe(EventBus.Localization.LanguageChanged, onLangChanged);
+
+            // Вернуть исходный язык и снять паузу
             if (!string.IsNullOrEmpty(original)) Loc.SetLanguage(original);
+            Time.timeScale = prevScale;
+
             LogRuntime($"[Все языки] Готово: {n} языков → {folder}");
             EventBus.Publish(Evt.Capture.ScreenshotTaken, null);
 

@@ -120,10 +120,15 @@ namespace ProtoSystem
         [UnityEngine.Serialization.FormerlySerializedAs("multiLangPrefix")]
         public string multiLangNameTemplate = "<screen name> <lang>";
 
-        [Tooltip("Пауза после смены языка ДО снимка (сек). Локаль грузится АСИНХРОННО, часть окон " +
-                 "перестраивает текст отложенно — меньше 0.4с обычно даёт кадр на предыдущем языке.")]
-        [Range(0.1f, 3f)]
-        public float multiLangSettleSeconds = 0.6f;
+        [Tooltip("Ставить игру на паузу (Time.timeScale=0) на время прогона — чтобы снять ОДИН И " +
+                 "ТОТ ЖЕ момент на всех языках. По завершении timeScale восстанавливается.")]
+        public bool multiLangPauseGame = true;
+
+        [Tooltip("Кадров ожидания ПОСЛЕ фактической смены языка (событие LanguageChanged), прежде " +
+                 "чем снять. Фиксированной задержки по времени НЕТ — ждём, пока локаль применится и " +
+                 "таблицы догрузятся. Эти кадры нужны окнам, что достраивают текст отложенно (обычно 3).")]
+        [Range(1, 12)]
+        public int multiLangWaitFrames = 3;
 
         [Tooltip("Включать UI в мульти-язычные скриншоты (обычно да — снимаем именно интерфейс)")]
         public bool multiLangIncludeUI = true;
@@ -200,7 +205,7 @@ namespace ProtoSystem
 
             // Поля мульти-язычного захвата добавлены позже — чиним дефолты у старых ассетов
             if (string.IsNullOrEmpty(multiLangNameTemplate)) multiLangNameTemplate = "<screen name> <lang>";
-            if (multiLangSettleSeconds <= 0f) multiLangSettleSeconds = 0.6f;
+            if (multiLangWaitFrames < 1) multiLangWaitFrames = 3;
         }
 #endif
     }
