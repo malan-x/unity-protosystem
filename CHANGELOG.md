@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.31.0] - 2026-07-24
+
+### Added
+- **Кнопка «скриншот на всех языках» в главном тулбаре** (рядом с TODO). По умолчанию скрыта —
+  инструмент специфический; включается галочкой «Кнопка на верхней панели редактора» в
+  инспекторе Capture System. Клик — `CaptureSystem.CaptureAllLanguages()` (сам проверит Play
+  Mode / готовность локали). Видимость по галочке применяется сразу (через `style.display`),
+  само появление элемента — после перезапуска редактора (Unity кэширует набор элементов тулбара).
+  Требует Unity 6000.7+ (MainToolbarElement API).
+
 ## [1.30.1] - 2026-07-24
 
 ### Added

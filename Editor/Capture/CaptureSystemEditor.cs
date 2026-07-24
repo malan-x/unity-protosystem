@@ -25,6 +25,19 @@ namespace ProtoSystem.Editor.Capture
                 "Открой нужный экран заранее. Настройки папки/префикса — в конфиге захвата.",
                 EditorStyles.wordWrappedMiniLabel);
 
+#if UNITY_6000_7_OR_NEWER
+            // Галочка «вынести кнопку на верхнюю панель редактора» — инструмент специфический,
+            // держать его в тулбаре постоянно незачем, поэтому по умолчанию скрыт. Доступно и вне
+            // Play Mode (тулбар настраивают заранее), поэтому — до раннего выхода ниже.
+            bool showTb = MultiLangCaptureToolbar.ShowButton;
+            bool newShowTb = EditorGUILayout.ToggleLeft(
+                new GUIContent("Кнопка на верхней панели редактора (рядом с TODO)",
+                    "Вынести «📸 Языки» в главный тулбар. Появится сразу; при первой установке " +
+                    "пакета может потребоваться перезапуск редактора."),
+                showTb);
+            if (newShowTb != showTb) MultiLangCaptureToolbar.ShowButton = newShowTb;
+#endif
+
             if (!Application.isPlaying)
             {
                 EditorGUILayout.HelpBox("Доступно только в Play Mode.", MessageType.Info);
