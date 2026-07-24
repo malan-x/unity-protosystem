@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.30.1] - 2026-07-24
+
+### Added
+- **Дропдаун типа сборки в главном тулбаре** (рядом с кнопкой TODO) — быстрый выбор
+  симулируемого Normal/Demo/Playtest, чтобы запустить Play Mode в нужном режиме и посмотреть
+  контент-ограничения без реальной сборки. Дублирует меню `ProtoSystem/Build/Simulated Flavor/*`.
+  Требует Unity 6000.7+ (MainToolbarElement API); появляется после перезапуска редактора.
+- `BuildFlavorEditor` — публичный API `Simulated` / `SetSimulated(...)` + событие `Changed`
+  (используется тулбаром для обновления подписи).
+
 ## [1.30.0] - 2026-07-24
 
 ### Added
