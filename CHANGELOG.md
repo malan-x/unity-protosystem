@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.29.0] - 2026-07-24
+
+### Added
+- **CaptureSystem: скриншоты текущего экрана на всех языках за один прогон.**
+  `CaptureSystem.CaptureAllLanguages()` + кнопка в инспекторе системы (клик в инспекторе
+  не уходит в игру и не сбивает кадр — в отличие от меню/хоткея). Для каждого языка из
+  `Loc.AvailableLanguages` меняет язык, ДОЖИДАЕТСЯ применения локали и перестройки UI по
+  РЕАЛЬНОМУ времени (`CaptureConfig.multiLangSettleSeconds`) — важно, т.к. `Loc.SetLanguage`
+  асинхронный, а часть окон перелокализуется отложенно; ждать N кадров ненадёжно (снимок
+  берёт ещё предыдущий язык). Кадр сохраняется в «&lt;префикс&gt; &lt;код языка&gt;.png»
+  (всегда PNG), в конце возвращается исходный язык.
+- `CaptureConfig`: поля `multiLangFolder` (пусто → подпапка «Localized»; можно абсолютный
+  путь, напр. папку поста), `multiLangPrefix`, `multiLangSettleSeconds`, `multiLangIncludeUI`.
+
 ## [1.28.0] - 2026-07-17
 
 ### Changed

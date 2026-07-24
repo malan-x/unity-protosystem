@@ -107,6 +107,22 @@ namespace ProtoSystem
         [Tooltip("Копировать в буфер обмена")]
         public bool copyToClipboard = true;
 
+        [Header("Screenshot — Все языки (кнопка в инспекторе)")]
+        [Tooltip("Куда сохранять. Пусто → подпапка 'Localized' внутри папки скриншотов. " +
+                 "Можно указать абсолютный путь (например папку поста для Steam).")]
+        public string multiLangFolder = "";
+
+        [Tooltip("Префикс имени файла. Итог: «<префикс> <код языка>.png» (напр. «Global Map en.png»)")]
+        public string multiLangPrefix = "Screenshot";
+
+        [Tooltip("Пауза после смены языка ДО снимка (сек). Локаль грузится АСИНХРОННО, часть окон " +
+                 "перестраивает текст отложенно — меньше 0.4с обычно даёт кадр на предыдущем языке.")]
+        [Range(0.1f, 3f)]
+        public float multiLangSettleSeconds = 0.6f;
+
+        [Tooltip("Включать UI в мульти-язычные скриншоты (обычно да — снимаем именно интерфейс)")]
+        public bool multiLangIncludeUI = true;
+
         [Header("Screenshot — Event Triggers")]
         [Tooltip("Автоматические скриншоты по событиям EventBus")]
         public List<CaptureEventTrigger> eventTriggers = new List<CaptureEventTrigger>();
@@ -176,6 +192,10 @@ namespace ProtoSystem
             if (replayBufferSeconds == 0) replayBufferSeconds = 30;
             if (replayFrameQuality == 0) replayFrameQuality = 75;
             if (string.IsNullOrEmpty(videoSubfolder)) videoSubfolder = "Videos";
+
+            // Поля мульти-язычного захвата добавлены позже — чиним дефолты у старых ассетов
+            if (string.IsNullOrEmpty(multiLangPrefix)) multiLangPrefix = "Screenshot";
+            if (multiLangSettleSeconds <= 0f) multiLangSettleSeconds = 0.6f;
         }
 #endif
     }

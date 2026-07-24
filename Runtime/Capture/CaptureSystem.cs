@@ -56,6 +56,7 @@ namespace ProtoSystem
         #region State
 
         private bool _capturing;
+        private bool _capturingAllLanguages;
         private static CaptureSystem _instance;
 
 #if UNITY_EDITOR
@@ -256,6 +257,44 @@ namespace ProtoSystem
         public string GetScreenshotDirectory()
         {
             return Path.Combine(Application.persistentDataPath, config.subfolder);
+        }
+
+        /// <summary>
+        /// Папка мульти-язычных скриншотов: config.multiLangFolder (можно абсолютный путь —
+        /// например папку поста), иначе подпапка «Localized» внутри обычной папки скриншотов.
+        /// </summary>
+        public string GetMultiLangDirectory()
+        {
+            string f = config != null ? config.multiLangFolder : null;
+            if (string.IsNullOrWhiteSpace(f))
+                return Path.Combine(GetScreenshotDirectory(), "Localized");
+            return Path.IsPathRooted(f) ? f : Path.Combine(GetScreenshotDirectory(), f);
+        }
+
+        /// <summary>Идёт ли прогон скриншотов по языкам.</summary>
+        public bool IsCapturingAllLanguages => _capturingAllLanguages;
+
+        /// <summary>
+        /// Снять ТЕКУЩИЙ экран на всех доступных языках за один прогон: меняет язык → ждёт
+        /// применения локали и перестройки UI → снимает кадр → следующий язык. В конце
+        /// возвращает исходный язык. Файлы: «&lt;префикс&gt; &lt;код языка&gt;.png».
+        ///
+        /// ВАЖНО про ожидание: Loc.SetLanguage АСИНХРОННЫЙ (таблицы локали догружаются), а часть
+        /// окон перестраивает текст отложенно. Поэтому ждём по РЕАЛЬНОМУ времени
+        /// (config.multiLangSettleSeconds), а не N кадров — иначе кадр снимется на предыдущем языке.
+        ///
+        /// Нужный экран открой заранее: снимается то, что сейчас на экране.
+        /// </summary>
+        public void CaptureAllLanguages()
+        {
+            if (!Application.isPlaying) { LogWarning("Скриншоты по языкам — только в Play Mode"); return; }
+            if (_capturingAllLanguages) { LogWarning("Прогон по языкам уже идёт"); return; }
+            if (!Loc.IsReady) { LogWarning("Локализация ещё не готова"); return; }
+
+            var langs = Loc.AvailableLanguages;
+            if (langs == null || langs.Count == 0) { LogWarning("Нет доступных языков"); return; }
+
+            StartCoroutine(CaptureAllLanguagesCoroutine());
         }
 
         #endregion
@@ -647,6 +686,75 @@ namespace ProtoSystem
             }
 
             _capturing = false;
+        }
+
+        /// <summary>
+        /// Прогон по всем языкам: для каждого — сменить язык, ДОЖДАТЬСЯ применения локали и
+        /// перестройки UI (по реальному времени), снять кадр, сохранить в «&lt;префикс&gt; &lt;код&gt;.png».
+        /// Файлы всегда PNG (ассеты для постов). В конце возвращает исходный язык.
+        /// </summary>
+        private IEnumerator CaptureAllLanguagesCoroutine()
+        {
+            _capturingAllLanguages = true;
+
+            string folder = GetMultiLangDirectory();
+            bool folderOk = true;
+            try { Directory.CreateDirectory(folder); }
+            catch (Exception e) { LogError($"Папка недоступна: {e.Message}"); folderOk = false; }
+            if (!folderOk) { _capturingAllLanguages = false; yield break; }
+
+            string prefix = string.IsNullOrEmpty(config.multiLangPrefix) ? "Screenshot" : config.multiLangPrefix;
+            float settle = Mathf.Max(0.1f, config.multiLangSettleSeconds);
+            bool includeUI = config.multiLangIncludeUI;
+            string original = Loc.CurrentLanguage;
+
+            // Снимок списка языков (AvailableLanguages может быть «живым»)
+            var codes = new List<string>(Loc.AvailableLanguages);
+            int n = 0;
+
+            foreach (var code in codes)
+            {
+                Loc.SetLanguage(code);
+
+                // 1) Дождаться, пока локаль реально выбрана (SetLanguage async)
+                float t = 0f;
+                while (Loc.CurrentLanguage != code && t < 3f) { t += Time.unscaledDeltaTime; yield return null; }
+
+                // 2) Пауза по реальному времени: догрузка таблиц локали + перелокализация окон
+                yield return new WaitForSecondsRealtime(settle);
+
+                // 3) Снять кадр (по желанию без UI — временно гасим Canvas'ы)
+                List<Canvas> disabled = null;
+                if (!includeUI)
+                {
+                    disabled = new List<Canvas>();
+                    foreach (var c in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+                        if (c.enabled) { c.enabled = false; disabled.Add(c); }
+                }
+
+                yield return new WaitForEndOfFrame();
+                Texture2D tex = ScreenCapture.CaptureScreenshotAsTexture(config.superSampling);
+
+                if (disabled != null)
+                    foreach (var c in disabled) if (c != null) c.enabled = true;
+
+                if (tex == null) { LogError($"Не удалось захватить кадр ({code})"); continue; }
+
+                string path = Path.Combine(folder, $"{prefix} {code}.png");
+                try { File.WriteAllBytes(path, tex.EncodeToPNG()); }
+                catch (Exception e) { LogError($"Не удалось сохранить {path}: {e.Message}"); }
+                Destroy(tex);
+
+                LogRuntime($"[Все языки] {code} → {path}");
+                n++;
+            }
+
+            // Вернуть исходный язык
+            if (!string.IsNullOrEmpty(original)) Loc.SetLanguage(original);
+            LogRuntime($"[Все языки] Готово: {n} языков → {folder}");
+            EventBus.Publish(Evt.Capture.ScreenshotTaken, null);
+
+            _capturingAllLanguages = false;
         }
 
         #endregion
