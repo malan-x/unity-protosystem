@@ -14,10 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Loc.AvailableLanguages` меняет язык, ДОЖИДАЕТСЯ применения локали и перестройки UI по
   РЕАЛЬНОМУ времени (`CaptureConfig.multiLangSettleSeconds`) — важно, т.к. `Loc.SetLanguage`
   асинхронный, а часть окон перелокализуется отложенно; ждать N кадров ненадёжно (снимок
-  берёт ещё предыдущий язык). Кадр сохраняется в «&lt;префикс&gt; &lt;код языка&gt;.png»
-  (всегда PNG), в конце возвращается исходный язык.
+  берёт ещё предыдущий язык). Кадр всегда PNG, в конце возвращается исходный язык.
+- **Имя файла — шаблон с тегами** (`CaptureConfig.multiLangNameTemplate`): `<lang>` — код
+  языка, `<screen name>` — имя активного окна UI. Напр. «`<screen name> <lang>`» →
+  «GlobalMap en.png», «`Global Map <lang>`» → «Global Map en.png». Если `<lang>` нет —
+  код добавляется в конец. (Поле переименовано из `multiLangPrefix`, есть FormerlySerializedAs.)
+- **Inline-кнопка «Обзор…»** у поля `multiLangFolder` в инспекторе конфига — модальный выбор
+  папки (`EditorUtility.OpenFolderPanel`).
 - `CaptureConfig`: поля `multiLangFolder` (пусто → подпапка «Localized»; можно абсолютный
-  путь, напр. папку поста), `multiLangPrefix`, `multiLangSettleSeconds`, `multiLangIncludeUI`.
+  путь, напр. папку поста), `multiLangNameTemplate`, `multiLangSettleSeconds`, `multiLangIncludeUI`.
 
 ## [1.28.0] - 2026-07-17
 

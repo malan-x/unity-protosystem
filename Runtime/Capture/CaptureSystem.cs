@@ -703,7 +703,8 @@ namespace ProtoSystem
             catch (Exception e) { LogError($"Папка недоступна: {e.Message}"); folderOk = false; }
             if (!folderOk) { _capturingAllLanguages = false; yield break; }
 
-            string prefix = string.IsNullOrEmpty(config.multiLangPrefix) ? "Screenshot" : config.multiLangPrefix;
+            string template = string.IsNullOrEmpty(config.multiLangNameTemplate)
+                ? "<screen name> <lang>" : config.multiLangNameTemplate;
             float settle = Mathf.Max(0.1f, config.multiLangSettleSeconds);
             bool includeUI = config.multiLangIncludeUI;
             string original = Loc.CurrentLanguage;
@@ -740,7 +741,7 @@ namespace ProtoSystem
 
                 if (tex == null) { LogError($"Не удалось захватить кадр ({code})"); continue; }
 
-                string path = Path.Combine(folder, $"{prefix} {code}.png");
+                string path = Path.Combine(folder, BuildMultiLangFileName(template, code) + ".png");
                 try { File.WriteAllBytes(path, tex.EncodeToPNG()); }
                 catch (Exception e) { LogError($"Не удалось сохранить {path}: {e.Message}"); }
                 Destroy(tex);
@@ -790,6 +791,39 @@ namespace ProtoSystem
             {
                 return ""; // скриншот важнее имени — никогда не падаем из-за суффикса
             }
+        }
+
+        /// <summary>Имя активного окна UI (WindowId) для тега &lt;screen name&gt;. «Screen» если нет.</summary>
+        private static string GetActiveWindowName()
+        {
+            try
+            {
+                var ui = ProtoSystem.UI.UISystem.Instance;
+                var window = ui != null ? (ui.Navigator?.CurrentModal ?? ui.CurrentWindow) : null;
+                return (window != null && !string.IsNullOrEmpty(window.WindowId)) ? window.WindowId : "Screen";
+            }
+            catch { return "Screen"; }
+        }
+
+        /// <summary>
+        /// Собирает имя файла (без расширения) из шаблона: &lt;lang&gt; → код языка,
+        /// &lt;screen name&gt; → активное окно. Если тега &lt;lang&gt; нет — код добавляется в конец
+        /// (иначе файлы перезапишут друг друга). Недопустимые символы имени заменяются на «_».
+        /// </summary>
+        private static string BuildMultiLangFileName(string template, string langCode)
+        {
+            string name = (template ?? "")
+                .Replace("<screen name>", GetActiveWindowName())
+                .Replace("<lang>", langCode);
+
+            if ((template ?? "").IndexOf("<lang>", StringComparison.Ordinal) < 0)
+                name = $"{name} {langCode}";
+
+            foreach (char c in Path.GetInvalidFileNameChars())
+                name = name.Replace(c, '_');
+
+            name = name.Trim();
+            return string.IsNullOrEmpty(name) ? langCode : name;
         }
 
         private string SaveTexture(Texture2D tex, string eventLabel = null)

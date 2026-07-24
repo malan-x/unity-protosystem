@@ -345,9 +345,53 @@ namespace ProtoSystem.Editor
             }
         }
 
+        /// <summary>
+        /// Как DrawDefaultInspector, но у поля multiLangFolder добавлена inline-кнопка «Обзор…»
+        /// (модальный выбор папки). Порядок полей сохраняется.
+        /// </summary>
+        private void DrawInspectorWithFolderBrowse()
+        {
+            serializedObject.Update();
+            var it = serializedObject.GetIterator();
+            bool enterChildren = true;
+            while (it.NextVisible(enterChildren))
+            {
+                enterChildren = false;
+
+                if (it.propertyPath == "m_Script")
+                {
+                    using (new EditorGUI.DisabledScope(true))
+                        EditorGUILayout.PropertyField(it, true);
+                    continue;
+                }
+
+                if (it.name == "multiLangFolder")
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.PropertyField(it, true);
+                    if (GUILayout.Button("Обзор…", GUILayout.Width(72)))
+                    {
+                        string start = !string.IsNullOrEmpty(it.stringValue) && Directory.Exists(it.stringValue)
+                            ? it.stringValue : Application.dataPath;
+                        string picked = EditorUtility.OpenFolderPanel("Папка для скриншотов по языкам", start, "");
+                        if (!string.IsNullOrEmpty(picked))
+                        {
+                            it.stringValue = picked;
+                            GUI.FocusControl(null);
+                        }
+                    }
+                    EditorGUILayout.EndHorizontal();
+                    continue;
+                }
+
+                EditorGUILayout.PropertyField(it, true);
+            }
+            serializedObject.ApplyModifiedProperties();
+        }
+
         public override void OnInspectorGUI()
         {
-            DrawDefaultInspector();
+            DrawInspectorWithFolderBrowse();
 
             var config = (CaptureConfig)target;
 

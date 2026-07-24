@@ -112,8 +112,13 @@ namespace ProtoSystem
                  "Можно указать абсолютный путь (например папку поста для Steam).")]
         public string multiLangFolder = "";
 
-        [Tooltip("Префикс имени файла. Итог: «<префикс> <код языка>.png» (напр. «Global Map en.png»)")]
-        public string multiLangPrefix = "Screenshot";
+        [Tooltip("Шаблон имени файла с тегами (в нижнем регистре):\n" +
+                 "  <lang> — код языка (en, de, fr…)\n" +
+                 "  <screen name> — имя активного окна UI (WindowId)\n" +
+                 "Примеры: «<screen name> <lang>» → «GlobalMap en.png»; «Global Map <lang>» → «Global Map en.png».\n" +
+                 "Если тега <lang> нет — код языка добавится в конец (иначе файлы перезапишут друг друга). Всегда .png.")]
+        [UnityEngine.Serialization.FormerlySerializedAs("multiLangPrefix")]
+        public string multiLangNameTemplate = "<screen name> <lang>";
 
         [Tooltip("Пауза после смены языка ДО снимка (сек). Локаль грузится АСИНХРОННО, часть окон " +
                  "перестраивает текст отложенно — меньше 0.4с обычно даёт кадр на предыдущем языке.")]
@@ -194,7 +199,7 @@ namespace ProtoSystem
             if (string.IsNullOrEmpty(videoSubfolder)) videoSubfolder = "Videos";
 
             // Поля мульти-язычного захвата добавлены позже — чиним дефолты у старых ассетов
-            if (string.IsNullOrEmpty(multiLangPrefix)) multiLangPrefix = "Screenshot";
+            if (string.IsNullOrEmpty(multiLangNameTemplate)) multiLangNameTemplate = "<screen name> <lang>";
             if (multiLangSettleSeconds <= 0f) multiLangSettleSeconds = 0.6f;
         }
 #endif
