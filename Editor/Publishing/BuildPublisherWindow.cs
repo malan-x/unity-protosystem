@@ -1165,6 +1165,13 @@ namespace ProtoSystem.Publishing.Editor
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
+                // Тип сборки берётся из активного Steam-таргета (Main/PT/Demo) — тумблер выше.
+                // Показываем, какой scripting-define уедет в билд и как его прочтёт рантайм.
+                var flavorDefines = GetActiveFlavorDefines();
+                var flavorName = _steamConfig != null ? _steamConfig.activeBuildTarget.ToString() : "Main";
+                var flavorDefineText = flavorDefines.Length > 0 ? string.Join(", ", flavorDefines) : "— (Normal, без define)";
+                EditorGUILayout.LabelField("Build flavor:", $"{flavorName}   →   {flavorDefineText}");
+
                 EditorGUILayout.HelpBox(
                     "Описание билда — отображается в Steamworks на странице Builds.",
                     MessageType.None);
@@ -2213,7 +2220,8 @@ namespace ProtoSystem.Publishing.Editor
                     locationPathName = fullPath,
                     target = buildTarget,
                     targetGroup = buildTargetGroup,
-                    options = BuildOptions.None
+                    options = BuildOptions.None,
+                    extraScriptingDefines = GetActiveFlavorDefines()
                 };
 
                 // Sync version before build
@@ -2418,6 +2426,22 @@ namespace ProtoSystem.Publishing.Editor
         {
             var projectPath = Path.GetDirectoryName(Application.dataPath);
             return Path.Combine(projectPath, depot.buildPath);
+        }
+
+        /// <summary>
+        /// Scripting-define'ы типа сборки для активного Steam-таргета. Прокидываются в плеер
+        /// через BuildPlayerOptions.extraScriptingDefines (не меняют постоянные Player Settings).
+        /// Рантайм читает их через ProtoSystem.BuildInfo.Flavor.
+        /// </summary>
+        private string[] GetActiveFlavorDefines()
+        {
+            var type = _steamConfig != null ? _steamConfig.activeBuildTarget : SteamBuildTargetType.Main;
+            switch (type)
+            {
+                case SteamBuildTargetType.Playtest: return new[] { "PROTO_FLAVOR_PLAYTEST" };
+                case SteamBuildTargetType.Demo:     return new[] { "PROTO_FLAVOR_DEMO" };
+                default:                            return System.Array.Empty<string>();
+            }
         }
 
         /// <summary>
@@ -2665,7 +2689,8 @@ namespace ProtoSystem.Publishing.Editor
                     locationPathName = fullPath,
                     target = buildTarget,
                     targetGroup = buildTargetGroup,
-                    options = BuildOptions.None
+                    options = BuildOptions.None,
+                    extraScriptingDefines = GetActiveFlavorDefines()
                 };
 
                 await Task.Yield();

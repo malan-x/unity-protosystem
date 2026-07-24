@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.30.0] - 2026-07-24
+
+### Added
+- **Тип сборки (BuildFlavor) с прокидыванием в рантайм.** `ProtoSystem.BuildFlavor
+  { Normal, Demo, Playtest }` + статик `ProtoSystem.BuildInfo.Flavor` (`IsNormal/IsDemo/
+  IsPlaytest`). В плеере тип берётся из scripting-define, в редакторе — из симуляции.
+  Проект читает `BuildInfo.Flavor` и сам решает, что ограничивать (эффекты — на стороне проекта).
+- **Build Publisher: define типа сборки уходит в билд по активному Steam-таргету.**
+  При Build Only / Build+Publish в `BuildPlayerOptions.extraScriptingDefines` добавляется
+  define по `SteamConfig.activeBuildTarget` (тумблер Main/PT/Demo): Playtest →
+  `PROTO_FLAVOR_PLAYTEST`, Demo → `PROTO_FLAVOR_DEMO`, Main → без define. Постоянные Player
+  Settings не меняются. В панели Build Settings — read-only строка «Build flavor: …».
+- **Симуляция типа сборки в редакторе** — меню `ProtoSystem/Build/Simulated Flavor/
+  {Normal, Demo, Playtest}` (хранится в EditorPrefs, прокидывается в `BuildInfo.EditorOverride`).
+  Позволяет проверять ограничения контента в Play Mode без реальной сборки.
+
 ## [1.29.0] - 2026-07-24
 
 ### Added
