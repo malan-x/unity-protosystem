@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.31.2] - 2026-07-27
+
+### Fixed
+- **Build Publisher: Steam Guard — окно кода поверх живой сессии.** Подход 1.31.1 (распознать
+  «confirm the login…» в выводе) не работает: SteamCMD печатает промпт без перевода строки, и
+  OutputDataReceived его не видит. Теперь при отсутствии логина через 15 секунд окно кода
+  показывается, НЕ убивая сессию SteamCMD: подтверждение в Steam Mobile app завершает логин в
+  той же сессии (окно закрывается само, загрузка продолжается), ввод кода — перезапускает
+  SteamCMD с кодом в аргументах, отмена — прерывает операцию. Подсказка в окне объясняет оба
+  пути; высота окна увеличена.
+
 ## [1.31.1] - 2026-07-27
 
 ### Fixed
