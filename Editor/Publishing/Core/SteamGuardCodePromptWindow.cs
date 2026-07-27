@@ -12,8 +12,8 @@ namespace ProtoSystem.Publishing.Editor
     /// </summary>
     internal sealed class SteamGuardCodePromptWindow : EditorWindow
     {
-        private const float DefaultWidth = 400f;
-        private const float DefaultHeight = 140f;
+        private const float DefaultWidth = 420f;
+        private const float DefaultHeight = 210f;   // с запасом под подсказку про мобильное подтверждение
 
         private string _message;
         private string _code = "";
@@ -24,6 +24,26 @@ namespace ProtoSystem.Publishing.Editor
 
         // Статическое поле для отслеживания активного окна
         private static SteamGuardCodePromptWindow _activeWindow;
+
+        /// <summary>
+        /// Закрыть активное окно «снаружи»: логин уже прошёл (подтверждение в Steam Mobile
+        /// app), код больше не нужен. Задача PromptAsync резолвится null — вызывающий
+        /// обязан проверить свой признак успешного логина, прежде чем трактовать null
+        /// как отмену.
+        /// </summary>
+        public static void CloseActiveQuietly()
+        {
+            EditorApplication.delayCall += () =>
+            {
+                var window = _activeWindow;
+                if (window == null) return;
+
+                window._submitted = true;   // чтобы OnDestroy не резолвил повторно
+                window._tcs?.TrySetResult(null);
+                _activeWindow = null;
+                try { window.Close(); } catch { /* уже закрыто */ }
+            };
+        }
 
         public static Task<string> PromptAsync(string title, string message)
         {
