@@ -15,9 +15,14 @@ namespace ProtoSystem.Publishing.Editor
 {
     /// <summary>
     /// Издатель для Steam.
-    /// Steam Guard обрабатывается через перезапуск SteamCMD с кодом в аргументах
-    /// (+login user pass authcode), а не через stdin — это обходит проблему
-    /// с OutputDataReceived, который не видит промпт без \n в конце строки.
+    /// Steam Guard, два сценария:
+    ///  • Мобильное подтверждение — SteamCMD пишет «confirm the login in the Steam Mobile
+    ///    app» и сам ждёт approve; сессию НЕ убиваем (подтверждение привязано к ней),
+    ///    ждём до MobileConfirmTimeoutSeconds.
+    ///  • Код (почта или TOTP из приложения) — перезапуск SteamCMD с кодом в аргументах
+    ///    (+login user pass authcode), а не через stdin: OutputDataReceived не видит
+    ///    промпт без \n в конце строки.
+    /// После первого успешного логина SteamCMD кэширует сессию — дальше без запросов.
     /// </summary>
     public class SteamPublisher : IPlatformPublisher
     {
@@ -25,6 +30,13 @@ namespace ProtoSystem.Publishing.Editor
 
         /// <summary>Время ожидания логина перед тем как считать что нужен Steam Guard.</summary>
         private const int SteamGuardTimeoutSeconds = 15;
+
+        /// <summary>
+        /// Время ожидания, когда SteamCMD ждёт ПОДТВЕРЖДЕНИЯ входа в приложении Steam Mobile.
+        /// Сессию в этом режиме убивать нельзя: подтверждение привязано к ней, и перезапуск
+        /// с кодом (старый почтовый сценарий) обесценивает нажатие «Подтвердить» на телефоне.
+        /// </summary>
+        private const int MobileConfirmTimeoutSeconds = 120;
 
         /// <summary>Общий таймаут на операцию (загрузка может быть долгой).</summary>
         private static readonly TimeSpan OperationTimeout = TimeSpan.FromMinutes(30);
@@ -145,7 +157,9 @@ namespace ProtoSystem.Publishing.Editor
             return SteamGuardCodePromptWindow.PromptAsync(
                 "Steam Guard Required",
                 "Steam Guard is enabled for this account.\n\n" +
-                "Enter the code from your email or Steam Mobile app:");
+                "Enter the current code from the Steam Mobile app\n" +
+                "(Steam Guard tab shows a 5-character code),\n" +
+                "or from your email if using email authentication:");
         }
 
         /// <summary>
@@ -168,6 +182,7 @@ namespace ProtoSystem.Publishing.Editor
             var buildId = "";
             var loginSuccess = false;
             var steamGuardDetectedInOutput = false;
+            var mobileConfirmDetected = false;
             var processExitedTcs = new TaskCompletionSource<int>();
 
             // Build login command with optional auth code
@@ -209,6 +224,19 @@ namespace ProtoSystem.Publishing.Editor
                 // Detect Steam Guard in output (fast path)
                 if (IsSteamGuardPrompt(line))
                     steamGuardDetectedInOutput = true;
+
+                // Мобильное подтверждение: SteamCMD сам ждёт approve на телефоне —
+                // переключаемся в режим долгого ожидания вместо kill+перезапуска с кодом.
+                if (!mobileConfirmDetected && IsMobileConfirmPrompt(line))
+                {
+                    mobileConfirmDetected = true;
+                    Debug.Log("[SteamCMD] Mobile confirmation requested — waiting for approval on phone...");
+                    progress?.Report(new PublishProgress
+                    {
+                        Status = "Confirm the sign-in in the Steam Mobile app...",
+                        Progress = 0.35f, IsIndeterminate = true
+                    });
+                }
 
                 // Track login success
                 if (line.Contains("Logged in OK") || line.Contains("Waiting for user info"))
@@ -255,6 +283,8 @@ namespace ProtoSystem.Publishing.Editor
 
                 if (IsSteamGuardPrompt(line))
                     steamGuardDetectedInOutput = true;
+                if (IsMobileConfirmPrompt(line))
+                    mobileConfirmDetected = true;
             };
 
             process.Exited += (sender, e) =>
@@ -296,14 +326,27 @@ namespace ProtoSystem.Publishing.Editor
                 {
                     try
                     {
-                        await Task.Delay(SteamGuardTimeoutSeconds * 1000);
-                        if (!loginSuccess && !process.HasExited)
+                        // Поллинг вместо одноразовой задержки: если SteamCMD ждёт
+                        // подтверждения в Steam Mobile app, дедлайн продлевается —
+                        // kill в этом режиме уничтожил бы сессию, к которой привязан approve.
+                        var waitedSeconds = 0;
+                        while (!loginSuccess && !process.HasExited)
                         {
+                            await Task.Delay(1000);
+                            waitedSeconds++;
+
+                            var limit = mobileConfirmDetected
+                                ? MobileConfirmTimeoutSeconds
+                                : SteamGuardTimeoutSeconds;
+                            if (waitedSeconds < limit) continue;
+
                             killedForSteamGuard = true;
-                            Debug.Log($"[SteamCMD] No login success after {SteamGuardTimeoutSeconds}s — " +
-                                      "assuming Steam Guard required, killing process");
+                            Debug.Log($"[SteamCMD] No login success after {waitedSeconds}s " +
+                                      $"(mobile confirm: {mobileConfirmDetected}) — " +
+                                      "assuming Steam Guard code required, killing process");
                             try { process.Kill(); }
                             catch { /* already exited */ }
+                            break;
                         }
                     }
                     catch { /* cancelled or process gone */ }
@@ -368,6 +411,21 @@ namespace ProtoSystem.Publishing.Editor
         // ═══════════════════════════════════════════════════════════
         // Helpers
         // ═══════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// SteamCMD ждёт подтверждения входа в приложении Steam Mobile (не ввода кода).
+        /// Формулировки разных версий: «Please confirm the login in the Steam Mobile app
+        /// on your phone», «Confirm the sign in request...».
+        /// </summary>
+        private static bool IsMobileConfirmPrompt(string line)
+        {
+            if (string.IsNullOrEmpty(line)) return false;
+
+            var lower = line.ToLowerInvariant();
+            if (!lower.Contains("confirm")) return false;
+
+            return lower.Contains("mobile") || lower.Contains("phone") || lower.Contains("steam app");
+        }
 
         private static bool IsSteamGuardPrompt(string line)
         {
