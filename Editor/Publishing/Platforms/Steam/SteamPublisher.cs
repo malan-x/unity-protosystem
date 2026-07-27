@@ -149,10 +149,14 @@ namespace ProtoSystem.Publishing.Editor
         }
 
         private const string SteamGuardPromptMessage =
-            "Steam Guard is enabled for this account.\n\n" +
-            "If the Steam Mobile app asked you to CONFIRM this sign-in — " +
-            "just approve it on your phone and wait, this window will close itself.\n\n" +
-            "Otherwise enter the code here (Steam app → Steam Guard tab, or email):";
+            "Steam Guard: SteamCMD ждёт входа. ЗАГРУЗКА ЕЩЁ НЕ ИДЁТ —\n" +
+            "она начнётся сразу после входа.\n\n" +
+            "• Пришло подтверждение на телефон? Одобри и просто жди —\n" +
+            "  окно закроется само.\n" +
+            "• Уведомления НЕТ? Это нормально, оно приходит не всегда.\n" +
+            "  Открой приложение Steam → вкладка-щит «Steam Guard» —\n" +
+            "  сверху крупный код из 5 символов. Введи его сюда сразу,\n" +
+            "  пока не сменился (таймер-полоска под кодом).";
 
         /// <summary>
         /// Показать окно ввода Steam Guard на главном потоке.
@@ -230,6 +234,10 @@ namespace ProtoSystem.Publishing.Editor
                 output.AppendLine(line);
                 Debug.Log($"[SteamCMD] {line}");
 
+                // Живой статус в окно Steam Guard: видно, что сессия жива и что происходит
+                if (promptShown && !string.IsNullOrWhiteSpace(line))
+                    mainContext?.Post(_ => SteamGuardCodePromptWindow.SetStatus($"SteamCMD: {line}"), null);
+
                 // Detect Steam Guard in output (fast path)
                 if (IsSteamGuardPrompt(line))
                     steamGuardDetectedInOutput = true;
@@ -240,11 +248,30 @@ namespace ProtoSystem.Publishing.Editor
                     loginSuccess = true;
                     // Логин прошёл (подтверждение на телефоне) — окно кода больше не нужно
                     if (promptShown)
+                    {
+                        mainContext?.Post(_ => SteamGuardCodePromptWindow.SetStatus(
+                            "SteamCMD: вход выполнен! Загрузка началась, окно закрывается…"), null);
                         mainContext?.Post(_ => SteamGuardCodePromptWindow.CloseActiveQuietly(), null);
+                    }
                     progress?.Report(new PublishProgress
                     {
                         Status = "Logged in, processing...", Progress = 0.45f
                     });
+                }
+
+                // Процент из вывода SteamCMD (сканирование/загрузка депота) → прогресс-бар
+                if (loginSuccess)
+                {
+                    var pct = Regex.Match(line, @"(\d{1,3})\s*%");
+                    if (pct.Success && int.TryParse(pct.Groups[1].Value, out var percent) &&
+                        percent >= 0 && percent <= 100)
+                    {
+                        progress?.Report(new PublishProgress
+                        {
+                            Status = $"Uploading to Steam... {percent}%",
+                            Progress = 0.5f + 0.45f * (percent / 100f)
+                        });
+                    }
                 }
 
                 // Track upload progress

@@ -12,10 +12,11 @@ namespace ProtoSystem.Publishing.Editor
     /// </summary>
     internal sealed class SteamGuardCodePromptWindow : EditorWindow
     {
-        private const float DefaultWidth = 420f;
-        private const float DefaultHeight = 210f;   // с запасом под подсказку про мобильное подтверждение
+        private const float DefaultWidth = 440f;
+        private const float DefaultHeight = 280f;   // подсказка + живая строка статуса SteamCMD
 
         private string _message;
+        private string _status;      // живой статус: что SteamCMD делает прямо сейчас
         private string _code = "";
         private TaskCompletionSource<string> _tcs;
         private bool _submitted;
@@ -24,6 +25,21 @@ namespace ProtoSystem.Publishing.Editor
 
         // Статическое поле для отслеживания активного окна
         private static SteamGuardCodePromptWindow _activeWindow;
+
+        /// <summary>
+        /// Обновить живую строку статуса в открытом окне (потокобезопасно — через delayCall).
+        /// Показывает, что SteamCMD делает прямо сейчас, пока окно ждёт код/подтверждение.
+        /// </summary>
+        public static void SetStatus(string status)
+        {
+            EditorApplication.delayCall += () =>
+            {
+                var window = _activeWindow;
+                if (window == null) return;
+                window._status = status;
+                window.Repaint();
+            };
+        }
 
         /// <summary>
         /// Закрыть активное окно «снаружи»: логин уже прошёл (подтверждение в Steam Mobile
@@ -131,7 +147,16 @@ namespace ProtoSystem.Publishing.Editor
                 _focusField = false;
             }
 
-            EditorGUILayout.Space(15);
+            EditorGUILayout.Space(8);
+
+            // Живой статус SteamCMD: видно, что сессия жива и что происходит
+            var statusStyle = new GUIStyle(EditorStyles.wordWrappedMiniLabel);
+            statusStyle.normal.textColor = new Color(0.55f, 0.75f, 0.55f);
+            EditorGUILayout.LabelField(
+                string.IsNullOrEmpty(_status) ? "SteamCMD: сессия запущена, ждёт входа…" : _status,
+                statusStyle);
+
+            EditorGUILayout.Space(7);
 
             // Кнопки
             EditorGUILayout.BeginHorizontal();
