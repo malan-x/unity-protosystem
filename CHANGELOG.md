@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.31.3] - 2026-07-27
+
+### Changed
+- **Build Publisher: окно Steam Guard стало говорящим.** Живая строка статуса SteamCMD прямо
+  в окне (видно, что сессия жива и что происходит; при входе — «вход выполнен, окно
+  закрывается»). Подсказка переписана по-русски и честно объясняет положение дел: пока окно
+  открыто, загрузка ещё НЕ идёт; уведомление на телефон приходит не всегда — код надо взять
+  самому во вкладке-щите Steam Guard приложения. После входа проценты из вывода SteamCMD
+  (сканирование/загрузка депота) транслируются в прогресс-бар паблишера вместо
+  неопределённого «Uploading...».
+
 ## [1.31.2] - 2026-07-27
 
 ### Fixed
