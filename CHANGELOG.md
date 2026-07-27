@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.31.1] - 2026-07-27
+
+### Fixed
+- **Build Publisher: логин SteamCMD с мобильным подтверждением Steam Guard.** Раньше публикатор
+  ждал логина 15 секунд и убивал сессию, предполагая почтовый код, — подтверждение в приложении
+  Steam Mobile пропадало вместе с сессией, и загрузка падала с «Steam Guard authentication
+  failed». Теперь промпт «confirm the login in the Steam Mobile app» распознаётся, сессия не
+  убивается и ждёт подтверждения на телефоне до 2 минут; запрос кода остаётся запасным путём
+  (подходит код Steam Guard из приложения или письмо — для почтовой схемы). После первого
+  успешного логина SteamCMD кэширует сессию, дальнейшие загрузки идут без подтверждений.
+
 ## [1.31.0] - 2026-07-24
 
 ### Added
