@@ -1,0 +1,14 @@
+{
+    "name": "ProtoSystem.AudioGen",
+    "rootNamespace": "ProtoSystem.AudioGen",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

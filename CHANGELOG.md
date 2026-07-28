@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.32.0] - 2026-07-28
+
+### Added
+- **AudioGen — ядро «ИИ Аудио студии»** (модуль из Last Convoy, зеркало IconGen).
+  Runtime-контракт `IAudioContentProvider` (сеты → сущности: клип/промпт/громкость/
+  описание/луп/рандом-пул, write-through колбэки) + editor-ядро:
+  - 5 движков генерации: Stable Audio Open и ACE-Step (локальный ComfyUI, общий
+    сервер с IconGen, ключи ProtoIcon.*), ElevenLabs SFX и ElevenLabs TTS (облако,
+    ключ только в EditorPrefs), Qwen3-TTS (локальный qwentts.cpp, GGUF, voice design);
+  - очередь `AiAudioGenerator`: Progress API, группировка по чекпоинту,
+    LockReloadAssemblies на время пачки (domain reload убивал очередь);
+  - конвейер `AudioConvert`: FLAC/MP3/WAV → ffmpeg → WAV 44.1к/16бит, трим тишины
+    по краям, жёсткая обрезка до цели с фейдом, пользовательская фильтр-цепочка
+    (эффект рации) с принудительным aresample до фильтров;
+  - `AudioStylePreset`/`AudioGenProfile`/`AudioCollectionAsset`/`AudioCollectionGroup`/
+    `AudioStudioConfig` — стили, профили, наборы, вкладки (паттерн IconGen);
+  - `AudioVariantLibrary` — истории вариантов с воспроизводимыми рецептами
+    (движок/сид/голос/модель/фильтр); `AudioPack` — снапшоты выбора «в один клик»;
+  - `AudioPreviewUtil` — превью через скрытый AudioSource с регулируемой громкостью;
+  - настройки «Project Settings ▸ AI Audio Tools» (чекпоинты, T5, ffmpeg, ключи, Qwen).
+  Проектный слой (окно студии, сторы, провайдеры) остаётся в проекте-потребителе.
+
 ## [1.31.3] - 2026-07-27
 
 ### Changed
