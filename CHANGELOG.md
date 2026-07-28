@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.32.1] - 2026-07-28
+
+### Changed
+- Обновлено описание пакета (package.json) и README: актуальный состав модулей —
+  AudioGen, LiveOps, Capture/MultiLangCapture, Build Publisher, MCP-интеграция,
+  AI Translation, UI Toolkit-генераторы; актуализированы структура пакета,
+  git-URL установки и ссылки на документацию.
+
 ## [1.32.0] - 2026-07-28
 
 ### Added

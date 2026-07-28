@@ -1,8 +1,8 @@
 ﻿{
   "name": "com.protosystem.core",
-  "version": "1.32.0",
+  "version": "1.32.1",
   "displayName": "ProtoSystem Core",
-  "description": "ProtoSystem - это фреймворк для Unity, который предоставляет глобальную шину событий и систему инициализации компонентов на основе атрибутов, позволяя создавать модульные и масштабируемые multiplayer-приложения. Он упрощает управление событиями инициализации, обеспечивая гибкую архитектуру для разработки игр и приложений с поддержкой сетевых функций. Имеет в своём составе уже готовые модули: EffectsManager, SettingsSystem, UISystem, CursorManager, SceneFlowSystem, NetworkLobbySystem, GameSessionSystem, SoundManagerSystem, CaptureSystem, LocalizationSystem, LiveOps. А также упрощает публикацию сборок проекта с помощью встроенного Build Publisher (и управление читами). Есть TODO list",
+  "description": "ProtoSystem — модульный фреймворк для Unity: глобальная шина событий (EventBus) и атрибутивная система инициализации/DI для модульных и масштабируемых (в т.ч. multiplayer) приложений. Готовые модули: UISystem (граф-навигация окон, генераторы префабов и UI Toolkit-окон), SoundManagerSystem (SoundLibrary, схемы, музыка), LocalizationSystem (обёртка Unity Localization + ИИ-перевод), SettingsSystem, EffectsManager, CursorManager, SceneFlowSystem, GameSessionSystem, NetworkLobbySystem, CaptureSystem (скриншоты/реплеи, мультиязычный захват), LiveOps (события, опросы, фидбек, девлог), AudioGen — ядро ИИ Аудио студии (генерация SFX/эмбиентов/TTS-озвучки: ComfyUI Stable Audio Open / ACE-Step, ElevenLabs, Qwen3-TTS; варианты, паки, публикация в SoundLibrary). Инструменты редактора: Build Publisher (сборки, Steam-аплоад, читы), TODO-лист в тулбаре, интеграция MCP.",
   "unity": "2021.3",
   "unityRelease": "0b17",
   "documentationUrl": "https://github.com/malan-x/unity-protosystem",
