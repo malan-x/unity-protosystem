@@ -122,16 +122,20 @@ namespace ProtoSystem
         }
         
         /// <summary>
-        /// События системы инициализации (10600-10699)
+        /// События системы инициализации (11200-11299).
+        /// ВНИМАНИЕ: диапазон перенесён с 10600-х — те заняты GameSession
+        /// (Initialization.Completed = 10603 совпадал с Session.Paused, и подписчик
+        /// на «завершение инициализации» получал паузы игры). События публикует
+        /// SystemInitializationManager.
         /// </summary>
         public static class Initialization
         {
-            public const int Started = 10601;
-            public const int Progress = 10602;
-            public const int Completed = 10603;
-            public const int Failed = 10604;
-            public const int SystemInitialized = 10610;
-            public const int SystemFailed = 10611;
+            public const int Started = 11201;
+            public const int Progress = 11202;
+            public const int Completed = 11203;   // payload: bool allSucceeded
+            public const int Failed = 11204;
+            public const int SystemInitialized = 11210;   // payload: string systemName
+            public const int SystemFailed = 11211;        // payload: string systemName
         }
         
         /// <summary>

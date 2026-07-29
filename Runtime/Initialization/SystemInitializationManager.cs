@@ -478,6 +478,7 @@ namespace ProtoSystem
                 var orderedSystems = GetSystemsInInitializationOrder();
 
                 LogMessage($"Найдено {orderedSystems.Count} систем для инициализации");
+                EventBus.Publish(Evt.Initialization.Started, orderedSystems.Count);
 
                 // Создаем экземпляры систем
                 if (!CreateSystemInstances(orderedSystems))
@@ -490,6 +491,11 @@ namespace ProtoSystem
 
                 isInitialized = true;
                 OnInitializationComplete?.Invoke(allSucceeded);
+                // Дублируем в шину: подписчикам вне графа систем (UI-окна и пр.)
+                // C#-событие недоступно без ссылки на менеджер в нужный момент
+                EventBus.Publish(Evt.Initialization.Completed, allSucceeded);
+                if (!allSucceeded)
+                    EventBus.Publish(Evt.Initialization.Failed, null);
 
                 if (allSucceeded)
                 {
@@ -520,6 +526,8 @@ namespace ProtoSystem
             {
                 LogError($"Критическая ошибка инициализации: {ex.Message}");
                 OnInitializationComplete?.Invoke(false);
+                EventBus.Publish(Evt.Initialization.Completed, false);
+                EventBus.Publish(Evt.Initialization.Failed, null);
                 return false;
             }
         }
@@ -819,6 +827,9 @@ namespace ProtoSystem
                 }
 
                 OnSystemCompleted?.Invoke(entry.systemName, systemSuccess);
+                EventBus.Publish(systemSuccess
+                    ? Evt.Initialization.SystemInitialized
+                    : Evt.Initialization.SystemFailed, entry.systemName);
                 completedCount++;
 
                 // Обновляем общий прогресс
