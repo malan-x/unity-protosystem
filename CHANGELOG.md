@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.32.2] - 2026-07-29
+
+### Fixed
+- **Коллизия id событий: Evt.Initialization.* совпадали с EventBus.Session.**
+  Оба блока претендовали на диапазон 10600-10699 (Initialization.Completed = 10603 =
+  Session.Paused — подписчик «завершения инициализации» получал паузы игры).
+  Initialization перенесён на свободные 11200-11299. События нигде не публиковались,
+  поэтому перенос ничего не ломает.
+- **SystemInitializationManager теперь публикует события инициализации в EventBus**:
+  Started (payload: число систем), SystemInitialized/SystemFailed (payload: имя системы),
+  Completed (payload: bool allSucceeded), Failed. Раньше были только C#-события менеджера —
+  подписчикам вне графа систем (UI-окнам) не на что было опереться, отсюда гонки вида
+  «главное меню спрятало „Продолжить", потому что SaveSystem ещё не зарегистрирована».
+
 ## [1.32.1] - 2026-07-28
 
 ### Changed
