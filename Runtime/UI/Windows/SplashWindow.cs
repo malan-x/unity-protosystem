@@ -59,12 +59,19 @@ namespace ProtoSystem.UI
         [Tooltip("Разрешить пропуск любой кнопкой/кликом.")]
         [SerializeField] private bool skippable = true;
 
+        [Tooltip("Не уходить с заставки, пока SystemInitializationManager не поднял все системы. " +
+                 "Следующее окно (меню) открывается в полностью готовом мире — без гонок вида " +
+                 "«окно спросило систему раньше её регистрации». Скип кадров работает, но уход " +
+                 "всё равно дождётся систем (страховка — maxLifetime).")]
+        [SerializeField] private bool waitForSystemsInit = true;
+
         [Tooltip("Страховка: уйти дальше, даже если что-то пошло не так и кадры не доиграли.")]
         [SerializeField] private float maxLifetime = 60f;
 
         private VisualElement _image;
         private Coroutine _sequence;
-        private bool _left;   // уже ушли дальше — второй раз не навигируем
+        private bool _left;            // уже ушли дальше — второй раз не навигируем
+        private bool _skipRequested;   // игрок пропустил кадры; уход — через общий хвост корутины
 
         /// <summary>
         /// Заставка живёт ДО инициализации UI (её экземпляр запечён в сцене), поэтому первый кадр
@@ -109,6 +116,7 @@ namespace ProtoSystem.UI
             base.OnShow();
 
             _left = false;
+            _skipRequested = false;
             _sequence = StartCoroutine(PlaySequence());
         }
 
@@ -122,10 +130,12 @@ namespace ProtoSystem.UI
 
         private void Update()
         {
-            if (!skippable || _left || State != WindowState.Visible) return;
+            if (!skippable || _left || _skipRequested || State != WindowState.Visible) return;
 
+            // Скип не уводит с окна напрямую: кадры сворачиваются, а уход делает общий
+            // хвост корутины — он же дожидается инициализации систем (waitForSystemsInit)
             if (Input.anyKeyDown)
-                Leave();
+                _skipRequested = true;
         }
 
         private IEnumerator PlaySequence()
@@ -142,6 +152,7 @@ namespace ProtoSystem.UI
                 while (elapsed < frame.duration)
                 {
                     if (_left) yield break;
+                    if (_skipRequested) break;
                     if (Time.realtimeSinceStartup > deadline) break;
 
                     // Заставка играет во время инициализации: timeScale может быть любым
@@ -149,8 +160,29 @@ namespace ProtoSystem.UI
                     yield return null;
                 }
 
+                if (_skipRequested) break;
+
                 if (frame.fadeOut > 0f && _image != null)
                     yield return Fade(frame.fadeOut);
+            }
+
+            // Кадры кончились (или скип) — но мир может быть ещё не готов: держим заставку,
+            // пока SIM не поднимет все системы. Меню откроется в полностью готовом мире,
+            // и гонок «окно спросило систему раньше её регистрации» не будет по построению.
+            if (waitForSystemsInit)
+            {
+                var sim = SystemInitializationManager.Instance;
+                while (sim != null && !sim.IsInitialized)
+                {
+                    if (_left) yield break;
+                    if (Time.realtimeSinceStartup > deadline)
+                    {
+                        ProtoLogger.Log("UISystem", LogCategory.Runtime, LogLevel.Warnings,
+                            "SplashWindow: системы не инициализировались за maxLifetime — уходим дальше");
+                        break;
+                    }
+                    yield return null;
+                }
             }
 
             Leave();
