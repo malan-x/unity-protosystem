@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.33.0] - 2026-07-31
+
+### Added
+- **Приставка к имени файла у мультиязычных скриншотов.** Правый клик по кнопке
+  «📸 Языки» в тулбаре → «Снять с приставкой…» → поле ввода (Enter снимает,
+  Esc отменяет, последнее значение запоминается). Файлы получают имя
+  «приставка имя-окна язык.png».
+  Зачем: имя окна одно на все его вкладки («База»), поэтому второй прогон
+  затирал первый — снять все четыре вкладки в одну папку было нельзя.
+  `CaptureSystem.CaptureAllLanguages(string prefix = null)` — параметр
+  необязательный, прежние вызовы работают без изменений.
+
 ## [1.32.2] - 2026-07-29
 
 ### Fixed

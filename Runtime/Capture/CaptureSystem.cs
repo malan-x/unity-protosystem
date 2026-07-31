@@ -286,7 +286,12 @@ namespace ProtoSystem
         /// Опционально ставит игру на паузу (config.multiLangPauseGame) — чтобы снять один и тот
         /// же момент на всех языках. Нужный экран открой заранее: снимается то, что на экране.
         /// </summary>
-        public void CaptureAllLanguages()
+        /// <param name="prefix">
+        /// Необязательная приставка к имени файла. Имя окна для всех вкладок одно
+        /// («База»), поэтому без приставки второй прогон затирает первый — с ней
+        /// можно снять и «база-здания», и «база-радио» в одну папку.
+        /// </param>
+        public void CaptureAllLanguages(string prefix = null)
         {
             if (!Application.isPlaying) { LogWarning("Скриншоты по языкам — только в Play Mode"); return; }
             if (_capturingAllLanguages) { LogWarning("Прогон по языкам уже идёт"); return; }
@@ -295,7 +300,7 @@ namespace ProtoSystem
             var langs = Loc.AvailableLanguages;
             if (langs == null || langs.Count == 0) { LogWarning("Нет доступных языков"); return; }
 
-            StartCoroutine(CaptureAllLanguagesCoroutine());
+            StartCoroutine(CaptureAllLanguagesCoroutine(prefix));
         }
 
         #endregion
@@ -694,7 +699,7 @@ namespace ProtoSystem
         /// перестройки UI (по реальному времени), снять кадр, сохранить в «&lt;префикс&gt; &lt;код&gt;.png».
         /// Файлы всегда PNG (ассеты для постов). В конце возвращает исходный язык.
         /// </summary>
-        private IEnumerator CaptureAllLanguagesCoroutine()
+        private IEnumerator CaptureAllLanguagesCoroutine(string prefix = null)
         {
             _capturingAllLanguages = true;
 
@@ -757,7 +762,7 @@ namespace ProtoSystem
 
                 if (tex == null) { LogError($"Не удалось захватить кадр ({code})"); continue; }
 
-                string path = Path.Combine(folder, BuildMultiLangFileName(template, code) + ".png");
+                string path = Path.Combine(folder, BuildMultiLangFileName(template, code, prefix) + ".png");
                 try { File.WriteAllBytes(path, tex.EncodeToPNG()); }
                 catch (Exception e) { LogError($"Не удалось сохранить {path}: {e.Message}"); }
                 Destroy(tex);
@@ -829,8 +834,10 @@ namespace ProtoSystem
         /// Собирает имя файла (без расширения) из шаблона: &lt;lang&gt; → код языка,
         /// &lt;screen name&gt; → активное окно. Если тега &lt;lang&gt; нет — код добавляется в конец
         /// (иначе файлы перезапишут друг друга). Недопустимые символы имени заменяются на «_».
+        /// Приставка (если задана) идёт первой: имя окна у всех вкладок одно, и без
+        /// неё прогоны затирают друг друга.
         /// </summary>
-        private static string BuildMultiLangFileName(string template, string langCode)
+        private static string BuildMultiLangFileName(string template, string langCode, string prefix = null)
         {
             string name = (template ?? "")
                 .Replace("<screen name>", GetActiveWindowName())
@@ -838,6 +845,9 @@ namespace ProtoSystem
 
             if ((template ?? "").IndexOf("<lang>", StringComparison.Ordinal) < 0)
                 name = $"{name} {langCode}";
+
+            if (!string.IsNullOrWhiteSpace(prefix))
+                name = $"{prefix.Trim()} {name}";
 
             foreach (char c in Path.GetInvalidFileNameChars())
                 name = name.Replace(c, '_');

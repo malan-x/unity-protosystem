@@ -17,6 +17,7 @@
 
 #if UNITY_6000_7_OR_NEWER
 
+using System;
 using System.Reflection;
 using UnityEditor;
 using UnityEditor.Toolbars;
@@ -77,7 +78,9 @@ namespace ProtoSystem.Editor.Capture
             return button;
         }
 
-        private static void RunCapture()
+        private static void RunCapture() => RunCapture(null);
+
+        private static void RunCapture(string prefix)
         {
             var sys = CaptureSystem.Instance;
             if (sys == null)
@@ -87,7 +90,81 @@ namespace ProtoSystem.Editor.Capture
                 return;
             }
             // CaptureAllLanguages сам проверит Play Mode / готовность локали / повторный запуск и залогирует
-            sys.CaptureAllLanguages();
+            sys.CaptureAllLanguages(prefix);
+        }
+
+        /// <summary>EditorPrefs: последняя введённая приставка — подставляется в поле по умолчанию.</summary>
+        private const string LastPrefixKey = "ProtoSystem.Capture.MultiLangPrefix";
+
+        /// <summary>
+        /// Прогон с приставкой к имени файла. Имя окна у всех вкладок одно («База»),
+        /// поэтому без приставки второй прогон затирает первый — с ней можно снять
+        /// каждую вкладку отдельно в одну папку.
+        /// </summary>
+        private static void RunCaptureWithPrefix()
+        {
+            if (CaptureSystem.Instance == null)
+            {
+                EditorUtility.DisplayDialog("Скриншоты по языкам",
+                    "Нужен CaptureSystem в сцене и запущенный Play Mode.", "Ок");
+                return;
+            }
+
+            PrefixPromptWindow.Show(EditorPrefs.GetString(LastPrefixKey, ""), prefix =>
+            {
+                EditorPrefs.SetString(LastPrefixKey, prefix);
+                RunCapture(prefix);
+            });
+        }
+
+        /// <summary>Модальное поле ввода: у MainToolbarButton нет своего диалога.</summary>
+        private sealed class PrefixPromptWindow : EditorWindow
+        {
+            private string _prefix = "";
+            private Action<string> _onAccept;
+            private bool _focused;
+
+            public static void Show(string initial, Action<string> onAccept)
+            {
+                var w = CreateInstance<PrefixPromptWindow>();
+                w.titleContent = new GUIContent("Приставка к имени");
+                w._prefix = initial ?? "";
+                w._onAccept = onAccept;
+                w.position = new Rect(Screen.currentResolution.width / 2f - 190,
+                                      Screen.currentResolution.height / 2f - 55, 380, 110);
+                w.ShowModalUtility();
+            }
+
+            private void OnGUI()
+            {
+                EditorGUILayout.LabelField("Файлы: «приставка имя-окна язык.png»",
+                    EditorStyles.wordWrappedMiniLabel);
+                EditorGUILayout.Space(4);
+
+                GUI.SetNextControlName("prefixField");
+                _prefix = EditorGUILayout.TextField("Приставка", _prefix);
+                if (!_focused) { EditorGUI.FocusTextInControl("prefixField"); _focused = true; }
+
+                // Enter принимает, Esc отменяет — вводить приставку быстрее с клавиатуры
+                var e = Event.current;
+                bool enter = e.type == EventType.KeyDown &&
+                             (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter);
+                bool esc = e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape;
+
+                EditorGUILayout.Space(6);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.FlexibleSpace();
+                    if (GUILayout.Button("Отмена", GUILayout.Width(90)) || esc) { Close(); return; }
+                    if (GUILayout.Button("Снять", GUILayout.Width(90)) || enter)
+                    {
+                        var cb = _onAccept;
+                        var value = _prefix;
+                        Close();
+                        cb?.Invoke(value);
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -125,6 +202,26 @@ namespace ProtoSystem.Editor.Capture
                 l.style.color = Color.white;
                 l.style.fontSize = 12;
             });
+
+            AttachContextMenu(button);
+        }
+
+        /// <summary>
+        /// Правый клик по кнопке → «Снять с приставкой…». MainToolbarButton не даёт
+        /// повесить меню штатно, поэтому manipulator добавляется найденному элементу;
+        /// тулбар пересоздаётся при перекомпиляции, поэтому помечаем обработанный.
+        /// </summary>
+        private static void AttachContextMenu(VisualElement button)
+        {
+            const string marker = "protosystem-multilang-ctx";
+            if (button.ClassListContains(marker)) return;
+            button.AddToClassList(marker);
+
+            button.AddManipulator(new ContextualMenuManipulator(evt =>
+            {
+                evt.menu.AppendAction("Снять все языки", _ => RunCapture());
+                evt.menu.AppendAction("Снять с приставкой…", _ => RunCaptureWithPrefix());
+            }));
         }
     }
 }
