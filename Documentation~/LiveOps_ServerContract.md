@@ -40,6 +40,7 @@ Reverse proxy — nginx (порты 80/443), домен `api.twohuyakproduction.
 | `messages_my.pb.js` | `GET /api/messages/my?player_id=&project_id=` — переписка игрока; `POST /api/messages/confirm` — отметка доставки ответов (`reply_status: sent → delivered`) |
 | `localization.pb.js` | `POST /api/localization/upload` — сохранение экспорта локализации на диск |
 | `translate.pb.js` | `GET /api/translate?text=&target=&source=` — прокси к Google Translate (без ключа) |
+| `telemetry.pb.js` | `POST /api/telemetry` — приём пачек событий (публичный); `GET /api/telemetry/live` — снимок онлайна из памяти (superuser); cron раз в 5 минут агрегирует память в `stats_daily` и `players` |
 
 ⚠ **Не добавлять** `onRecordCreateRequest("ratings")` в другие хуки: роут оценок
 перехвачен `ratings.pb.js` целиком, такой хук будет мёртвым кодом — но молча
@@ -55,6 +56,24 @@ Reverse proxy — nginx (порты 80/443), домен `api.twohuyakproduction.
 - `POST /api/collections/poll_votes/records` — голос (upsert в `hooks.pb.js`).
 - `GET /api/messages/my`, `POST /api/messages/confirm` — переписка.
 - `GET /api/polls/results` — результаты опросов.
+- `POST /api/telemetry` — пачка игровых событий + контекст игрока:
+  `{project_id, player_id, name, version, lang, tz, events:[{name, at, data}]}`.
+  Отправляется раз в `telemetryFlushSeconds` (по умолчанию 15 с) или при
+  наборе `telemetryBatchLimit` событий.
+
+### Телеметрия и присутствие
+
+Отдельного heartbeat нет: сервер считает игрока онлайн, пока приходят игровые
+события. Если событий не было `telemetryTickSeconds` (по умолчанию 5 минут),
+клиент шлёт пустую пачку — служебный `tick`, который не попадает в счётчики.
+Зарезервированы три имени: `session_start`, `session_end`, `tick` — их шлёт сам
+пакет. Остальные имена сервер не проверяет по списку: счётчики динамические,
+новое событие в игре не требует правок на сервере и в дашборде.
+
+Сырые события в БД не пишутся. В памяти живут сессии (`$app.store()`), в БД
+попадают только агрегаты: `stats_daily` (одна запись в сутки на проект, включая
+почасовые срезы по UTC и по локальному времени игрока) и `players` (одна запись
+на игрока).
 
 Локализуемые поля коллекций хранятся как JSON `{lang: text}` → `LocalizedString`
 на клиенте. Ответы разработчика на сообщения — `reply` + `reply_localized`.

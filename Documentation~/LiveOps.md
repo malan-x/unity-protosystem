@@ -200,6 +200,20 @@ private void OnLiveOpsDataUpdated(object payload)
 | POST | `/ratings` | `{ version, score, playerId }` |
 | POST | `/messages` | `{ playerId, message, category, tag }` |
 | POST | `/events` | `LiveOpsEvent` |
+| POST | `/telemetry` | `LiveOpsTelemetryBatch` — пачка событий + presence |
+
+### Телеметрия
+
+`TrackEvent("race_start")` не отправляет запрос сразу — событие копится в буфере
+и уходит пачкой раз в `telemetryFlushSeconds`. Эти же события служат признаком
+присутствия: отдельного heartbeat нет, сервер держит игрока в онлайне, пока
+пачки приходят. Если событий нет дольше `telemetryTickSeconds`, уходит пустая
+пачка (`tick`).
+
+`session_start` система шлёт сама после инициализации, `session_end` — в
+`OnApplicationQuit` (best effort: если процесс закрылся раньше, сервер закроет
+сессию по TTL). Проекту остаётся только расставить свои `TrackEvent` по
+игровым моментам.
 
 Ответы-массивы ожидаются как JSON-массив `[...]`.
 

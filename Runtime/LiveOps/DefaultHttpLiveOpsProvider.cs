@@ -153,6 +153,23 @@ namespace ProtoSystem.LiveOps
             return await PostAsync("/events", body);
         }
 
+        /// <summary>
+        /// POST /telemetry — пачка событий + контекст игрока (тот же формат,
+        /// что и у PocketBase-хука). Кастомный бэкенд может принимать его
+        /// как есть; если эндпоинта нет — вернётся false и события останутся
+        /// в буфере системы.
+        ///
+        /// Ограничение JsonUtility: словарь <c>LiveOpsEvent.data</c> не сериализуется
+        /// (как и в SendEventAsync). Имена событий и presence передаются полностью,
+        /// параметры событий — только в PocketBase-провайдере.
+        /// </summary>
+        public async Task<bool> SendTelemetryAsync(LiveOpsTelemetryBatch batch)
+        {
+            if (batch == null) return false;
+            var body = JsonUtility.ToJson(batch);
+            return await PostAsync("/telemetry", body);
+        }
+
         // ── HTTP helpers ──────────────────────────────────────────────────────
 
         private async Task<string> GetAsync(string path)

@@ -71,6 +71,18 @@ namespace ProtoSystem.LiveOps
         [Tooltip("Максимальный размер очереди аналитики (offline-буфер).")]
         public int analyticsQueueLimit = 100;
 
+        [Header("Telemetry")]
+        [Tooltip("Интервал отправки накопленных событий (секунды). События копятся в буфере " +
+                 "и уходят одной пачкой, а не запросом на каждое.")]
+        public float telemetryFlushSeconds = 15f;
+
+        [Tooltip("Если событий не было дольше этого времени — отправить служебный tick, " +
+                 "чтобы игрок, зависший в меню, не выпал из онлайна. 0 — не слать.")]
+        public float telemetryTickSeconds = 300f;
+
+        [Tooltip("Максимум событий в одной пачке.")]
+        public int telemetryBatchLimit = 50;
+
         [Tooltip("Таймаут HTTP-запросов (секунды).")]
         public float requestTimeoutSeconds = 10f;
 

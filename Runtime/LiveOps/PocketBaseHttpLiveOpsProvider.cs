@@ -182,8 +182,69 @@ namespace ProtoSystem.LiveOps
             return ok;
         }
 
-        public Task<bool> SendEventAsync(LiveOpsEvent evt) =>
-            Task.FromResult(false);
+        /// <summary>Одиночное событие — оборачиваем в пачку из одного.</summary>
+        public Task<bool> SendEventAsync(LiveOpsEvent evt)
+        {
+            if (evt == null) return Task.FromResult(false);
+            var batch = new LiveOpsTelemetryBatch { playerId = evt.playerId, version = evt.gameVersion };
+            batch.events.Add(evt);
+            return SendTelemetryAsync(batch);
+        }
+
+        /// <summary>
+        /// POST /api/telemetry — приём обрабатывает хук telemetry.pb.js: пишет
+        /// в память сервера, в БД попадают только агрегаты (раз в 5 минут).
+        /// Сырые события нигде не хранятся.
+        /// </summary>
+        public async Task<bool> SendTelemetryAsync(LiveOpsTelemetryBatch batch)
+        {
+            if (batch == null) return false;
+
+            var playerId = !string.IsNullOrEmpty(batch.playerId) ? batch.playerId : _playerId;
+            if (string.IsNullOrEmpty(playerId)) return false;
+
+            var name = !string.IsNullOrEmpty(batch.playerName) ? batch.playerName : _playerName;
+
+            var sb = new StringBuilder(256);
+            sb.Append("{\"project_id\":\"").Append(EscapeJson(_projectId)).Append('"');
+            sb.Append(",\"player_id\":\"").Append(EscapeJson(playerId)).Append('"');
+            if (!string.IsNullOrEmpty(name))            sb.Append(",\"name\":\"").Append(EscapeJson(name)).Append('"');
+            if (!string.IsNullOrEmpty(batch.version))   sb.Append(",\"version\":\"").Append(EscapeJson(batch.version)).Append('"');
+            if (!string.IsNullOrEmpty(batch.lang))      sb.Append(",\"lang\":\"").Append(EscapeJson(batch.lang)).Append('"');
+            sb.Append(",\"tz\":").Append(batch.tzOffsetMinutes);
+
+            sb.Append(",\"events\":[");
+            if (batch.events != null)
+            {
+                bool firstEvent = true;
+                for (int i = 0; i < batch.events.Count; i++)
+                {
+                    var e = batch.events[i];
+                    if (e == null || string.IsNullOrEmpty(e.name)) continue;
+                    if (!firstEvent) sb.Append(',');
+                    firstEvent = false;
+                    sb.Append("{\"name\":\"").Append(EscapeJson(e.name)).Append('"');
+                    if (!string.IsNullOrEmpty(e.timestamp))
+                        sb.Append(",\"at\":\"").Append(EscapeJson(e.timestamp)).Append('"');
+                    if (e.data != null && e.data.Count > 0)
+                    {
+                        sb.Append(",\"data\":{");
+                        bool first = true;
+                        foreach (var kv in e.data)
+                        {
+                            if (!first) sb.Append(',');
+                            first = false;
+                            sb.Append('"').Append(EscapeJson(kv.Key)).Append("\":\"").Append(EscapeJson(kv.Value)).Append('"');
+                        }
+                        sb.Append('}');
+                    }
+                    sb.Append('}');
+                }
+            }
+            sb.Append("]}");
+
+            return await PostAsync("/api/telemetry", sb.ToString());
+        }
 
         public async Task<bool> SubmitFeedbackAsync(LiveOpsFeedback feedback)
         {

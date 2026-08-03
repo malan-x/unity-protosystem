@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.34.0] - 2026-08-03
+
+### Added
+- **Телеметрия и присутствие игроков одной трубой.** `TrackEvent(...)` больше не
+  отправляет запрос на каждое событие: события копятся в буфере и уходят пачкой
+  раз в `telemetryFlushSeconds` (по умолчанию 15 с) или при наборе
+  `telemetryBatchLimit`. Эти же события служат признаком присутствия — отдельного
+  heartbeat нет, сервер держит игрока в онлайне, пока пачки приходят. Если
+  событий не было `telemetryTickSeconds` (5 мин), уходит пустая пачка (`tick`),
+  чтобы игрок, зависший в меню, не выпал из онлайна.
+  `session_start` шлётся после инициализации, `session_end` — в `OnApplicationQuit`.
+  Зачем: раньше `SendEventAsync` в `PocketBaseHttpLiveOpsProvider` возвращал
+  `false` — события копились в очереди и умирали вместе с процессом, аналитики
+  не было вовсе.
+- `ILiveOpsProvider.SendTelemetryAsync(LiveOpsTelemetryBatch)` — метод с
+  default-реализацией, существующие провайдеры не ломаются. Реализован в
+  PocketBase- и Default-провайдерах (`POST /api/telemetry` и `POST /telemetry`).
+- `LiveOpsTelemetryBatch` — пачка событий + контекст игрока (ник, версия, язык,
+  смещение часового пояса для почасовой статистики по локальному времени).
+- Настройки в `LiveOpsConfig`: `telemetryFlushSeconds`, `telemetryTickSeconds`,
+  `telemetryBatchLimit`. Выключатель прежний — `enableAnalytics`.
+
 ## [1.33.0] - 2026-07-31
 
 ### Added

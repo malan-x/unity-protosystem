@@ -67,5 +67,13 @@ namespace ProtoSystem.LiveOps
         /// <summary>POST /api/messages/confirm — подтвердить получение ответов (sent → delivered).</summary>
         Task<int> ConfirmRepliesAsync(string[] ids) =>
             Task.FromResult(0);
+
+        /// <summary>
+        /// POST /api/telemetry — пачка событий + контекст игрока.
+        /// Одним запросом закрывает и аналитику, и presence: сервер считает
+        /// игрока онлайн, пока батчи приходят.
+        /// </summary>
+        Task<bool> SendTelemetryAsync(LiveOpsTelemetryBatch batch) =>
+            Task.FromResult(false);
     }
 }

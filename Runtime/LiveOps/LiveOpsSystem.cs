@@ -52,6 +52,11 @@ namespace ProtoSystem.LiveOps
         private List<LiveOpsPoll>         _polls          = new();
         private Queue<LiveOpsEvent>       _analyticsQueue = new();
         private float                     _fetchTimer;
+        // Телеметрия: события копятся и уходят пачкой (см. LiveOpsTelemetryBatch)
+        private float                     _telemetryTimer;
+        private float                     _sinceLastSend;
+        private bool                      _telemetrySending;
+        private bool                      _sessionStartSent;
         private string                    _playerId;
         private string                    _playerName;
         private bool                      _playerIdOverridden;
@@ -199,21 +204,24 @@ namespace ProtoSystem.LiveOps
 
         /// <summary>
         /// Отправить аналитическое событие.
-        /// Если провайдер недоступен — событие попадает в offline-буфер.
+        ///
+        /// Событие не уходит немедленно: оно копится в буфере и отправляется
+        /// пачкой раз в <c>telemetryFlushSeconds</c> — иначе один заезд
+        /// превратился бы в очередь HTTP-запросов. Если провайдера нет или
+        /// сеть недоступна, буфер работает как offline-очередь.
+        ///
+        /// Эти же события служат сигналом присутствия: сервер считает игрока
+        /// онлайн, пока они приходят (см. server/telemetry.pb.js в дашборде).
         /// </summary>
         public void TrackEvent(string eventName, Dictionary<string, string> data = null)
         {
-            if (config == null || !config.enableAnalytics) return;
+            if (config == null || !config.enableAnalytics || string.IsNullOrEmpty(eventName)) return;
 
-            var evt = new LiveOpsEvent(eventName, _playerId, Application.version, data);
+            EnqueueAnalytics(new LiveOpsEvent(eventName, _playerId, Application.version, data));
 
-            if (_provider == null)
-            {
-                EnqueueAnalytics(evt);
-                return;
-            }
-
-            _ = SendEventWithFallbackAsync(evt);
+            // пачка набралась раньше таймера — отправляем сразу
+            if (_provider != null && _serverAvailable && _analyticsQueue.Count >= Mathf.Max(1, config.telemetryBatchLimit))
+                _ = FlushTelemetryAsync();
         }
 
         /// <summary>Отправить фидбек/сообщение от игрока.</summary>
@@ -526,7 +534,8 @@ namespace ProtoSystem.LiveOps
                 if (_serverAvailable)
                 {
                     await FetchAsync();
-                    await FlushAnalyticsQueueAsync();
+                    TrackSessionStart();
+                    await FlushTelemetryAsync();
                 }
                 else if (_provider == null)
                 {
@@ -585,14 +594,40 @@ namespace ProtoSystem.LiveOps
 
         private void Update()
         {
-            if (config == null || config.fetchIntervalSeconds <= 0f || _provider == null || !_serverAvailable) return;
+            if (config == null || _provider == null || !_serverAvailable) return;
 
-            _fetchTimer += Time.deltaTime;
-            if (_fetchTimer >= config.fetchIntervalSeconds)
+            if (config.fetchIntervalSeconds > 0f)
             {
-                _fetchTimer = 0f;
-                _ = SafeFetchAsync();
+                _fetchTimer += Time.deltaTime;
+                if (_fetchTimer >= config.fetchIntervalSeconds)
+                {
+                    _fetchTimer = 0f;
+                    _ = SafeFetchAsync();
+                }
             }
+
+            if (!config.enableAnalytics) return;
+
+            _telemetryTimer += Time.deltaTime;
+            _sinceLastSend  += Time.deltaTime;
+
+            if (_telemetryTimer < Mathf.Max(1f, config.telemetryFlushSeconds)) return;
+            _telemetryTimer = 0f;
+
+            // событий нет слишком долго — шлём пустую пачку как признак жизни
+            bool needTick = config.telemetryTickSeconds > 0f && _sinceLastSend >= config.telemetryTickSeconds;
+            if (_analyticsQueue.Count > 0 || needTick)
+                _ = FlushTelemetryAsync(needTick);
+        }
+
+        private void OnApplicationQuit()
+        {
+            if (config == null || !config.enableAnalytics || _provider == null || !_serverAvailable) return;
+
+            TrackEvent("session_end");
+            // best effort: запрос может не успеть уйти до закрытия процесса —
+            // тогда сервер закроет сессию по TTL
+            _ = FlushTelemetryAsync(true);
         }
 
         #endregion
@@ -608,26 +643,11 @@ namespace ProtoSystem.LiveOps
             try
             {
                 await FetchAsync();
-                await FlushAnalyticsQueueAsync();
+                await FlushTelemetryAsync();
             }
             catch (Exception ex)
             {
                 ProtoLogger.LogWarning(SystemId, $"Fetch failed: {ex.Message}");
-            }
-        }
-
-        private async Task SendEventWithFallbackAsync(LiveOpsEvent evt)
-        {
-            try
-            {
-                bool sent = await _provider.SendEventAsync(evt);
-                if (!sent) EnqueueAnalytics(evt);
-            }
-            catch (Exception ex)
-            {
-                // Сбой сети не должен терять событие — возвращаем его в очередь
-                ProtoLogger.LogWarning(SystemId, $"SendEvent failed: {ex.Message}");
-                EnqueueAnalytics(evt);
             }
         }
 
@@ -637,15 +657,65 @@ namespace ProtoSystem.LiveOps
             _analyticsQueue.Enqueue(evt);
         }
 
-        private async Task FlushAnalyticsQueueAsync()
+        /// <summary>
+        /// Отправить накопленные события одной пачкой.
+        /// <paramref name="force"/> = отправить, даже если событий нет: пустая
+        /// пачка служит признаком жизни (tick), чтобы игрок не выпал из онлайна.
+        /// </summary>
+        private async Task FlushTelemetryAsync(bool force = false)
         {
-            while (_analyticsQueue.Count > 0)
+            if (_provider == null || _telemetrySending) return;
+            if (_analyticsQueue.Count == 0 && !force) return;
+
+            var batch = new LiveOpsTelemetryBatch
             {
-                var evt = _analyticsQueue.Peek();
-                bool sent = await _provider.SendEventAsync(evt);
-                if (sent) _analyticsQueue.Dequeue();
-                else break;
+                playerId        = _playerId,
+                playerName      = _playerName,
+                version         = Application.version,
+                lang            = Language,
+                tzOffsetMinutes = (int)TimeZoneInfo.Local.GetUtcOffset(DateTime.Now).TotalMinutes,
+            };
+
+            int limit = Mathf.Max(1, config.telemetryBatchLimit);
+            while (batch.events.Count < limit && _analyticsQueue.Count > 0)
+                batch.events.Add(_analyticsQueue.Dequeue());
+
+            _telemetrySending = true;
+            bool sent = false;
+            try
+            {
+                sent = await _provider.SendTelemetryAsync(batch);
             }
+            catch (Exception ex)
+            {
+                ProtoLogger.LogWarning(SystemId, $"Telemetry send failed: {ex.Message}");
+            }
+            finally
+            {
+                _telemetrySending = false;
+            }
+
+            if (sent)
+            {
+                _sinceLastSend = 0f;
+            }
+            else
+            {
+                // сеть моргнула — возвращаем события в буфер (порядок не важен,
+                // у каждого события свой timestamp), лишнее отсечёт лимит очереди
+                foreach (var e in batch.events) EnqueueAnalytics(e);
+            }
+        }
+
+        /// <summary>Первое событие сессии — с него сервер начинает отсчёт времени игры.</summary>
+        private void TrackSessionStart()
+        {
+            if (_sessionStartSent || config == null || !config.enableAnalytics) return;
+            _sessionStartSent = true;
+            TrackEvent("session_start", new Dictionary<string, string>
+            {
+                { "platform", Application.platform.ToString() },
+            });
         }
 
         private static string GetOrCreateAnonymousId()
