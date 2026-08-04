@@ -211,6 +211,7 @@ namespace ProtoSystem.LiveOps
             if (!string.IsNullOrEmpty(name))            sb.Append(",\"name\":\"").Append(EscapeJson(name)).Append('"');
             if (!string.IsNullOrEmpty(batch.version))   sb.Append(",\"version\":\"").Append(EscapeJson(batch.version)).Append('"');
             if (!string.IsNullOrEmpty(batch.lang))      sb.Append(",\"lang\":\"").Append(EscapeJson(batch.lang)).Append('"');
+            if (!string.IsNullOrEmpty(batch.env))       sb.Append(",\"env\":\"").Append(EscapeJson(batch.env)).Append('"');
             sb.Append(",\"tz\":").Append(batch.tzOffsetMinutes);
 
             sb.Append(",\"events\":[");

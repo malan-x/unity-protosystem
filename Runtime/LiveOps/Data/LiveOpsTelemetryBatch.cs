@@ -30,6 +30,13 @@ namespace ProtoSystem.LiveOps
         /// <summary>Смещение часового пояса игрока от UTC в минутах (МСК = +180).</summary>
         public int tzOffsetMinutes;
 
+        /// <summary>
+        /// Среда запуска: "editor" или "player". Сервер держит их раздельно,
+        /// чтобы прогоны разработчика в Unity Editor не перекашивали DAU
+        /// и часы игры. Пустое значение трактуется как билд.
+        /// </summary>
+        public string env;
+
         /// <summary>Накопленные события. Может быть пустым — тогда это просто признак жизни.</summary>
         public List<LiveOpsEvent> events = new();
     }

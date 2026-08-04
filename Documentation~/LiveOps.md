@@ -210,6 +210,11 @@ private void OnLiveOpsDataUpdated(object payload)
 пачки приходят. Если событий нет дольше `telemetryTickSeconds`, уходит пустая
 пачка (`tick`).
 
+Сессии из Unity Editor отделены от билдов: пакет шлёт `env` = "editor" /
+"player" (`Application.isEditor`), сервер копит редакторские сессии в
+отдельном проекте, а дашборд переключает их вкладкой. Иначе прогоны
+разработчика перекашивают DAU и часы игры.
+
 `session_start` система шлёт сама после инициализации, `session_end` — в
 `OnApplicationQuit` (best effort: если процесс закрылся раньше, сервер закроет
 сессию по TTL). Проекту остаётся только расставить свои `TrackEvent` по

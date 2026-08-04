@@ -57,7 +57,10 @@ Reverse proxy — nginx (порты 80/443), домен `api.twohuyakproduction.
 - `GET /api/messages/my`, `POST /api/messages/confirm` — переписка.
 - `GET /api/polls/results` — результаты опросов.
 - `POST /api/telemetry` — пачка игровых событий + контекст игрока:
-  `{project_id, player_id, name, version, lang, tz, events:[{name, at, data}]}`.
+  `{project_id, player_id, name, version, lang, tz, env, events:[{name, at, data}]}`.
+  `env` = "editor" / "player": сессии из Unity Editor сервер пишет в отдельный
+  проект `<project_id>.editor`, чтобы прогоны разработчика не перекашивали
+  статистику билдов. Поле отсутствует — считается билдом.
   Отправляется раз в `telemetryFlushSeconds` (по умолчанию 15 с) или при
   наборе `telemetryBatchLimit` событий.
 

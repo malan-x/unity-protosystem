@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.34.1] - 2026-08-05
+
+### Added
+- **Сессии из Unity Editor отделены от билдов.** `LiveOpsTelemetryBatch.env`
+  = "editor" / "player" (`Application.isEditor`), сервер держит редакторские
+  сессии в отдельном проекте (`<projectId>.editor`) и в дашборде они
+  переключаются вкладкой «Билды / Редактор».
+  Зачем: прогоны разработчика перекашивали DAU, часы игры и почасовые срезы —
+  на малых числах это полностью ломало картину.
+  Старые билды поле не шлют и считаются билдами: статистика остаётся чистой.
+
 ## [1.34.0] - 2026-08-03
 
 ### Added

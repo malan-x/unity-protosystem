@@ -674,6 +674,7 @@ namespace ProtoSystem.LiveOps
                 version         = Application.version,
                 lang            = Language,
                 tzOffsetMinutes = (int)TimeZoneInfo.Local.GetUtcOffset(DateTime.Now).TotalMinutes,
+                env             = Application.isEditor ? "editor" : "player",
             };
 
             int limit = Mathf.Max(1, config.telemetryBatchLimit);
