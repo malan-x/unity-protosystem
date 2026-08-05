@@ -57,6 +57,8 @@ namespace ProtoSystem.LiveOps
         private float                     _sinceLastSend;
         private bool                      _telemetrySending;
         private bool                      _sessionStartSent;
+        private string                    _deviceTag;
+        private bool                      _specsSent;
         private string                    _playerId;
         private string                    _playerName;
         private bool                      _playerIdOverridden;
@@ -113,6 +115,23 @@ namespace ProtoSystem.LiveOps
             if (string.IsNullOrWhiteSpace(id)) return;
             _playerId = id;
             _playerIdOverridden = true;
+        }
+
+        /// <summary>
+        /// Переопределить тег устройства (по умолчанию — платформа: windows/linux/mac).
+        ///
+        /// Нужен для Steam Deck: под Proton он выглядит как WindowsPlayer, и
+        /// отличить его можно только через Steamworks. Вызывать из проекта:
+        /// <code>
+        /// if (SteamUtils.IsSteamRunningOnSteamDeck()) liveOps.SetDeviceTag("steamdeck");
+        /// </code>
+        /// Тег попадает в разрезы дашборда: игроки, сессии и часы по устройствам.
+        /// </summary>
+        public void SetDeviceTag(string tag)
+        {
+            if (string.IsNullOrWhiteSpace(tag)) return;
+            _deviceTag = tag.Trim().ToLowerInvariant();
+            _specsSent = false; // перешлём конфигурацию с уже уточнённым устройством
         }
 
         /// <summary>
@@ -675,7 +694,15 @@ namespace ProtoSystem.LiveOps
                 lang            = Language,
                 tzOffsetMinutes = (int)TimeZoneInfo.Local.GetUtcOffset(DateTime.Now).TotalMinutes,
                 env             = Application.isEditor ? "editor" : "player",
+                device          = !string.IsNullOrEmpty(_deviceTag) ? _deviceTag : LiveOpsDeviceSpecs.PlatformTag(),
             };
+
+            // Конфигурация машины статична — уходит один раз за сессию
+            if (!_specsSent)
+            {
+                batch.specs = LiveOpsDeviceSpecs.Collect();
+                _specsSent  = true;
+            }
 
             int limit = Mathf.Max(1, config.telemetryBatchLimit);
             while (batch.events.Count < limit && _analyticsQueue.Count > 0)
@@ -705,6 +732,7 @@ namespace ProtoSystem.LiveOps
                 // сеть моргнула — возвращаем события в буфер (порядок не важен,
                 // у каждого события свой timestamp), лишнее отсечёт лимит очереди
                 foreach (var e in batch.events) EnqueueAnalytics(e);
+                if (batch.specs != null) _specsSent = false; // конфигурация уйдёт со следующей пачкой
             }
         }
 

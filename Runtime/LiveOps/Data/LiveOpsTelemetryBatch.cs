@@ -37,6 +37,20 @@ namespace ProtoSystem.LiveOps
         /// </summary>
         public string env;
 
+        /// <summary>
+        /// Тег устройства: windows / linux / mac / steamdeck. По умолчанию
+        /// выводится из платформы, но Steam Deck под Proton выглядит как
+        /// Windows — его сообщает проект через <c>SetDeviceTag</c>.
+        /// </summary>
+        public string device;
+
+        /// <summary>
+        /// Конфигурация машины. Заполняется только в первом батче сессии:
+        /// данные статичные, а на сервере это единственная запись на диск
+        /// в обработчике приёма.
+        /// </summary>
+        public LiveOpsDeviceSpecs specs;
+
         /// <summary>Накопленные события. Может быть пустым — тогда это просто признак жизни.</summary>
         public List<LiveOpsEvent> events = new();
     }

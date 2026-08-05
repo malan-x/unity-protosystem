@@ -61,6 +61,12 @@ Reverse proxy — nginx (порты 80/443), домен `api.twohuyakproduction.
   `env` = "editor" / "player": сессии из Unity Editor сервер пишет в отдельный
   проект `<project_id>.editor`, чтобы прогоны разработчика не перекашивали
   статистику билдов. Поле отсутствует — считается билдом.
+  `device` = windows / linux / mac / steamdeck — тег устройства, идёт в каждом
+  батче и даёт разрезы по игрокам, сессиям и часам.
+  `specs` = `{os, cpu, cpu_cores, ram_mb, gpu, gpu_vendor, gpu_api, vram_mb,
+  resolution, refresh_hz}` — конфигурация машины, только в первом батче сессии.
+  Сервер кладёт её в коллекцию `player_specs` (одна запись на игрока) и
+  перезаписывает не чаще раза в 6 часов.
   Отправляется раз в `telemetryFlushSeconds` (по умолчанию 15 с) или при
   наборе `telemetryBatchLimit` событий.
 

@@ -212,7 +212,25 @@ namespace ProtoSystem.LiveOps
             if (!string.IsNullOrEmpty(batch.version))   sb.Append(",\"version\":\"").Append(EscapeJson(batch.version)).Append('"');
             if (!string.IsNullOrEmpty(batch.lang))      sb.Append(",\"lang\":\"").Append(EscapeJson(batch.lang)).Append('"');
             if (!string.IsNullOrEmpty(batch.env))       sb.Append(",\"env\":\"").Append(EscapeJson(batch.env)).Append('"');
+            if (!string.IsNullOrEmpty(batch.device))    sb.Append(",\"device\":\"").Append(EscapeJson(batch.device)).Append('"');
             sb.Append(",\"tz\":").Append(batch.tzOffsetMinutes);
+
+            if (batch.specs != null)
+            {
+                var s = batch.specs;
+                sb.Append(",\"specs\":{");
+                sb.Append("\"os\":\"").Append(EscapeJson(s.os)).Append('"');
+                sb.Append(",\"cpu\":\"").Append(EscapeJson(s.cpu)).Append('"');
+                sb.Append(",\"cpu_cores\":").Append(s.cpu_cores);
+                sb.Append(",\"ram_mb\":").Append(s.ram_mb);
+                sb.Append(",\"gpu\":\"").Append(EscapeJson(s.gpu)).Append('"');
+                sb.Append(",\"gpu_vendor\":\"").Append(EscapeJson(s.gpu_vendor)).Append('"');
+                sb.Append(",\"gpu_api\":\"").Append(EscapeJson(s.gpu_api)).Append('"');
+                sb.Append(",\"vram_mb\":").Append(s.vram_mb);
+                sb.Append(",\"resolution\":\"").Append(EscapeJson(s.resolution)).Append('"');
+                sb.Append(",\"refresh_hz\":").Append(s.refresh_hz);
+                sb.Append('}');
+            }
 
             sb.Append(",\"events\":[");
             if (batch.events != null)

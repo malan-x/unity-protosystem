@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.35.0] - 2026-08-05
+
+### Added
+- **Разрез по устройствам и конфигурация машины.** `LiveOpsDeviceSpecs` снимает
+  ОС, CPU, ядра, RAM, GPU, вендора, графическое API, VRAM, разрешение и частоту
+  обновления; уходит один раз за сессию (данные статичные). Сервер кладёт это
+  в `player_specs` — одна запись на игрока, растёт как число игроков, а не
+  событий. Джойн с `ratings` по `player_id` даёт среднюю оценку в разрезе
+  железа: жалобы на производительность становятся проверяемыми.
+- `LiveOpsSystem.SetDeviceTag(string)` — переопределение тега устройства.
+  Нужен для Steam Deck: под Proton он виден как `WindowsPlayer`, и отличить
+  его можно только через Steamworks:
+  `if (SteamUtils.IsSteamRunningOnSteamDeck()) liveOps.SetDeviceTag("steamdeck");`
+  По умолчанию тег выводится из платформы (windows / linux / mac / android / ios).
+- Тег устройства уходит в каждом батче и попадает в разрезы дашборда:
+  уникальные игроки, сессии и часы по устройствам.
+
 ## [1.34.1] - 2026-08-05
 
 ### Added
