@@ -360,17 +360,21 @@ namespace ProtoSystem.Sound
         {
             CancelMusicRoutine();
 
-            if (fadeOutTime > 0 && (_musicSourceA.isPlaying || _musicSourceB.isPlaying))
+            // null-guard: при тир-дауне (выход из Play Mode) источники могли быть
+            // уничтожены раньше провайдера — Dispose зовёт StopAll → StopMusic
+            bool aAlive = _musicSourceA != null;
+            bool bAlive = _musicSourceB != null;
+            bool playing = (aAlive && _musicSourceA.isPlaying) || (bAlive && _musicSourceB.isPlaying);
+
+            if (fadeOutTime > 0 && playing)
             {
                 // Гасим оба источника: после кроссфейдов хвост может жить на любом из них
                 _crossfadeCoroutine = StartCoroutine(FadeOutAndStopAll(fadeOutTime));
             }
             else
             {
-                _musicSourceA.Stop();
-                _musicSourceA.volume = 0;
-                _musicSourceB.Stop();
-                _musicSourceB.volume = 0;
+                if (aAlive) { _musicSourceA.Stop(); _musicSourceA.volume = 0; }
+                if (bAlive) { _musicSourceB.Stop(); _musicSourceB.volume = 0; }
             }
 
             _currentMusicId = null;
@@ -826,21 +830,19 @@ namespace ProtoSystem.Sound
 
         private System.Collections.IEnumerator FadeOutAndStopAll(float duration)
         {
-            float aStart = _musicSourceA.volume;
-            float bStart = _musicSourceB.volume;
+            float aStart = _musicSourceA != null ? _musicSourceA.volume : 0f;
+            float bStart = _musicSourceB != null ? _musicSourceB.volume : 0f;
             float elapsed = 0;
             while (elapsed < duration)
             {
                 elapsed += Time.unscaledDeltaTime;
                 float t = elapsed / duration;
-                _musicSourceA.volume = Mathf.Lerp(aStart, 0, t);
-                _musicSourceB.volume = Mathf.Lerp(bStart, 0, t);
+                if (_musicSourceA != null) _musicSourceA.volume = Mathf.Lerp(aStart, 0, t);
+                if (_musicSourceB != null) _musicSourceB.volume = Mathf.Lerp(bStart, 0, t);
                 yield return null;
             }
-            _musicSourceA.Stop();
-            _musicSourceA.volume = 0;
-            _musicSourceB.Stop();
-            _musicSourceB.volume = 0;
+            if (_musicSourceA != null) { _musicSourceA.Stop(); _musicSourceA.volume = 0; }
+            if (_musicSourceB != null) { _musicSourceB.Stop(); _musicSourceB.volume = 0; }
             _crossfadeCoroutine = null;
         }
         
