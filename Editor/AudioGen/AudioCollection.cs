@@ -15,6 +15,10 @@ namespace ProtoSystem.AudioGen.Editor
         public string UsageNote;
         public float Seconds;
         public string WavFolder;
+
+        /// <summary>Шина сета по умолчанию — записи с другой шиной студия красит красным.</summary>
+        public ProtoSystem.Sound.SoundCategory? DefaultBus;
+
         public Func<List<AudioItem>> GetItems;
         public AudioCollectionAsset SourceAsset;
 
@@ -26,6 +30,7 @@ namespace ProtoSystem.AudioGen.Editor
                 Id = asset.setId,
                 Title = asset.ResolveTitle(),
                 UsageNote = asset.ResolveSet()?.UsageNote,
+                DefaultBus = asset.ResolveSet()?.DefaultBus,
                 Seconds = asset.ResolveSeconds(),
                 WavFolder = string.IsNullOrEmpty(asset.wavFolder) ? "Assets/Audio/Variants" : asset.wavFolder,
                 GetItems = asset.ResolveItems,
@@ -48,6 +53,10 @@ namespace ProtoSystem.AudioGen.Editor
         public Action<AudioClip> SetClip;
         public Func<float> GetVolume;
         public Action<float> SetVolume;
+        public Func<ProtoSystem.Sound.SoundCategory> GetBus;
+        public Action<ProtoSystem.Sound.SoundCategory> SetBus;
+        public Func<bool> GetMuted;
+        public Action<bool> SetMuted;
         public Func<string> GetPrompt;
         public Action<string> SetPrompt;
         public Func<AudioClip[]> GetClipVariants;

@@ -31,6 +31,9 @@ namespace ProtoSystem.Sound
         [Tooltip("Громкость звука")]
         [Range(0f, 1f)]
         public float volume = 1f;
+
+        [Tooltip("Полностью отключить звук — не проигрывается нигде")]
+        public bool muted = false;
         
         [Tooltip("Базовая высота звука")]
         [Range(0.1f, 3f)]

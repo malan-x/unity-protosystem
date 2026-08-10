@@ -40,6 +40,13 @@ namespace ProtoSystem.AudioGen
         /// </summary>
         public float DefaultSeconds;
 
+        /// <summary>
+        /// Аудиошина сета по умолчанию (SoundCategory). Студия подсвечивает красным
+        /// сущности с другой шиной: группа должна регулироваться одной шиной, иначе
+        /// звуку место в другом сете. null — сет без контракта шины.
+        /// </summary>
+        public ProtoSystem.Sound.SoundCategory? DefaultBus;
+
         public List<AudioContentItem> Items = new();
     }
 
@@ -86,6 +93,26 @@ namespace ProtoSystem.AudioGen
 
         /// <summary>Задать громкость записи (write-through в провайдера).</summary>
         public Action<float> SetVolume;
+
+        // ── Аудиошина (SoundCategory записи) — опционально ──
+        // Студия показывает дропдаун и красит его красным, когда шина расходится
+        // с DefaultBus сета. null-колбэки — шина не редактируется.
+
+        /// <summary>Шина записи в игре. null-колбэк — не поддерживается.</summary>
+        public Func<ProtoSystem.Sound.SoundCategory> GetBus;
+
+        /// <summary>Переназначить шину записи (write-through в провайдера).</summary>
+        public Action<ProtoSystem.Sound.SoundCategory> SetBus;
+
+        // ── Полное отключение звука — опционально ──
+        // «Замьютить» надоевший звук, не удаляя запись и клип (SoundEntry.muted).
+
+        /// <summary>Звук отключён (не проигрывается нигде). null-колбэк — не поддерживается.</summary>
+        public Func<bool> GetMuted;
+
+        /// <summary>Отключить/включить звук (write-through в провайдера).</summary>
+        public Action<bool> SetMuted;
+
         public Func<string> GetPrompt;
         public Action<string> SetPrompt;
 

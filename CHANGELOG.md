@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.37.0] - 2026-08-10
+
+### Added
+- **Sound: `SoundEntry.muted`** — полное отключение звука без удаления записи и
+  клипа. Провайдер (Play/PlayMusic/CrossfadeMusic) замьюченные записи не играет.
+- **AudioGen: шина и мьют в контракте студии.** `AudioContentSet.DefaultBus` —
+  шина сета по умолчанию; `AudioContentItem.GetBus/SetBus` и `GetMuted/SetMuted`
+  (write-through). Editor-модель (`AudioCollection`/`AudioItem`) пробрасывает
+  новые поля. Студия красит красным записи, чья шина расходится с шиной сета:
+  группа регулируется одной шиной, иначе звуку место в другом сете.
+
 ## [1.36.2] - 2026-08-10
 
 ### Fixed

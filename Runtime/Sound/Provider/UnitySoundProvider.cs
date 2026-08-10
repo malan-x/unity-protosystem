@@ -164,6 +164,7 @@ namespace ProtoSystem.Sound
                 ProtoLogger.Log("sound_manager", LogCategory.Runtime, LogLevel.Warnings, $"Sound not found: {id}");
                 return SoundHandle.Invalid;
             }
+            if (entry.muted) return SoundHandle.Invalid;
             
             // Проверить cooldown
             if (!CheckCooldown(entry))
@@ -314,6 +315,7 @@ namespace ProtoSystem.Sound
                 ProtoLogger.Log("sound_manager", LogCategory.Runtime, LogLevel.Warnings, $"Music not found: {id}");
                 return;
             }
+            if (entry.muted) return;
             
             var clip = entry.GetRandomClip();
             if (clip == null) return;
@@ -386,8 +388,8 @@ namespace ProtoSystem.Sound
             if (id == _currentMusicId) return;
             
             var entry = _library?.Get(id);
-            if (entry == null) return;
-            
+            if (entry == null || entry.muted) return;
+
             var clip = entry.GetRandomClip();
             if (clip == null) return;
 
