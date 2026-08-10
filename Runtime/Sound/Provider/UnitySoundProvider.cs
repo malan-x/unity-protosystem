@@ -318,37 +318,61 @@ namespace ProtoSystem.Sound
             var clip = entry.GetRandomClip();
             if (clip == null) return;
             
+            CancelMusicRoutine();
+            var currentSource = _musicUsingA ? _musicSourceA : _musicSourceB;
+
+            // Что-то уже играет — уходим кроссфейдом на второй источник: старый трек
+            // не режется, и два фейда не делят один AudioSource.
+            if (currentSource.isPlaying && fadeInTime > 0f)
+            {
+                _musicUsingA = !_musicUsingA;
+                var next = _musicUsingA ? _musicSourceA : _musicSourceB;
+                next.Stop();
+                next.clip = clip;
+                next.volume = 0;
+                next.loop = true;
+                next.Play();
+                _currentMusicId = id;
+                _crossfadeCoroutine = StartCoroutine(Crossfade(currentSource, next, entry.volume, fadeInTime));
+                return;
+            }
+
+            _musicSourceA.Stop();
+            _musicSourceB.Stop();
             _currentMusicId = id;
-            
-            var targetSource = _musicUsingA ? _musicSourceA : _musicSourceB;
-            targetSource.clip = clip;
-            targetSource.volume = 0;
-            targetSource.loop = true;
-            targetSource.Play();
-            
+
+            currentSource.clip = clip;
+            currentSource.volume = 0;
+            currentSource.loop = true;
+            currentSource.Play();
+
             if (fadeInTime > 0)
             {
-                StartCoroutine(FadeIn(targetSource, entry.volume, fadeInTime));
+                _crossfadeCoroutine = StartCoroutine(FadeIn(currentSource, entry.volume, fadeInTime));
             }
             else
             {
-                targetSource.volume = entry.volume;
+                currentSource.volume = entry.volume;
             }
         }
-        
+
         public void StopMusic(float fadeOutTime = 0f)
         {
-            var currentSource = _musicUsingA ? _musicSourceA : _musicSourceB;
-            
-            if (fadeOutTime > 0 && currentSource.isPlaying)
+            CancelMusicRoutine();
+
+            if (fadeOutTime > 0 && (_musicSourceA.isPlaying || _musicSourceB.isPlaying))
             {
-                StartCoroutine(FadeOutAndStop(currentSource, fadeOutTime));
+                // Гасим оба источника: после кроссфейдов хвост может жить на любом из них
+                _crossfadeCoroutine = StartCoroutine(FadeOutAndStopAll(fadeOutTime));
             }
             else
             {
-                currentSource.Stop();
+                _musicSourceA.Stop();
+                _musicSourceA.volume = 0;
+                _musicSourceB.Stop();
+                _musicSourceB.volume = 0;
             }
-            
+
             _currentMusicId = null;
         }
         
@@ -362,20 +386,22 @@ namespace ProtoSystem.Sound
             
             var clip = entry.GetRandomClip();
             if (clip == null) return;
-            
+
+            CancelMusicRoutine();
             var oldSource = _musicUsingA ? _musicSourceA : _musicSourceB;
             _musicUsingA = !_musicUsingA;
             var newSource = _musicUsingA ? _musicSourceA : _musicSourceB;
-            
+
+            newSource.Stop();
             newSource.clip = clip;
             newSource.volume = 0;
             newSource.loop = true;
             newSource.Play();
-            
+
             _currentMusicId = id;
-            
+
             float targetVolume = entry.volume;
-            StartCoroutine(Crossfade(oldSource, newSource, targetVolume, crossfadeTime));
+            _crossfadeCoroutine = StartCoroutine(Crossfade(oldSource, newSource, targetVolume, crossfadeTime));
         }
         
         public void SetMusicParameter(string parameter, float value)
@@ -754,10 +780,22 @@ namespace ProtoSystem.Sound
         
         // === Coroutine helpers ===
         
-        private void StartCoroutine(System.Collections.IEnumerator routine)
+        private Coroutine StartCoroutine(System.Collections.IEnumerator routine)
         {
             // Используем MonoBehaviour хелпер
-            CoroutineRunner.Instance?.StartCoroutine(routine);
+            return CoroutineRunner.Instance != null
+                ? CoroutineRunner.Instance.StartCoroutine(routine)
+                : null;
+        }
+
+        /// <summary>Отменить активный музыкальный фейд/кроссфейд — иначе осиротевшие
+        /// короутины дерутся за громкость источников (меню vs глобус) и могут заглушить
+        /// или остановить только что запущенный трек.</summary>
+        private void CancelMusicRoutine()
+        {
+            if (_crossfadeCoroutine == null) return;
+            CoroutineRunner.Instance?.StopCoroutine(_crossfadeCoroutine);
+            _crossfadeCoroutine = null;
         }
         
         private System.Collections.IEnumerator FadeIn(AudioSource source, float targetVolume, float duration)
@@ -784,6 +822,26 @@ namespace ProtoSystem.Sound
             }
             source.Stop();
             source.volume = 0;
+        }
+
+        private System.Collections.IEnumerator FadeOutAndStopAll(float duration)
+        {
+            float aStart = _musicSourceA.volume;
+            float bStart = _musicSourceB.volume;
+            float elapsed = 0;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = elapsed / duration;
+                _musicSourceA.volume = Mathf.Lerp(aStart, 0, t);
+                _musicSourceB.volume = Mathf.Lerp(bStart, 0, t);
+                yield return null;
+            }
+            _musicSourceA.Stop();
+            _musicSourceA.volume = 0;
+            _musicSourceB.Stop();
+            _musicSourceB.volume = 0;
+            _crossfadeCoroutine = null;
         }
         
         private System.Collections.IEnumerator Crossfade(AudioSource from, AudioSource to, float targetVolume, float duration)

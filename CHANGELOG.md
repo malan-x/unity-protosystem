@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.36.1] - 2026-08-10
+
+### Fixed
+- **Sound: гонка музыкальных фейдов.** `PlayMusic`/`StopMusic`/`CrossfadeMusic`
+  не отменяли предыдущие короутины — при смене треков (меню → глобус) фейды
+  дрались за один `AudioSource`: новый трек мог заглохнуть или остаться
+  полузатухшим, а старый — продолжать играть параллельно. Теперь активный фейд
+  отменяется, `PlayMusic` поверх играющего трека уходит кроссфейдом на второй
+  источник, `StopMusic` гасит оба. Добавлен `SoundManagerSystem.CurrentMusicId`,
+  чтобы владелец трека глушил только свою музыку.
+
 ## [1.36.0] - 2026-08-10
 
 ### Added

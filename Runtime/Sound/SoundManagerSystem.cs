@@ -250,29 +250,37 @@ namespace ProtoSystem.Sound
             Instance?._provider?.Stop(handle);
         }
         
+        /// <summary>Id музыки, запрошенной последней (null — музыка остановлена).
+        /// Нужен, чтобы владелец трека глушил только свою музыку и не убивал чужую
+        /// при гонке переходов (меню → глобус).</summary>
+        public static string CurrentMusicId { get; private set; }
+
         /// <summary>
         /// Воспроизвести музыку
         /// </summary>
         public static void PlayMusic(string id, float fadeIn = 0f)
         {
+            CurrentMusicId = id;
             Instance?._provider?.PlayMusic(id, fadeIn);
             Instance?.OnMusicChanged?.Invoke(id);
         }
-        
+
         /// <summary>
         /// Остановить музыку
         /// </summary>
         public static void StopMusic(float fadeOut = 0f)
         {
+            CurrentMusicId = null;
             Instance?._provider?.StopMusic(fadeOut);
             Instance?.OnMusicChanged?.Invoke(null);
         }
-        
+
         /// <summary>
         /// Кроссфейд к музыке
         /// </summary>
         public static void CrossfadeMusic(string id, float time = 2f)
         {
+            CurrentMusicId = id;
             Instance?._provider?.CrossfadeMusic(id, time);
             Instance?.OnMusicChanged?.Invoke(id);
         }
