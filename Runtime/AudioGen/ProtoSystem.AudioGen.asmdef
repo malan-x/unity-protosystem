@@ -1,7 +1,9 @@
 {
     "name": "ProtoSystem.AudioGen",
     "rootNamespace": "ProtoSystem.AudioGen",
-    "references": [],
+    "references": [
+        "ProtoSystem.Runtime"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

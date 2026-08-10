@@ -2,7 +2,8 @@
     "name": "ProtoSystem.AudioGen.Editor",
     "rootNamespace": "ProtoSystem.AudioGen.Editor",
     "references": [
-        "ProtoSystem.AudioGen"
+        "ProtoSystem.AudioGen",
+        "ProtoSystem.Runtime"
     ],
     "includePlatforms": [
         "Editor"
