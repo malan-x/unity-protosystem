@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.36.0] - 2026-08-10
+
+### Added
+- **AudioGen: целевая громкость LUFS в стиле генерации.** Поле
+  `AudioStylePreset.targetLufs` (0 — выкл): результат выравнивается
+  двухпроходным `loudnorm` (замер `print_format=json`, затем линейный гейн,
+  пик не выше −1.5 dBTP) последним фильтром конвертации — после эффект-цепочки
+  и трима тишины. Цель хранится в слепке `AudioGenResult` и рецепте варианта
+  (`AudioRecipe.targetLufs`) для точной перегенерации. Ориентиры микса:
+  голос −16, события/взрывы −19, SFX −23, музыка −24, UI −27, лупы/эмбиент −29.
+
 ## [1.35.0] - 2026-08-05
 
 ### Added

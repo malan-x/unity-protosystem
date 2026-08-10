@@ -78,6 +78,9 @@ namespace ProtoSystem.AudioGen.Editor
             /// <summary>ffmpeg-фильтр постобработки (рация и т.п.). Применяется до трима тишины.</summary>
             public string PostFilter;
 
+            /// <summary>Целевая интегральная громкость LUFS: loudnorm последним фильтром. 0 — без нормализации.</summary>
+            public float TargetLufs;
+
             // Оверрайд чекпоинта для воспроизводимости рецептов. Пусто — глобальная настройка движка.
             public string CheckpointOverride;
             public bool HasModelOverride;

@@ -37,6 +37,7 @@ namespace ProtoSystem.AudioGen.Editor
         public string ttsLanguage;
 
         public string postFilter;
+        public float targetLufs;   // 0 — без нормализации (аддитивно — у старых рецептов ноль)
     }
 
     /// <summary>Один сгенерированный вариант звука сущности.</summary>

@@ -34,6 +34,7 @@ namespace ProtoSystem.AudioGen.Editor
         public string TtsLanguage;
 
         public string PostFilter;
+        public float TargetLufs;        // 0 — без нормализации громкости
         public string RunId;
         public string GeneratedAtUtc;
         public string WavAssetPath;

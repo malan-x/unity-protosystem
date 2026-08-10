@@ -62,7 +62,7 @@ namespace ProtoSystem.AudioGen.Editor
         public static void ToWav(byte[] audioBytes, string wavAbsolutePath,
                                  bool trimTailSilence = false, int fadeMs = 15,
                                  float maxSeconds = 0f, string sourceExt = "flac",
-                                 string extraFilter = null)
+                                 string extraFilter = null, float targetLufs = 0f)
         {
             string tmp = Path.Combine(Path.GetTempPath(),
                 "protoaudio_" + Guid.NewGuid().ToString("N") + "." + sourceExt);
@@ -104,6 +104,11 @@ namespace ProtoSystem.AudioGen.Editor
                     durArg = " -t " + maxSeconds.ToString(ic);
                 }
 
+                // Нормализация громкости — строго ПОСЛЕДНИМ фильтром: тишина уже отрезана
+                // (иначе integrated-замер занижен), эффект-цепочка уже отработала.
+                if (targetLufs < 0f)
+                    filters.Add(BuildLoudnorm(tmp, filters, durArg, targetLufs, ic));
+
                 string filterArg = filters.Count == 0 ? "" : $" -af \"{string.Join(",", filters)}\"";
                 Run($"-y -i \"{tmp}\" -ar 44100 -sample_fmt s16{filterArg}{durArg} \"{wavAbsolutePath}\"");
 
@@ -116,7 +121,49 @@ namespace ProtoSystem.AudioGen.Editor
             }
         }
 
-        private static void Run(string args)
+        /// <summary>
+        /// Двухпроходный loudnorm: замер по итоговой цепочке (print_format=json), затем
+        /// линейный гейн с measured_* — без «дыхания» динамической нормализации на лупах.
+        /// Если замер распарсить не удалось (например, тишина, -inf) — одно-проходный
+        /// динамический loudnorm как запасной вариант.
+        /// </summary>
+        private static string BuildLoudnorm(string inputPath, System.Collections.Generic.List<string> baseFilters,
+                                            string durArg, float targetLufs,
+                                            System.Globalization.CultureInfo ic)
+        {
+            string common = "loudnorm=I=" + targetLufs.ToString("0.#", ic) + ":TP=-1.5:LRA=11";
+            try
+            {
+                var chain = new System.Collections.Generic.List<string>(baseFilters)
+                    { common + ":print_format=json" };
+                string err = RunCapture($"-y -i \"{inputPath}\" -af \"{string.Join(",", chain)}\"{durArg} -f null -");
+
+                string I = ParseLoudnormValue(err, "input_i");
+                string tp = ParseLoudnormValue(err, "input_tp");
+                string lra = ParseLoudnormValue(err, "input_lra");
+                string thresh = ParseLoudnormValue(err, "input_thresh");
+                string offset = ParseLoudnormValue(err, "target_offset");
+                return $"{common}:measured_I={I}:measured_TP={tp}:measured_LRA={lra}" +
+                       $":measured_thresh={thresh}:offset={offset}:linear=true";
+            }
+            catch
+            {
+                return common;
+            }
+        }
+
+        private static string ParseLoudnormValue(string ffmpegStderr, string key)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(
+                ffmpegStderr, "\"" + key + "\"\\s*:\\s*\"(-?[0-9]+(?:\\.[0-9]+)?)\"");
+            if (!m.Success)
+                throw new Exception($"loudnorm: не найдено {key} в замере.");
+            return m.Groups[1].Value;
+        }
+
+        private static void Run(string args) => RunCapture(args);
+
+        private static string RunCapture(string args)
         {
             using var p = Process.Start(new ProcessStartInfo
             {
@@ -131,6 +178,7 @@ namespace ProtoSystem.AudioGen.Editor
             p.WaitForExit(120000);
             if (p.ExitCode != 0)
                 throw new Exception($"ffmpeg (код {p.ExitCode}): {Tail(err)}");
+            return err;
         }
 
         private static string Tail(string s)

@@ -225,7 +225,7 @@ namespace ProtoSystem.AudioGen.Editor
             string ext = composed.Engine == AudioEngine.QwenTts ? "wav"
                 : IsCloud(composed.Engine) ? "mp3" : "flac";
             AudioConvert.ToWav(audio, abs, trimSilence, maxSeconds: cutSeconds, sourceExt: ext,
-                extraFilter: composed.PostFilter);
+                extraFilter: composed.PostFilter, targetLufs: composed.TargetLufs);
 
             AssetDatabase.ImportAsset(req.AssetPath, ImportAssetOptions.ForceUpdate);
             ConfigureAsClip(req.AssetPath);
@@ -257,6 +257,7 @@ namespace ProtoSystem.AudioGen.Editor
                 TtsSimilarity = composed.TtsSimilarity,
                 TtsLanguage = composed.TtsLanguage,
                 PostFilter = composed.PostFilter,
+                TargetLufs = composed.TargetLufs,
                 RunId = req.RunId,
                 GeneratedAtUtc = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"),
                 WavAssetPath = req.AssetPath,

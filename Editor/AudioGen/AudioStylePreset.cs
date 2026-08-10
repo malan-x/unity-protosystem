@@ -67,6 +67,12 @@ namespace ProtoSystem.AudioGen.Editor
                  "Пример рации: highpass=f=250,lowpass=f=3400,acrusher=bits=10:mode=log:aa=1,acompressor=threshold=-18dB:ratio=4")]
         public string postFilterChain = "";
 
+        [Tooltip("Целевая громкость LUFS (EBU R128, integrated): результат выравнивается loudnorm'ом " +
+                 "с пиком не выше -1.5 dBTP. 0 — без нормализации. Ориентиры микса: голос -16, " +
+                 "события/взрывы -19, обычные SFX -23, музыка -24, UI -27, лупы/эмбиент -29.")]
+        [Range(-36f, 0f)]
+        public float targetLufs = 0f;
+
         /// <summary>Собрать запрос ComfyUI из промпта сущности.</summary>
         public ComfyAudioClient.AudioRequest Compose(string subject, float effSeconds, int seed)
         {
@@ -91,6 +97,7 @@ namespace ProtoSystem.AudioGen.Editor
                 TtsSimilarity = ttsSimilarity,
                 TtsLanguage = ttsLanguage,
                 PostFilter = postFilterChain,
+                TargetLufs = targetLufs,
             };
         }
     }
