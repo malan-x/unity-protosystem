@@ -40,12 +40,10 @@ namespace ProtoSystem.Editor
                 return;
             }
 
+            // Без лимита попыток: у больших проектов инициализация систем занимает
+            // десятки секунд, и жёсткие 5 сек оставляли мост не привязанным.
+            // Поллинг снимается при ExitingPlayMode.
             _retryCount++;
-            if (_retryCount > 300)
-            {
-                EditorApplication.update -= PollAndRegister;
-                Debug.LogWarning("[RecorderBootstrap] CaptureSystem.Instance не найден за 5 сек — RecorderBridge НЕ зарегистрирован");
-            }
         }
     }
 }

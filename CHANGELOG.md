@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.37.3] - 2026-08-11
+
+### Fixed
+- **Capture: запись видео со звуком.** `MovieRecorderSettings.CaptureAudio` не
+  включался — все записи выходили немыми. Плюс Mute Audio у Game view глушил
+  захват до цифровой тишины: мут снимается при `StartRecording` и
+  возвращается при `StopRecording`.
+
+## [1.37.2] - 2026-08-11
+
+### Fixed
+- **Capture: RecorderBootstrap не успевал привязать мост записи.** Ожидание
+  `CaptureSystem.Instance` было ограничено 5 секундами — у больших проектов
+  инициализация систем идёт дольше, и `StartRecording()` молча не работал.
+  Лимит убран: поллинг живёт до выхода из Play Mode.
+
 ## [1.37.0] - 2026-08-10
 
 ### Added

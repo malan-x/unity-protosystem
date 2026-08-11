@@ -17,6 +17,7 @@ namespace ProtoSystem.Editor
         private RecorderController _controller;
         private RecorderControllerSettings _settings;
         private MovieRecorderSettings _movieSettings;
+        private bool _restoreEditorMute;
 
         public bool IsRecording => _controller?.IsRecording() ?? false;
 
@@ -26,6 +27,15 @@ namespace ProtoSystem.Editor
             {
                 Debug.LogWarning("[Capture] Запись уже идёт");
                 return;
+            }
+
+            // Mute Audio у Game view глушит и захват Recorder'а — дорожка выходит
+            // цифровой тишиной. Снимаем на время записи, после возвращаем
+            if (UnityEditor.EditorUtility.audioMasterMute)
+            {
+                UnityEditor.EditorUtility.audioMasterMute = false;
+                _restoreEditorMute = true;
+                Debug.Log("[Capture] Editor Mute Audio снят на время записи");
             }
 
             if (!Directory.Exists(outputDir))
@@ -38,6 +48,8 @@ namespace ProtoSystem.Editor
             _movieSettings = ScriptableObject.CreateInstance<MovieRecorderSettings>();
             _movieSettings.Enabled = true;
             _movieSettings.OutputFormat = MovieRecorderSettings.VideoRecorderOutputFormat.MP4;
+            // Звук игры в дорожке видео: без него ролики немые
+            _movieSettings.CaptureAudio = true;
 
             var inputSettings = new GameViewInputSettings();
             // MP4 (H.264) требует чётные размеры
@@ -68,6 +80,12 @@ namespace ProtoSystem.Editor
 
             _controller.StopRecording();
             Debug.Log("[Capture] Запись остановлена");
+
+            if (_restoreEditorMute)
+            {
+                UnityEditor.EditorUtility.audioMasterMute = true;
+                _restoreEditorMute = false;
+            }
 
             Cleanup();
         }
