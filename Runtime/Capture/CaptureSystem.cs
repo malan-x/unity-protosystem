@@ -329,8 +329,10 @@ namespace ProtoSystem
 
         /// <summary>
         /// Начать ручную запись через Unity Recorder.
+        /// customFilename — имя файла без расширения (например «Trailer_ru_2026-08-12»);
+        /// пусто = capture_&lt;timestamp&gt;.
         /// </summary>
-        public void StartRecording()
+        public void StartRecording(string customFilename = null)
         {
             if (!Application.isPlaying)
             {
@@ -350,8 +352,9 @@ namespace ProtoSystem
                 return;
             }
 
-            string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-            string filename = $"capture_{timestamp}";
+            string filename = string.IsNullOrEmpty(customFilename)
+                ? $"capture_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}"
+                : customFilename;
 
             _recorderBridge.StartRecording(GetVideoDirectory(), filename, config.videoFps, config.videoResolutionScale);
             _recordingState = RecordingState.Recording;
