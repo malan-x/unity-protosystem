@@ -97,6 +97,9 @@ namespace ProtoSystem
             void StopRecording();
         }
 
+        /// <summary>Идёт ли видеозапись (для индикаторов REC и т.п.)</summary>
+        public bool IsVideoRecording => _recorderBridge != null && _recorderBridge.IsRecording;
+
         /// <summary>
         /// Регистрация обёртки Unity Recorder (вызывается из Editor assembly).
         /// </summary>
