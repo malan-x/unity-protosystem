@@ -107,7 +107,15 @@ namespace ProtoSystem
         [Tooltip("Копировать в буфер обмена")]
         public bool copyToClipboard = true;
 
-        [Header("Screenshot — Все языки (кнопка в инспекторе)")]
+        [Header("Screenshot — Все языки (кнопка в инспекторе / хоткей)")]
+        [Tooltip("Хоткей мультиязычного прогона: снимает ТЕКУЩИЙ экран на всех языках. " +
+                 "Удобно прямо в бою — пауза и смена языков происходят сами")]
+#if PROTO_HAS_INPUT_SYSTEM
+        public Key multiLangHotkey = Key.F11;
+#else
+        public KeyCode multiLangHotkey = KeyCode.F11;
+#endif
+
         [Tooltip("Куда сохранять. Пусто → подпапка 'Localized' внутри папки скриншотов. " +
                  "Можно указать абсолютный путь (например папку поста для Steam).")]
         public string multiLangFolder = "";
@@ -194,9 +202,11 @@ namespace ProtoSystem
 #if PROTO_HAS_INPUT_SYSTEM
             if (videoRecordToggle == Key.None) videoRecordToggle = Key.F9;
             if (replaySaveKey == Key.None) replaySaveKey = Key.F8;
+            if (multiLangHotkey == Key.None) multiLangHotkey = Key.F11;
 #else
             if (videoRecordToggle == KeyCode.None) videoRecordToggle = KeyCode.F9;
             if (replaySaveKey == KeyCode.None) replaySaveKey = KeyCode.F8;
+            if (multiLangHotkey == KeyCode.None) multiLangHotkey = KeyCode.F11;
 #endif
             if (videoFps == 0) videoFps = 30;
             if (replayBufferSeconds == 0) replayBufferSeconds = 30;

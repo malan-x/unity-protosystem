@@ -174,6 +174,10 @@ namespace ProtoSystem
                 TakeAndSave(!mod);
             }
 
+            // Мультиязычный прогон: текущий экран на всех языках (пауза — сама)
+            if (!_capturing && !_capturingAllLanguages && IsKeyPressed(config.multiLangHotkey))
+                CaptureAllLanguages();
+
 #if UNITY_EDITOR
             // Video hotkeys (только в Play Mode)
             if (Application.isPlaying)
@@ -195,6 +199,10 @@ namespace ProtoSystem
                 bool mod = IsModifierHeldLegacy(config.cleanModifier);
                 TakeAndSave(!mod);
             }
+
+            // Мультиязычный прогон: текущий экран на всех языках (пауза — сама)
+            if (!_capturing && !_capturingAllLanguages && Input.GetKeyDown(config.multiLangHotkey))
+                CaptureAllLanguages();
 
 #if UNITY_EDITOR
             if (Application.isPlaying)
