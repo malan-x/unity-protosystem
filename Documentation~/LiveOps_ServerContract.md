@@ -56,11 +56,19 @@ Reverse proxy — nginx (порты 80/443), домен `api.twohuyakproduction.
 - `POST /api/collections/poll_votes/records` — голос (upsert в `hooks.pb.js`).
 - `GET /api/messages/my`, `POST /api/messages/confirm` — переписка.
 - `GET /api/polls/results` — результаты опросов.
+- `POST /api/telemetry/delete-player` (superuser) — `{project_id, player_id}`:
+  убирает игрока из статистики целиком. Возвращает `{days_touched, exact}`;
+  `exact: false` означает, что игрок встречался в нескольких днях и дневные
+  счётчики (события, сессии, минуты) скорректировать точно нельзя — поправлен
+  только DAU.
 - `POST /api/telemetry` — пачка игровых событий + контекст игрока:
   `{project_id, player_id, name, version, lang, tz, env, events:[{name, at, data}]}`.
   `env` = "editor" / "player": сессии из Unity Editor сервер пишет в отдельный
   проект `<project_id>.editor`, чтобы прогоны разработчика не перекашивали
   статистику билдов. Поле отсутствует — считается билдом.
+  `build` = normal / demo / playtest (из `BuildInfo.Flavor`): демо и плейтест
+  сервер пишет в `<project_id>.demo` / `<project_id>.playtest`, поверх них
+  добавляется `.editor`. Пустое поле — релизная сборка.
   `device` = windows / linux / mac / steamdeck — тег устройства, идёт в каждом
   батче и даёт разрезы по игрокам, сессиям и часам.
   `specs` = `{os, cpu, cpu_cores, ram_mb, gpu, gpu_vendor, gpu_api, vram_mb,

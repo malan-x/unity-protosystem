@@ -38,6 +38,14 @@ namespace ProtoSystem.LiveOps
         public string env;
 
         /// <summary>
+        /// Тип сборки: normal / demo / playtest (из <c>BuildInfo.Flavor</c>).
+        /// Сервер держит их раздельно — у демо и плейтеста своя аудитория,
+        /// смешивать их метрики с релизом смысла нет. Пустое значение
+        /// трактуется как релизная сборка.
+        /// </summary>
+        public string build;
+
+        /// <summary>
         /// Тег устройства: windows / linux / mac / steamdeck. По умолчанию
         /// выводится из платформы, но Steam Deck под Proton выглядит как
         /// Windows — его сообщает проект через <c>SetDeviceTag</c>.

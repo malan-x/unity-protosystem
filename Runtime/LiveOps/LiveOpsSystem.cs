@@ -750,6 +750,7 @@ namespace ProtoSystem.LiveOps
                 lang            = Language,
                 tzOffsetMinutes = (int)TimeZoneInfo.Local.GetUtcOffset(DateTime.Now).TotalMinutes,
                 env             = Application.isEditor ? "editor" : "player",
+                build           = BuildInfo.Flavor.ToString().ToLowerInvariant(), // normal / demo / playtest
                 device          = !string.IsNullOrEmpty(_deviceTag) ? _deviceTag : LiveOpsDeviceSpecs.PlatformTag(),
             };
 

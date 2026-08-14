@@ -220,6 +220,7 @@ namespace ProtoSystem.LiveOps
             if (!string.IsNullOrEmpty(batch.version))   sb.Append(",\"version\":\"").Append(EscapeJson(batch.version)).Append('"');
             if (!string.IsNullOrEmpty(batch.lang))      sb.Append(",\"lang\":\"").Append(EscapeJson(batch.lang)).Append('"');
             if (!string.IsNullOrEmpty(batch.env))       sb.Append(",\"env\":\"").Append(EscapeJson(batch.env)).Append('"');
+            if (!string.IsNullOrEmpty(batch.build))     sb.Append(",\"build\":\"").Append(EscapeJson(batch.build)).Append('"');
             if (!string.IsNullOrEmpty(batch.device))    sb.Append(",\"device\":\"").Append(EscapeJson(batch.device)).Append('"');
             sb.Append(",\"tz\":").Append(batch.tzOffsetMinutes);
 
