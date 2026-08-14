@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.37.7] - 2026-08-14
+
+### Fixed
+- **LiveOps: игроки больше не двоятся в аналитике.** `session_start` уходил из
+  `InitializeAsync()` под анонимным id машины, а Steam подставлял свой id позже
+  (LiveOps у него в зависимостях, значит стартует раньше) — на сервере каждая
+  Steam-сессия оставляла вторую, «фантомную» запись игрока с одним событием и
+  нулевым временем. Теперь первая пачка телеметрии придерживается до уточнения
+  id (не дольше 5 с), а `SetPlayerId` переклеивает уже накопленные события на
+  финальный id. Запуск без Steam работает как раньше — по id машины.
+- **LiveOps: «мой голос» и «моя оценка» под финальным id.** Провайдеры получили
+  `SetPlayerId` — раньше id фиксировался при создании провайдера, то есть
+  оставался анонимным, и свой голос в опросе не находился.
+
 ## [1.37.6] - 2026-08-12
 
 ### Added
