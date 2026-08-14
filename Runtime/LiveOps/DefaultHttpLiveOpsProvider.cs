@@ -30,8 +30,9 @@ namespace ProtoSystem.LiveOps
     {
         private readonly string _baseUrl;
         private readonly string _projectId;
-        private readonly string _playerId;
         private readonly float  _timeoutSeconds;
+        // Не readonly: провайдер создаётся с анонимным id, а Steam уточняет его позже
+        private string _playerId;
         private string _playerName;
 
         public DefaultHttpLiveOpsProvider(string baseUrl, string projectId,
@@ -41,6 +42,12 @@ namespace ProtoSystem.LiveOps
             _projectId      = projectId;
             _playerId       = playerId;
             _timeoutSeconds = timeoutSeconds;
+        }
+
+        /// <summary>Уточнить id игрока после создания провайдера (Steam поднялся позже).</summary>
+        public void SetPlayerId(string id)
+        {
+            if (!string.IsNullOrWhiteSpace(id)) _playerId = id;
         }
 
         // ── Health ────────────────────────────────────────────────────────────

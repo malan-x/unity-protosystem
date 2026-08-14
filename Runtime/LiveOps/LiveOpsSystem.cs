@@ -63,6 +63,16 @@ namespace ProtoSystem.LiveOps
         private string                    _playerName;
         private bool                      _playerIdOverridden;
 
+        /// <summary>
+        /// Сколько ждать финальный id игрока (SetPlayerId из проекта), прежде чем
+        /// отправить первую пачку. Steam инициализируется после LiveOps, и без этой
+        /// паузы session_start уезжал под анонимным id, плодя «фантомных игроков».
+        /// </summary>
+        private const float PlayerIdGraceSeconds = 5f;
+
+        private bool                      _awaitingPlayerId;
+        private float                     _playerIdWait;
+
         // Community Panel
         private LiveOpsPanelConfig        _panelConfig;
         private List<LiveOpsAnnouncement> _announcements  = new();
@@ -106,15 +116,38 @@ namespace ProtoSystem.LiveOps
         public bool                               IsServerAvailable => _serverAvailable;
 
         /// <summary>
-        /// Установить идентификатор игрока до InitializeAsync().
-        /// Например: SetPlayerId(SteamFriends.GetPersonaName()).
-        /// Если не вызван — используется анонимный GUID из PlayerPrefs.
+        /// Установить идентификатор игрока. Обычно вызывается ПОСЛЕ InitializeAsync():
+        /// Steam поднимается позже LiveOps (та у него в зависимостях), поэтому система
+        /// сама придерживает первую пачку телеметрии и переклеивает уже накопленные
+        /// события на этот id — см. <see cref="PlayerIdGraceSeconds"/>.
+        /// Не вызван вовсе — остаётся анонимный id машины.
         /// </summary>
         public void SetPlayerId(string id)
         {
             if (string.IsNullOrWhiteSpace(id)) return;
+
+            string previous = _playerId;
             _playerId = id;
             _playerIdOverridden = true;
+            if (string.IsNullOrEmpty(previous) || previous == id) return;
+
+            // События, поставленные в очередь до подстановки (session_start и ранние
+            // ачивки), помечены анонимным id машины. Не переклеить их — и на сервере
+            // появится «фантомный игрок»: та же сессия, но под вторым ключом, с одним
+            // событием и нулевым временем. Именно так дублировались Steam-игроки.
+            int moved = 0;
+            foreach (var evt in _analyticsQueue)
+            {
+                if (evt == null || evt.playerId != previous) continue;
+                evt.playerId = id;
+                moved++;
+            }
+
+            // Провайдер подписывает этим id голоса и оценки («мой голос», «моя оценка»)
+            if (_provider is DefaultHttpLiveOpsProvider httpProvider) httpProvider.SetPlayerId(id);
+            else if (_provider is PocketBaseHttpLiveOpsProvider pbProvider) pbProvider.SetPlayerId(id);
+
+            LiveOpsLog.Info($"[LiveOps] PlayerId уточнён: {previous} → {id}, переклеено событий: {moved}");
         }
 
         /// <summary>
@@ -238,8 +271,10 @@ namespace ProtoSystem.LiveOps
 
             EnqueueAnalytics(new LiveOpsEvent(eventName, _playerId, Application.version, data));
 
-            // пачка набралась раньше таймера — отправляем сразу
-            if (_provider != null && _serverAvailable && _analyticsQueue.Count >= Mathf.Max(1, config.telemetryBatchLimit))
+            // пачка набралась раньше таймера — отправляем сразу (но не пока ждём
+            // уточнения id: эти события ещё переклеятся на него в SetPlayerId)
+            if (_provider != null && _serverAvailable && !_awaitingPlayerId
+                && _analyticsQueue.Count >= Mathf.Max(1, config.telemetryBatchLimit))
                 _ = FlushTelemetryAsync();
         }
 
@@ -554,7 +589,11 @@ namespace ProtoSystem.LiveOps
                 {
                     await FetchAsync();
                     TrackSessionStart();
-                    await FlushTelemetryAsync();
+
+                    // Ждём, не уточнит ли проект id (Steam стартует после нас). Пачка
+                    // уйдёт из Update — сразу после SetPlayerId или по истечении паузы
+                    _awaitingPlayerId = !_playerIdOverridden;
+                    if (!_awaitingPlayerId) await FlushTelemetryAsync();
                 }
                 else if (_provider == null)
                 {
@@ -627,6 +666,19 @@ namespace ProtoSystem.LiveOps
 
             if (!config.enableAnalytics) return;
 
+            // Первая пачка держится, пока проект не уточнит id игрока (Steam) или пока
+            // не выйдет пауза: иначе session_start уедет под анонимным id машины
+            if (_awaitingPlayerId)
+            {
+                _playerIdWait += Time.unscaledDeltaTime;
+                if (!_playerIdOverridden && _playerIdWait < PlayerIdGraceSeconds) return;
+
+                _awaitingPlayerId = false;
+                _telemetryTimer = 0f;
+                _ = FlushTelemetryAsync();
+                return;
+            }
+
             _telemetryTimer += Time.deltaTime;
             _sinceLastSend  += Time.deltaTime;
 
@@ -642,6 +694,10 @@ namespace ProtoSystem.LiveOps
         private void OnApplicationQuit()
         {
             if (config == null || !config.enableAnalytics || _provider == null || !_serverAvailable) return;
+
+            // Вышли, не дождавшись уточнения id (игра закрыта в первые секунды) —
+            // лучше отправить события под анонимным id, чем потерять сессию
+            _awaitingPlayerId = false;
 
             TrackEvent("session_end");
             // best effort: запрос может не успеть уйти до закрытия процесса —

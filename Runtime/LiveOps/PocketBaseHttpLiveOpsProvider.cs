@@ -41,8 +41,10 @@ namespace ProtoSystem.LiveOps
     {
         private readonly string _baseUrl;
         private readonly string _projectId;
-        private readonly string _playerId;
         private readonly float  _timeoutSeconds;
+        // Не readonly: провайдер создаётся с анонимным id, а Steam уточняет его
+        // позже — иначе «мой голос» и «моя оценка» ищутся по чужому ключу
+        private string _playerId;
         private string _playerName;
 
         public PocketBaseHttpLiveOpsProvider(
@@ -58,6 +60,12 @@ namespace ProtoSystem.LiveOps
         }
 
         public void SetPlayerName(string name) => _playerName = name;
+
+        /// <summary>Уточнить id игрока после создания провайдера (Steam поднялся позже).</summary>
+        public void SetPlayerId(string id)
+        {
+            if (!string.IsNullOrWhiteSpace(id)) _playerId = id;
+        }
 
         // ── ILiveOpsProvider ──────────────────────────────────────────────────
 
