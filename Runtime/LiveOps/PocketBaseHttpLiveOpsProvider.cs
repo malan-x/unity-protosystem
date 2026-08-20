@@ -285,6 +285,17 @@ namespace ProtoSystem.LiveOps
             // panel_config не реализован — возвращаем конфиг по умолчанию (все виджеты включены)
             await Task.FromResult<LiveOpsPanelConfig>(null);
 
+        public async Task<string> FetchNotifyAtAsync()
+        {
+            // liveops_flags: одна запись на проект, notify_at ставит кнопка
+            // «Оповестить игроков» в дашборде
+            var items = await FetchCollection<PbFlag>("liveops_flags");
+            if (items == null) return null;
+            foreach (var r in items)
+                if (r.project_id == _projectId) return r.notify_at;
+            return null;
+        }
+
         public async Task<List<LiveOpsAnnouncement>> FetchAnnouncementsAsync()
         {
             var items = await FetchCollection<PbAnnouncement>("announcements");
@@ -753,6 +764,14 @@ namespace ProtoSystem.LiveOps
         }
 
         [Serializable] private class PbListResponse<T> { public T[] items; }
+
+        [Serializable]
+        private class PbFlag
+        {
+            public string id;
+            public string project_id;
+            public string notify_at;
+        }
 
         [Serializable]
         private class PbRating

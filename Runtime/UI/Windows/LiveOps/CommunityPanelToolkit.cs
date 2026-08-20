@@ -35,6 +35,7 @@ namespace ProtoSystem.UI
         // Те же ключи PlayerPrefs, что у uGUI-версии — состояние общее для бэкендов
         private const string PrefKeyPanelExpanded = "liveops_panel_expanded";
         private const string PrefKeySeenCards     = "liveops_seen_cards";
+        private const string PrefKeyNotifyAck     = "liveops_notify_ack";
         private const string PrefKeyLaunchCount   = "liveops_launch_count";
 
         #endregion
@@ -1604,6 +1605,9 @@ namespace ProtoSystem.UI
                 return;
             }
 
+            // Кнопка «Оповестить игроков» в дашборде могла попросить перечитать
+            ApplyNotifyReset();
+
             int newCards = 0;
             foreach (var key in _cardKeys)
             {
@@ -1612,15 +1616,23 @@ namespace ProtoSystem.UI
                     newCards++;
             }
 
+            // Общее число сообщений видно всегда: без него свёрнутая панель с
+            // прочитанными карточками выглядела пустой, хотя контент внутри есть
+            int total = _cardKeys.Count;
+            string totalText = total > 0
+                ? string.Format(L(UIKeys.CommunityPanel.TotalCards, UIKeys.CommunityPanel.Fallback.TotalCards), total)
+                : "";
+
             if (newCards > 0)
             {
                 string template = L(UIKeys.CommunityPanel.NewCards, UIKeys.CommunityPanel.Fallback.NewCards);
-                _summaryText.text = string.Format(template, newCards);
+                _summaryText.text = string.Format(template, newCards)
+                    + (totalText.Length > 0 ? " · " + totalText : "");
                 _summaryText.style.color = new Color(1f, 0.85f, 0.3f); // яркий для новых
             }
-            else if (_cardKeys.Count > 0)
+            else if (total > 0)
             {
-                _summaryText.text = L(UIKeys.CommunityPanel.AllSeen, UIKeys.CommunityPanel.Fallback.AllSeen);
+                _summaryText.text = totalText;
                 _summaryText.style.color = new Color(0.5f, 0.5f, 0.5f); // всё прочитано
             }
             else
@@ -1630,6 +1642,23 @@ namespace ProtoSystem.UI
 
             // Скрыть статус загрузки после получения данных
             if (_statusText != null) _statusText.text = "";
+        }
+
+        /// <summary>
+        /// Метка «оповестить игроков» из дашборда: если она новее локального
+        /// acknowledgement — один раз помечаем все карточки непрочитанными
+        /// (существующий механизм «N новых» сам подсветит панель).
+        /// </summary>
+        private void ApplyNotifyReset()
+        {
+            var notifyAt = _liveOpsSystem != null ? _liveOpsSystem.NotifyAt : null;
+            if (string.IsNullOrEmpty(notifyAt)) return;
+            if (PlayerPrefs.GetString(PrefKeyNotifyAck, "") == notifyAt) return;
+
+            _seenCardIds.Clear();
+            SaveSeenCards();
+            PlayerPrefs.SetString(PrefKeyNotifyAck, notifyAt);
+            PlayerPrefs.Save();
         }
 
         private void MarkCurrentCardsAsSeen()

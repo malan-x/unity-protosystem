@@ -386,6 +386,7 @@ namespace ProtoSystem
             public const string Loading       = "ui.community.loading";
             public const string NewCards      = "ui.community.new_cards";
             public const string AllSeen       = "ui.community.all_seen";
+            public const string TotalCards    = "ui.community.total_cards";
 
             public static class Fallback
             {
@@ -403,6 +404,7 @@ namespace ProtoSystem
                 public const string Loading       = "Обновление…";
                 public const string NewCards      = "{0} новых";
                 public const string AllSeen       = "Нет новых";
+                public const string TotalCards    = "всего {0}";
             }
 
             public static class FallbackEn
@@ -421,6 +423,7 @@ namespace ProtoSystem
                 public const string Loading       = "Updating…";
                 public const string NewCards      = "{0} new";
                 public const string AllSeen       = "No new";
+                public const string TotalCards    = "{0} total";
             }
         }
         

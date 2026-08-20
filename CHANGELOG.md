@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.38.0] - 2026-08-20
+
+### Added
+- **LiveOps: «Оповестить игроков»** — `ILiveOpsProvider.FetchNotifyAtAsync()`
+  (дефолт null) + реализация PocketBase (коллекция `liveops_flags`, публичное
+  чтение). `LiveOpsSystem.NotifyAt` — ISO-метка из дашборда; Community Panel,
+  увидев метку новее локального acknowledgement (`liveops_notify_ack`), один
+  раз помечает все карточки непрочитанными — виджет сам подсвечивает «N новых».
+- **Community Panel: общий счётчик** — свёрнутая панель всегда показывает
+  «всего N» (ключ `ui.community.total_cards`), а не только число новых:
+  прочитанные карточки больше не выглядят как пустая панель.
+
 ## [1.37.8] - 2026-08-14
 
 ### Added

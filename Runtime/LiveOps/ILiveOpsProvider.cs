@@ -60,6 +60,14 @@ namespace ProtoSystem.LiveOps
         Task<LiveOpsContentOrder> FetchContentOrderAsync() =>
             Task.FromResult<LiveOpsContentOrder>(null);
 
+        /// <summary>
+        /// Метка «оповестить игроков» (ISO-время, ставится кнопкой в дашборде).
+        /// Панель, увидев метку новее своего acknowledgement, помечает карточки
+        /// непрочитанными — один раз на метку. null — провайдер не поддерживает.
+        /// </summary>
+        Task<string> FetchNotifyAtAsync() =>
+            Task.FromResult<string>(null);
+
         /// <summary>GET /api/messages/my — сообщения текущего игрока с ответами.</summary>
         Task<List<LiveOpsConversationItem>> FetchMyMessagesAsync(string playerId) =>
             Task.FromResult<List<LiveOpsConversationItem>>(null);

@@ -75,6 +75,7 @@ namespace ProtoSystem.LiveOps
 
         // Community Panel
         private LiveOpsPanelConfig        _panelConfig;
+        private string                    _notifyAt;
         private List<LiveOpsAnnouncement> _announcements  = new();
         private LiveOpsDevLog             _devLog;
         private LiveOpsRatingData         _rating;
@@ -107,6 +108,9 @@ namespace ProtoSystem.LiveOps
         public LiveOpsRatingData                  Rating         => _rating;
         public LiveOpsMilestoneData               Milestone      => _milestone;
         public LiveOpsPanelConfig                 PanelConfig    => _panelConfig;
+
+        /// <summary>Метка «оповестить игроков» (ISO-время из дашборда); пусто — не запрашивалась.</summary>
+        public string                             NotifyAt       => _notifyAt;
         public LiveOpsContentOrder                ContentOrder   => _contentOrder;
         public IReadOnlyList<LiveOpsConversationItem> MyMessages => _myMessages;
         public int                                UnreadReplyCount => _unreadCount;
@@ -428,6 +432,12 @@ namespace ProtoSystem.LiveOps
                 _panelConfig = panelConfig;
                 EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.PanelConfig, _panelConfig));
             }
+
+            // Метка «оповестить игроков» из дашборда: панель сравнит её со своим
+            // acknowledgement и подсветит карточки как непрочитанные (один раз)
+            var notifyAt = await _provider.FetchNotifyAtAsync();
+            if (!string.IsNullOrEmpty(notifyAt))
+                _notifyAt = notifyAt;
 
             // Content order — порядок карточек в карусели
             var contentOrder = await _provider.FetchContentOrderAsync();
