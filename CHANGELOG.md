@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.40.1] - 2026-08-21
+
+### Fixed
+- **UIFontScaler ломал размеры шрифтов даже при масштабе 1**: немедленный
+  Apply в Show читал resolvedStyle ДО первого layout (там дефолт, а не USS),
+  кэшировал его как базу и прибивал все размеры inline-стилем. Теперь:
+  только отложенные проходы, элементы без layout пропускаются, а масштаб 1
+  снимает свои inline-стили (полное самовосстановление сломанных окон).
+
 ## [1.40.0] - 2026-08-21
 
 ### Added

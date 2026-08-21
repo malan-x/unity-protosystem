@@ -222,9 +222,9 @@ namespace ProtoSystem.UI
             OnBuildUI(root);
             Localization.Localize(root);
 
-            // Масштаб шрифтов (настройка игрока / Steam Deck): периодический проход
-            // подхватывает и элементы, которые окно создаст кодом позже
-            UIFontScaler.Apply(root);
+            // Масштаб шрифтов (настройка игрока / Steam Deck): ТОЛЬКО отложенные
+            // проходы — немедленный вызов до первого layout кэшировал неверные
+            // resolvedStyle и прибивал все размеры (инцидент 2026-08-21)
             _fontScaleTick?.Pause();
             _fontScaleTick = root.schedule.Execute(() => UIFontScaler.Apply(Root)).Every(500);
 

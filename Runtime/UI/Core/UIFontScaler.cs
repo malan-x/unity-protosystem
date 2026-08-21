@@ -42,11 +42,32 @@ namespace ProtoSystem.UI
         public static void Apply(VisualElement root)
         {
             if (root == null || root.panel == null) return;
+
+            // Масштаб 1 = выключено: НИЧЕГО не кэшируем и снимаем свои inline-стили —
+            // они перекрывают USS, и любая ошибка кэша иначе прибивает размеры навсегда
+            bool off = Mathf.Abs(Scale - 1f) < 0.005f;
+            if (off)
+            {
+                root.Query<TextElement>().ForEach(RestoreOriginal);
+                return;
+            }
+
             root.Query<TextElement>().ForEach(ApplyTo);
+        }
+
+        private static void RestoreOriginal(TextElement el)
+        {
+            if (!_baseSizes.TryGetValue(el, out _)) return;
+            el.style.fontSize = StyleKeyword.Null; // вернуть размер из USS
+            _baseSizes.Remove(el);
         }
 
         private static void ApplyTo(TextElement el)
         {
+            // До первого layout resolvedStyle отдаёт дефолт вместо размера из USS —
+            // кэшировать его нельзя (этим и была сломана первая версия)
+            if (float.IsNaN(el.layout.width)) return;
+
             float baseSize;
             if (_baseSizes.TryGetValue(el, out var box))
             {
