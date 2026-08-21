@@ -222,11 +222,18 @@ namespace ProtoSystem.UI
             OnBuildUI(root);
             Localization.Localize(root);
 
-            // Масштаб шрифтов (настройка игрока / Steam Deck): ТОЛЬКО отложенные
-            // проходы — немедленный вызов до первого layout кэшировал неверные
-            // resolvedStyle и прибивал все размеры (инцидент 2026-08-21)
+            // Периодический UI-проход: масштаб шрифтов (ТОЛЬКО отложенно — немедленный
+            // вызов до первого layout кэшировал неверные resolvedStyle и прибивал
+            // размеры, инцидент 2026-08-21) + класс устройства ввода для USS
             _fontScaleTick?.Pause();
-            _fontScaleTick = root.schedule.Execute(() => UIFontScaler.Apply(Root)).Every(500);
+            _fontScaleTick = root.schedule.Execute(() =>
+            {
+                var r = Root;
+                if (r == null) return;
+                UIFontScaler.Apply(r);
+                r.EnableInClassList(UIInputState.GamepadClass, UIInputState.GamepadActive);
+            }).Every(500);
+            root.EnableInClassList(UIInputState.GamepadClass, UIInputState.GamepadActive);
 
             root.style.display = DisplayStyle.Flex;
             SetPicking(root, PickingMode.Position);   // учитывает PointerTransparentRoot
