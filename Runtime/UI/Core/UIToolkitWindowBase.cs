@@ -75,6 +75,7 @@ namespace ProtoSystem.UI
         private Focusable _lastFocused;
         private Coroutine _fadeCoroutine;
         private bool _rootPrepared;
+        private IVisualElementScheduledItem _fontScaleTick; // периодический UIFontScaler.Apply
         private PanelEventHandler _panelEventHandler;
 
         /// <summary>Элементы, у которых Blur() снял focusable (вернём в Focus()).</summary>
@@ -221,6 +222,12 @@ namespace ProtoSystem.UI
             OnBuildUI(root);
             Localization.Localize(root);
 
+            // Масштаб шрифтов (настройка игрока / Steam Deck): периодический проход
+            // подхватывает и элементы, которые окно создаст кодом позже
+            UIFontScaler.Apply(root);
+            _fontScaleTick?.Pause();
+            _fontScaleTick = root.schedule.Execute(() => UIFontScaler.Apply(Root)).Every(500);
+
             root.style.display = DisplayStyle.Flex;
             SetPicking(root, PickingMode.Position);   // учитывает PointerTransparentRoot
 
@@ -256,6 +263,8 @@ namespace ProtoSystem.UI
             var root = Root;
             SetState(WindowState.Hiding);
             OnBeforeHide();
+
+            _fontScaleTick?.Pause(); // скрытое окно не гоняет проходы масштаба шрифтов
 
             if (root == null)
             {

@@ -146,11 +146,19 @@ namespace ProtoSystem.UI
 
         /// <summary>
         /// Глобальный масштаб UI: множитель поверх scale шаблона PanelSettings,
-        /// действует на все панели всех слоёв (настройка игрока, крупные шрифты
-        /// на Steam Deck). 1 — без изменений.
+        /// действует на все панели всех слоёв — растёт ВСЁ, включая раскладку.
+        /// Для «крупнее только текст» используйте SetFontScale. 1 — без изменений.
         /// </summary>
         public static void SetUIScale(float scale)
             => Instance?._factory?.SetPanelScale(scale);
+
+        /// <summary>
+        /// Масштаб шрифтов с затуханием (UIFontScaler): мелкий текст растёт на
+        /// полный множитель, крупные заголовки почти не меняются, раскладка
+        /// не трогается. Применяется ко всем окнам UIToolkitWindowBase.
+        /// </summary>
+        public static void SetFontScale(float scale)
+            => UIFontScaler.SetScale(scale);
 
         #endregion
 
