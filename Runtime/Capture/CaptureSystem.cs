@@ -777,6 +777,7 @@ namespace ProtoSystem
                 if (tex == null) { LogError($"Не удалось захватить кадр ({code})"); continue; }
 
                 string path = Path.Combine(folder, BuildMultiLangFileName(template, code, prefix) + ".png");
+                if (config.multiLangKeepHistory) RotateToHistory(path);
                 try { File.WriteAllBytes(path, tex.EncodeToPNG()); }
                 catch (Exception e) { LogError($"Не удалось сохранить {path}: {e.Message}"); }
                 Destroy(tex);
@@ -851,6 +852,38 @@ namespace ProtoSystem
         /// Приставка (если задана) идёт первой: имя окна у всех вкладок одно, и без
         /// неё прогоны затирают друг друга.
         /// </summary>
+        /// <summary>
+        /// Ротация вместо перезаписи: существующий файл переезжает в подпапку History
+        /// с датой своего создания в имени. Свежая серия всегда под стабильным именем,
+        /// прошлые кадры (разные моменты боя на HUD и т.п.) не теряются никогда.
+        /// </summary>
+        private void RotateToHistory(string path)
+        {
+            try
+            {
+                if (!File.Exists(path)) return;
+
+                string dir = Path.Combine(Path.GetDirectoryName(path) ?? "", "History");
+                Directory.CreateDirectory(dir);
+
+                string name = Path.GetFileNameWithoutExtension(path);
+                string ext = Path.GetExtension(path);
+                string stamp = File.GetLastWriteTime(path).ToString("yyyyMMdd_HHmmss");
+
+                // Две серии в одну секунду — добираем суффикс, а не затираем
+                string dest = Path.Combine(dir, $"{name} {stamp}{ext}");
+                for (int i = 2; File.Exists(dest); i++)
+                    dest = Path.Combine(dir, $"{name} {stamp}_{i}{ext}");
+
+                File.Move(path, dest);
+            }
+            catch (Exception e)
+            {
+                // Не смогли отротировать — файл просто перезапишется, серия важнее истории
+                LogWarning($"History-ротация не удалась для {path}: {e.Message}");
+            }
+        }
+
         private static string BuildMultiLangFileName(string template, string langCode, string prefix = null)
         {
             string name = (template ?? "")

@@ -141,6 +141,12 @@ namespace ProtoSystem
         [Tooltip("Включать UI в мульти-язычные скриншоты (обычно да — снимаем именно интерфейс)")]
         public bool multiLangIncludeUI = true;
 
+        [Tooltip("Не терять прошлые серии: перед перезаписью существующий файл переезжает в " +
+                 "подпапку History с датой своего создания в имени. Свежая серия всегда лежит " +
+                 "под стабильным именем (удобно для заливки), а история динамичных экранов " +
+                 "(бой, разные моменты HUD) копится сама — без списков окон и ручных приставок.")]
+        public bool multiLangKeepHistory = true;
+
         [Header("Screenshot — Event Triggers")]
         [Tooltip("Автоматические скриншоты по событиям EventBus")]
         public List<CaptureEventTrigger> eventTriggers = new List<CaptureEventTrigger>();
