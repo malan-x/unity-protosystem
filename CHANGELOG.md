@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.39.0] - 2026-08-21
+
+### Added
+- **UI: глобальный масштаб** — `UISystem.SetUIScale(float)` /
+  `UIWindowFactory.SetPanelScale`: множитель поверх scale шаблона
+  PanelSettings, применяется ко всем слоям (созданным и будущим).
+  Для настройки «Масштаб интерфейса» и крупных шрифтов на Steam Deck.
+
 ## [1.38.0] - 2026-08-20
 
 ### Added

@@ -144,6 +144,14 @@ namespace ProtoSystem.UI
             Instance?._navigator?.Reset();
         }
 
+        /// <summary>
+        /// Глобальный масштаб UI: множитель поверх scale шаблона PanelSettings,
+        /// действует на все панели всех слоёв (настройка игрока, крупные шрифты
+        /// на Steam Deck). 1 — без изменений.
+        /// </summary>
+        public static void SetUIScale(float scale)
+            => Instance?._factory?.SetPanelScale(scale);
+
         #endregion
 
         #region Initialization

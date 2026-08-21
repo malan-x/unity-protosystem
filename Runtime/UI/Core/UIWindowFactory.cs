@@ -228,6 +228,23 @@ namespace ProtoSystem.UI
                 $"в UISystemConfig.panelSettings (шаблон) или на {component} префаба.");
         }
 
+        // Глобальный масштаб UI (настройка игрока / крупные шрифты на Steam Deck):
+        // множитель поверх scale из шаблона, применяется ко всем панелям всех слоёв
+        private float _panelScale = 1f;
+        private float _templateScale = 1f;
+
+        /// <summary>
+        /// Задать глобальный масштаб UI. 1 — как в шаблоне PanelSettings.
+        /// Применяется к уже созданным панелям и ко всем будущим.
+        /// </summary>
+        public void SetPanelScale(float scale)
+        {
+            _panelScale = Mathf.Clamp(scale, 0.5f, 2f);
+            foreach (var kv in _panelSettingsByLayer)
+                if (kv.Value != null)
+                    kv.Value.scale = _templateScale * _panelScale;
+        }
+
         private PanelSettings GetOrCreatePanelSettings(WindowLayer layer)
         {
             if (_panelSettingsByLayer.TryGetValue(layer, out var cached) && cached != null)
@@ -239,6 +256,8 @@ namespace ProtoSystem.UI
             var instance = Object.Instantiate(template);
             instance.name = $"PanelSettings_{layer}";
             instance.sortingOrder = (int)layer;
+            _templateScale = template.scale;
+            instance.scale = _templateScale * _panelScale;
             _panelSettingsByLayer[layer] = instance;
             return instance;
         }
