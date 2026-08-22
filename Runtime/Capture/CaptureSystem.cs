@@ -777,7 +777,7 @@ namespace ProtoSystem
                 if (tex == null) { LogError($"Не удалось захватить кадр ({code})"); continue; }
 
                 string path = Path.Combine(folder, BuildMultiLangFileName(template, code, prefix) + ".png");
-                if (config.multiLangKeepHistory) RotateToHistory(path);
+                if (config.multiLangKeepHistory) RotateToHistory(path, code);
                 try { File.WriteAllBytes(path, tex.EncodeToPNG()); }
                 catch (Exception e) { LogError($"Не удалось сохранить {path}: {e.Message}"); }
                 Destroy(tex);
@@ -856,8 +856,10 @@ namespace ProtoSystem
         /// Ротация вместо перезаписи: существующий файл переезжает в подпапку History
         /// с датой своего создания в имени. Свежая серия всегда под стабильным именем,
         /// прошлые кадры (разные моменты боя на HUD и т.п.) не теряются никогда.
+        /// Код языка остаётся ПОСЛЕДНИМ («GameHUD 20260822_103015 ru.png») — иначе
+        /// дата в хвосте разбивала серию: файлы группировались бы по языку, а не по дублю.
         /// </summary>
-        private void RotateToHistory(string path)
+        private void RotateToHistory(string path, string langCode)
         {
             try
             {
@@ -870,10 +872,20 @@ namespace ProtoSystem
                 string ext = Path.GetExtension(path);
                 string stamp = File.GetLastWriteTime(path).ToString("yyyyMMdd_HHmmss");
 
+                // Типовой шаблон кончается кодом языка — переносим его за дату.
+                // Кастомный шаблон с языком в середине не трогаем: дата просто в конец.
+                string baseName = name, langSuffix = "";
+                if (!string.IsNullOrEmpty(langCode) &&
+                    name.EndsWith(" " + langCode, StringComparison.Ordinal))
+                {
+                    baseName = name.Substring(0, name.Length - langCode.Length - 1);
+                    langSuffix = " " + langCode;
+                }
+
                 // Две серии в одну секунду — добираем суффикс, а не затираем
-                string dest = Path.Combine(dir, $"{name} {stamp}{ext}");
+                string dest = Path.Combine(dir, $"{baseName} {stamp}{langSuffix}{ext}");
                 for (int i = 2; File.Exists(dest); i++)
-                    dest = Path.Combine(dir, $"{name} {stamp}_{i}{ext}");
+                    dest = Path.Combine(dir, $"{baseName} {stamp}_{i}{langSuffix}{ext}");
 
                 File.Move(path, dest);
             }

@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.40.4] - 2026-08-22
+
+### Fixed
+- **Capture: код языка в History-именах — последним**
+  (`GameHUD 20260822_103015 ru.png`, было `GameHUD ru 20260822_103015.png`):
+  дата в хвосте разбивала серию — файлы группировались по языку, а не по дублю.
+  Кастомные шаблоны с языком в середине имени не трогаются.
+
 ## [1.40.3] - 2026-08-21
 
 ### Added
