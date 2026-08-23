@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.41.0] - 2026-08-23
+
+### Fixed
+- **Процесс переживал закрытие окна** (у игрока: окно закрылось, процесс жив, Steam
+  показывает «Запущено», сохранения не уходят в облако). Две правки:
+  - `LiveOpsSystem.OnApplicationQuit` больше НЕ стартует новый веб-запрос: игровой
+    цикл уже сворачивается, `req.timeout` движком не отсчитывается, continuation
+    после `await` не выполняется — брошенный `UnityWebRequest` держал открытый сокет.
+    Сессию по-прежнему закрывает сервер по TTL.
+  - `PocketBaseHttpLiveOpsProvider` стал `IDisposable` и обрывает летящие запросы
+    (`Abort`) при выходе; после Dispose новые не отправляются.
+
+### Added
+- **`QuitGuard`** — страховка от нативных причин зависания на выходе (потоки опроса
+  устройств Rewired, клиент Steam, winsock): фоновый сторож ждёт `GraceSeconds`
+  (по умолчанию 5) после `Application.quitting` и, если процесс всё ещё жив, снимает
+  его. В редакторе не активен. Отключается `QuitGuard.Enabled = false`.
+
 ## [1.40.4] - 2026-08-22
 
 ### Fixed

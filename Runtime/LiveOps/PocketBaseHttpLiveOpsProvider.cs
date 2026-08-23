@@ -37,8 +37,15 @@ namespace ProtoSystem.LiveOps
     /// ВАЖНО: фильтрация по project_id выполняется на клиенте.
     /// Новые версии PocketBase возвращают 400 при передаче filter через query params.
     /// </summary>
-    public class PocketBaseHttpLiveOpsProvider : ILiveOpsProvider
+    public class PocketBaseHttpLiveOpsProvider : ILiveOpsProvider, IDisposable
     {
+        // Летящие сейчас запросы: при выходе их надо оборвать руками. Игровой цикл
+        // на закрытии встаёт, req.timeout движком уже не отсчитывается, continuation
+        // после await не выполняется — брошенный запрос держал открытый сокет, и
+        // процесс переживал закрытие окна (жалоба игрока 22.08)
+        private readonly HashSet<UnityWebRequest> _inFlight = new HashSet<UnityWebRequest>();
+        private bool _disposed;
+
         private readonly string _baseUrl;
         private readonly string _projectId;
         private readonly float  _timeoutSeconds;
@@ -693,10 +700,38 @@ namespace ProtoSystem.LiveOps
             return true;
         }
 
-        private static Task SendAsync(UnityWebRequest req)
+        /// <summary>Оборвать всё, что летит: зовётся при выходе из игры.</summary>
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+
+            foreach (var req in _inFlight)
+            {
+                if (req == null) continue;
+                try { req.Abort(); } catch { /* запрос мог уже завершиться */ }
+            }
+            _inFlight.Clear();
+        }
+
+        private Task SendAsync(UnityWebRequest req)
         {
             var tcs = new TaskCompletionSource<bool>();
-            req.SendWebRequest().completed += _ => tcs.TrySetResult(true);
+
+            // Выход уже начался — не отправляем: запрос всё равно не доедет,
+            // а сокет останется висеть вместе с процессом
+            if (_disposed)
+            {
+                tcs.TrySetResult(true);
+                return tcs.Task;
+            }
+
+            _inFlight.Add(req);
+            req.SendWebRequest().completed += _ =>
+            {
+                _inFlight.Remove(req);
+                tcs.TrySetResult(true);
+            };
             return tcs.Task;
         }
 
