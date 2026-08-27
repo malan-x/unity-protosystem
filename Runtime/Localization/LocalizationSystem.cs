@@ -308,19 +308,59 @@ namespace ProtoSystem
         
         private string DetermineLanguage()
         {
-            // 1. Сохранённый выбор пользователя
             string saved = PlayerPrefs.GetString(LANGUAGE_PREF_KEY, "");
-            if (!string.IsNullOrEmpty(saved) && _availableLanguages.Contains(saved))
-                return saved;
-            
-            // 2. Авто-определение по системе
-            if (config.autoDetectSystemLanguage)
-            {
-                string sysLang = Application.systemLanguage.ToISOCode();
-                if (_availableLanguages.Contains(sysLang))
-                    return sysLang;
-            }
-            return config.defaultLanguage;
+            string system = config.autoDetectSystemLanguage
+                ? Application.systemLanguage.ToISOCode() : null;
+
+            return ResolveLanguage(saved, system, _availableLanguages, config.defaultLanguage);
+        }
+
+        /// <summary>
+        /// Какой язык показать: сохранённый выбор → язык системы → язык по
+        /// умолчанию. Вынесено в чистую функцию, потому что подменить
+        /// Application.systemLanguage в рантайме нельзя, а проверять правило надо.
+        ///
+        /// Совпадение ищется сначала точное, потом по ПЕРВОМУ САБТЕГУ: Unity
+        /// отдаёт «pt» для любого португальского, а локаль в проекте может
+        /// называться «pt-BR» — без этого бразилец получал язык по умолчанию,
+        /// хотя перевод для него лежал рядом. Работает и в обратную сторону
+        /// («en-US» от системы → локаль «en»).
+        /// </summary>
+        public static string ResolveLanguage(string saved, string system,
+                                             IReadOnlyList<string> available, string fallback)
+        {
+            string match = MatchLanguage(saved, available);
+            if (match != null) return match;
+
+            match = MatchLanguage(system, available);
+            if (match != null) return match;
+
+            return fallback;
+        }
+
+        /// <summary>Код из списка доступных: точный, иначе по первому сабтегу.</summary>
+        private static string MatchLanguage(string wanted, IReadOnlyList<string> available)
+        {
+            if (string.IsNullOrEmpty(wanted) || available == null) return null;
+
+            foreach (var code in available)
+                if (string.Equals(code, wanted, System.StringComparison.OrdinalIgnoreCase))
+                    return code;
+
+            string wantedBase = PrimarySubtag(wanted);
+            foreach (var code in available)
+                if (string.Equals(PrimarySubtag(code), wantedBase,
+                                  System.StringComparison.OrdinalIgnoreCase))
+                    return code;
+
+            return null;
+        }
+
+        private static string PrimarySubtag(string code)
+        {
+            if (string.IsNullOrEmpty(code)) return code;
+            int dash = code.IndexOf('-');
+            return dash > 0 ? code.Substring(0, dash) : code;
         }
         
         #endregion

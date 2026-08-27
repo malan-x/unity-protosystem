@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.42.0] - 2026-08-27
+
+### Fixed
+- **Язык первого запуска не находил региональную локаль.** Unity отдаёт «pt» для
+  ЛЮБОГО португальского, а локаль в проекте называется «pt-BR» — совпадение
+  искалось только точное, и бразилец получал язык по умолчанию, хотя перевод для
+  него лежал в сборке. Теперь после точного совпадения ищется совпадение по
+  первому сабтегу: «pt» → «pt-BR», «en-GB» → «en», «es-MX» → «es».
+
+### Added
+- **`LocalizationSystem.ResolveLanguage(saved, system, available, fallback)`** —
+  правило выбора языка вынесено в чистую статическую функцию: подменить
+  `Application.systemLanguage` в рантайме нельзя, а проверять правило надо.
+  Покрыто тестами (`LocalizationLanguageTests`), включая случай «сохранённый
+  язык пропал из сборки».
+
 ## [1.41.0] - 2026-08-23
 
 ### Fixed
