@@ -269,6 +269,13 @@ namespace ProtoSystem.LiveOps
         /// Эти же события служат сигналом присутствия: сервер считает игрока
         /// онлайн, пока они приходят (см. server/telemetry.pb.js в дашборде).
         /// </summary>
+        /// <summary>
+        /// Вариант баланса игрока (A/B-группа). По умолчанию "1". Игра ставит
+        /// его при получении назначения с сервера — каждый батч телеметрии
+        /// уезжает с ним, и агрегаты дашборда делятся по вариантам.
+        /// </summary>
+        public string Variant { get; set; } = "1";
+
         public void TrackEvent(string eventName, Dictionary<string, string> data = null)
         {
             if (config == null || !config.enableAnalytics || string.IsNullOrEmpty(eventName)) return;
@@ -765,6 +772,7 @@ namespace ProtoSystem.LiveOps
                 lang            = Language,
                 tzOffsetMinutes = (int)TimeZoneInfo.Local.GetUtcOffset(DateTime.Now).TotalMinutes,
                 env             = Application.isEditor ? "editor" : "player",
+                variant         = Variant,
                 build           = BuildInfo.Flavor.ToString().ToLowerInvariant(), // normal / demo / playtest
                 device          = !string.IsNullOrEmpty(_deviceTag) ? _deviceTag : LiveOpsDeviceSpecs.PlatformTag(),
             };

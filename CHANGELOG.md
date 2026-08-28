@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.43.0] - 2026-08-28
+
+### Added
+- **LiveOps: поле `variant` в батче телеметрии** — A/B-группа игрока
+  (`LiveOpsSystem.Variant`, по умолчанию "1"). Игра ставит значение при
+  получении назначения с сервера; агрегаты дашборда делятся по вариантам,
+  иначе живой тюнинг баланса смешивает данные разных конфигураций.
+
 ## [1.42.0] - 2026-08-27
 
 ### Fixed
