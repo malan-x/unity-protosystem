@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.47.0] - 2026-08-28
+
+### Added
+- **Окно «A/B Эксперименты»: метрики по вариантам** — таблица агрегатов
+  балансовой телеметрии (GET /api/ab/stats?flat=1) с выбором набора
+  метрик и периода (7/30/90 дней), срезы релиз/демо/плейтест/редактор.
+  Редактор наборов метрик (вкладки, pct/avg/sum/ratio, формат) — те же
+  роуты и конфиг, что у веб-дашборда.
+
 ## [1.46.0] - 2026-08-28
 
 ### Fixed

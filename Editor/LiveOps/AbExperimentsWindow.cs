@@ -58,6 +58,43 @@ namespace ProtoSystem.Editor.LiveOps
         [Serializable] private class ListResponse { public Experiment[] experiments; }
         [Serializable] private class AuthResponse { public string token; }
 
+        // ── Метрики по вариантам (конфиг наборов + агрегаты) ──
+
+        [Serializable]
+        public class MetricDef
+        {
+            public string key = "";
+            public string label = "";
+            public string type = "avg";     // pct / avg / sum / ratio
+            public string field = "";
+            public string field2 = "";      // ratio: знаменатель
+            public string equals = "";      // pct: искомое значение поля
+            public string format = "int";   // int / float1 / pct / min
+            public bool enabled = true;
+        }
+
+        [Serializable]
+        public class MetricSet
+        {
+            public string id = "main";
+            public string name = "Основной";
+            public MetricDef[] metrics = Array.Empty<MetricDef>();
+        }
+
+        [Serializable] private class MetricSetsResponse { public MetricSet[] sets; }
+
+        [Serializable]
+        public class StatRow
+        {
+            public string slice;
+            public string variant;
+            public int runs;
+            public int players;
+            public KV[] values = Array.Empty<KV>();
+        }
+
+        [Serializable] private class StatsResponse { public MetricDef[] metrics; public StatRow[] stats; }
+
         // ── Состояние ──
 
         private LiveOpsConfig _config;
@@ -66,6 +103,19 @@ namespace ProtoSystem.Editor.LiveOps
         private bool _busy;
         private List<Experiment> _experiments = new List<Experiment>();
         private Vector2 _scroll;
+
+        // Метрики
+        private static readonly int[] DaysOptions = { 7, 30, 90 };
+        private List<MetricSet> _metricSets = new List<MetricSet>();
+        private string _currentSetId = "";
+        private int _statsDaysIndex = 1;   // 30 дней
+        private List<StatRow> _stats = new List<StatRow>();
+        private MetricDef[] _statsMetrics = Array.Empty<MetricDef>();
+
+        // Редактор наборов метрик: правит копию, «Сохранить» шлёт всё разом
+        private bool _editingMetrics;
+        private List<MetricSet> _editSets = new List<MetricSet>();
+        private int _editSetIdx;
 
         // Форма редактирования. _editingId == null — форма скрыта
         private string _editingId;
@@ -204,6 +254,9 @@ namespace ProtoSystem.Editor.LiveOps
                     EditorGUILayout.LabelField("Экспериментов нет — «+ Новый» в шапке.", EditorStyles.centeredGreyMiniLabel);
                     GUI.color = c;
                 }
+                EditorGUILayout.Space(10);
+                if (_editingMetrics) DrawMetricsEditor();
+                else DrawStats();
                 EditorGUILayout.EndScrollView();
             }
             DrawStatus();
@@ -487,6 +540,267 @@ namespace ProtoSystem.Editor.LiveOps
         }
 
         // ─────────────────────────────────────────────────────────────
+        // Метрики по вариантам: таблица
+        // ─────────────────────────────────────────────────────────────
+
+        private void DrawStats()
+        {
+            var card = EditorGUILayout.BeginVertical();
+            if (Event.current.type == EventType.Repaint)
+                EditorGUI.DrawRect(new Rect(card.x + 6, card.y, card.width - 12, card.height), CardBg);
+
+            using (new EditorGUILayout.VerticalScope(new GUIStyle { padding = new RectOffset(12, 12, 10, 10) }))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Label("Метрики по вариантам", _headerStyle);
+                    GUILayout.FlexibleSpace();
+
+                    // Селектор набора — когда наборов больше одного
+                    if (_metricSets.Count > 1)
+                    {
+                        int setIdx = Mathf.Max(0, _metricSets.FindIndex(s => s.id == _currentSetId));
+                        var names = new string[_metricSets.Count];
+                        for (int i = 0; i < _metricSets.Count; i++) names[i] = _metricSets[i].name;
+                        int newIdx = EditorGUILayout.Popup(setIdx, names, GUILayout.Width(140));
+                        if (newIdx != setIdx)
+                        {
+                            _currentSetId = _metricSets[newIdx].id;
+                            _ = LoadStats();
+                        }
+                    }
+
+                    int daysIdx = EditorGUILayout.Popup(_statsDaysIndex,
+                        new[] { "7 дней", "30 дней", "90 дней" }, GUILayout.Width(90));
+                    if (daysIdx != _statsDaysIndex) { _statsDaysIndex = daysIdx; _ = LoadStats(); }
+
+                    if (GUILayout.Button("⟳", EditorStyles.miniButton, GUILayout.Width(26))) _ = LoadStats();
+                    if (GUILayout.Button("Настроить…", EditorStyles.miniButton, GUILayout.Width(86)))
+                        StartMetricsEdit();
+                }
+                EditorGUILayout.Space(4);
+
+                if (_stats.Count == 0)
+                {
+                    GUILayout.Label("Заездов ещё нет. Каждый run_end из игры (билд или редактор) " +
+                                    "появится здесь с разбивкой по вариантам.", _dimStyle);
+                }
+                else
+                {
+                    var cols = new List<MetricDef>();
+                    foreach (var m in _statsMetrics) if (m.enabled) cols.Add(m);
+
+                    string lastSlice = null;
+                    int rowIndex = 0;
+                    foreach (var row in _stats)
+                    {
+                        if (row.slice != lastSlice)
+                        {
+                            lastSlice = row.slice;
+                            rowIndex = 0;
+                            EditorGUILayout.Space(6);
+                            GUILayout.Label(SliceLabel(row.slice), EditorStyles.miniBoldLabel);
+                            using (new EditorGUILayout.HorizontalScope())
+                            {
+                                GUILayout.Label("вариант", _dimStyle, GUILayout.Width(64));
+                                GUILayout.Label("игроков", _dimStyle, GUILayout.Width(56));
+                                GUILayout.Label("заездов", _dimStyle, GUILayout.Width(56));
+                                foreach (var m in cols)
+                                    GUILayout.Label(m.label, _dimStyle, GUILayout.Width(92));
+                            }
+                        }
+
+                        var r = EditorGUILayout.BeginHorizontal(new GUIStyle { padding = new RectOffset(0, 0, 2, 2) });
+                        if (Event.current.type == EventType.Repaint && rowIndex % 2 == 1)
+                            EditorGUI.DrawRect(r, ZebraTint);
+                        rowIndex++;
+
+                        DrawChip(row.variant, ChipBg, Pro ? Color.white : Color.black, 56);
+                        GUILayout.Space(8);
+                        GUILayout.Label(row.players.ToString(), EditorStyles.miniLabel, GUILayout.Width(56));
+                        GUILayout.Label(row.runs.ToString(), EditorStyles.miniLabel, GUILayout.Width(56));
+                        foreach (var m in cols)
+                            GUILayout.Label(FormatMetric(ValueOf(row, m.key), m.format),
+                                            EditorStyles.miniLabel, GUILayout.Width(92));
+                        GUILayout.FlexibleSpace();
+                        EditorGUILayout.EndHorizontal();
+                    }
+                }
+            }
+            EditorGUILayout.EndVertical();
+            EditorGUILayout.Space(8);
+        }
+
+        private string SliceLabel(string slice)
+        {
+            var project = _config.projectId;
+            if (slice == project) return "Релизный билд";
+            var suffix = slice.Length > project.Length + 1 ? slice.Substring(project.Length + 1) : slice;
+            return suffix.Replace("demo", "Демо").Replace("playtest", "Плейтест").Replace("editor", "Unity Editor")
+                         .Replace(".", " · ");
+        }
+
+        private static float ValueOf(StatRow row, string key)
+        {
+            foreach (var kv in row.values)
+                if (kv.k == key) return kv.v;
+            return 0f;
+        }
+
+        private static string FormatMetric(float v, string format)
+        {
+            switch (format)
+            {
+                case "pct":    return Mathf.RoundToInt(v * 100f) + "%";
+                case "min":    return (v / 60f).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " мин";
+                case "float1": return v.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+                default:       return Mathf.RoundToInt(v).ToString();
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Метрики по вариантам: редактор наборов
+        // ─────────────────────────────────────────────────────────────
+
+        private static readonly string[] MetricTypes = { "pct", "avg", "sum", "ratio" };
+        private static readonly string[] MetricFormats = { "int", "float1", "pct", "min" };
+        private static readonly string[] MetricFormatNames = { "целое", "0.0", "%", "сек → мин" };
+
+        private void StartMetricsEdit()
+        {
+            _editSets.Clear();
+            foreach (var s in _metricSets)
+            {
+                var copy = new MetricSet { id = s.id, name = s.name };
+                var list = new List<MetricDef>();
+                foreach (var m in s.metrics)
+                    list.Add(new MetricDef { key = m.key, label = m.label, type = m.type, field = m.field,
+                                             field2 = m.field2, equals = m.equals, format = m.format, enabled = m.enabled });
+                copy.metrics = list.ToArray();
+                _editSets.Add(copy);
+            }
+            if (_editSets.Count == 0) _editSets.Add(new MetricSet());
+            _editSetIdx = Mathf.Max(0, _editSets.FindIndex(s => s.id == _currentSetId));
+            _editingMetrics = true;
+        }
+
+        private void DrawMetricsEditor()
+        {
+            var card = EditorGUILayout.BeginVertical();
+            if (Event.current.type == EventType.Repaint)
+            {
+                EditorGUI.DrawRect(new Rect(card.x + 6, card.y, card.width - 12, card.height), CardBg);
+                EditorGUI.DrawRect(new Rect(card.x + 6, card.y, 3, card.height), ChipBg);
+            }
+
+            using (new EditorGUILayout.VerticalScope(new GUIStyle { padding = new RectOffset(12, 12, 10, 10) }))
+            {
+                GUILayout.Label("Наборы метрик", _headerStyle);
+                GUILayout.Label("«Поле» — поле события run_end из игры. pct — доля заездов, где поле равно значению; " +
+                                "avg — среднее; sum — сумма; ratio — отношение сумм двух полей. Новая метрика = " +
+                                "новое поле в run_end + строка здесь.", _dimStyle);
+                EditorGUILayout.Space(6);
+
+                // Вкладки наборов
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    for (int i = 0; i < _editSets.Count; i++)
+                    {
+                        var style = i == _editSetIdx ? EditorStyles.miniButtonMid : EditorStyles.miniButton;
+                        var gc = GUI.backgroundColor;
+                        if (i == _editSetIdx) GUI.backgroundColor = ChipBg;
+                        if (GUILayout.Button(_editSets[i].name, style, GUILayout.Width(110)))
+                            _editSetIdx = i;
+                        GUI.backgroundColor = gc;
+                    }
+                    if (GUILayout.Button("+ набор", EditorStyles.miniButton, GUILayout.Width(70)))
+                    {
+                        _editSets.Add(new MetricSet { id = "set" + DateTime.UtcNow.Ticks.ToString("x"), name = "Новый набор" });
+                        _editSetIdx = _editSets.Count - 1;
+                    }
+                    GUILayout.FlexibleSpace();
+                }
+                EditorGUILayout.Space(4);
+
+                var cur = _editSets[_editSetIdx];
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Label("название набора", _dimStyle, GUILayout.Width(100));
+                    cur.name = EditorGUILayout.TextField(cur.name, GUILayout.Width(180));
+                    if (_editSets.Count > 1)
+                    {
+                        var gc = GUI.contentColor; GUI.contentColor = RedBtn;
+                        if (GUILayout.Button("Удалить набор", EditorStyles.miniButton, GUILayout.Width(100)) &&
+                            EditorUtility.DisplayDialog("Удалить набор?", $"«{cur.name}» будет удалён.", "Удалить", "Отмена"))
+                        {
+                            _editSets.RemoveAt(_editSetIdx);
+                            _editSetIdx = 0;
+                            GUI.contentColor = gc;
+                            EditorGUILayout.EndHorizontal();
+                            EditorGUILayout.EndVertical();
+                            EditorGUILayout.EndVertical();
+                            return;   // список изменился — дорисуем в следующем кадре
+                        }
+                        GUI.contentColor = gc;
+                    }
+                    GUILayout.FlexibleSpace();
+                }
+                EditorGUILayout.Space(6);
+
+                var metrics = new List<MetricDef>(cur.metrics);
+                int remove = -1;
+                for (int i = 0; i < metrics.Count; i++)
+                {
+                    var m = metrics[i];
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        m.enabled = EditorGUILayout.Toggle(m.enabled, GUILayout.Width(18));
+                        m.key = EditorGUILayout.TextField(m.key, GUILayout.Width(110));
+                        m.label = EditorGUILayout.TextField(m.label, GUILayout.Width(100));
+                        int t = Mathf.Max(0, Array.IndexOf(MetricTypes, m.type));
+                        m.type = MetricTypes[EditorGUILayout.Popup(t, MetricTypes, GUILayout.Width(56))];
+                        m.field = EditorGUILayout.TextField(m.field, GUILayout.Width(100));
+                        if (m.type == "pct")
+                            m.equals = EditorGUILayout.TextField(m.equals, GUILayout.Width(80));
+                        else if (m.type == "ratio")
+                            m.field2 = EditorGUILayout.TextField(m.field2, GUILayout.Width(80));
+                        else
+                            GUILayout.Space(84);
+                        int f = Mathf.Max(0, Array.IndexOf(MetricFormats, m.format));
+                        m.format = MetricFormats[EditorGUILayout.Popup(f, MetricFormatNames, GUILayout.Width(76))];
+                        var gc = GUI.contentColor; GUI.contentColor = RedBtn;
+                        if (GUILayout.Button("✕", EditorStyles.miniButton, GUILayout.Width(22))) remove = i;
+                        GUI.contentColor = gc;
+                        GUILayout.FlexibleSpace();
+                    }
+                }
+                if (remove >= 0) metrics.RemoveAt(remove);
+                cur.metrics = metrics.ToArray();
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Space(18);
+                    GUILayout.Label("вкл · ключ · подпись · агрегация · поле · значение/поле2 · формат", _dimStyle);
+                }
+                EditorGUILayout.Space(4);
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("+ метрика", EditorStyles.miniButton, GUILayout.Width(80)))
+                    {
+                        var list = new List<MetricDef>(cur.metrics) { new MetricDef() };
+                        cur.metrics = list.ToArray();
+                    }
+                    GUILayout.FlexibleSpace();
+                    if (GUILayout.Button("Отмена", GUILayout.Width(80), GUILayout.Height(22))) _editingMetrics = false;
+                    if (GUILayout.Button("Сохранить", GUILayout.Width(100), GUILayout.Height(22))) _ = SaveMetrics();
+                }
+            }
+            EditorGUILayout.EndVertical();
+            EditorGUILayout.Space(8);
+        }
+
+        // ─────────────────────────────────────────────────────────────
         // Сеть
         // ─────────────────────────────────────────────────────────────
 
@@ -525,6 +839,77 @@ namespace ProtoSystem.Editor.LiveOps
             }
             catch (Exception ex) { _status = $"Ошибка: {ex.Message}"; }
             finally { _busy = false; Repaint(); }
+
+            await LoadStats();
+        }
+
+        private async Task LoadStats()
+        {
+            try
+            {
+                // Наборы — отдельным запросом: селектор должен знать все
+                var setsText = await Send(HttpMethod.Get,
+                    $"/api/ab/metrics?project={Uri.EscapeDataString(_config.projectId)}", null);
+                var sets = JsonUtility.FromJson<MetricSetsResponse>(setsText);
+                _metricSets = new List<MetricSet>(sets?.sets ?? Array.Empty<MetricSet>());
+                if (_metricSets.FindIndex(s => s.id == _currentSetId) < 0)
+                    _currentSetId = _metricSets.Count > 0 ? _metricSets[0].id : "";
+
+                var text = await Send(HttpMethod.Get,
+                    $"/api/ab/stats?project={Uri.EscapeDataString(_config.projectId)}" +
+                    $"&days={DaysOptions[_statsDaysIndex]}&set={Uri.EscapeDataString(_currentSetId)}&flat=1", null);
+                var parsed = JsonUtility.FromJson<StatsResponse>(text);
+                _stats = new List<StatRow>(parsed?.stats ?? Array.Empty<StatRow>());
+                _statsMetrics = parsed?.metrics ?? Array.Empty<MetricDef>();
+            }
+            catch (Exception ex) { _status = $"Ошибка метрик: {ex.Message}"; }
+            finally { Repaint(); }
+        }
+
+        private async Task SaveMetrics()
+        {
+            var sb = new StringBuilder("{\"project\":").Append(Quote(_config.projectId)).Append(",\"sets\":[");
+            bool firstSet = true;
+            foreach (var s in _editSets)
+            {
+                var valid = new List<MetricDef>();
+                foreach (var m in s.metrics)
+                    if (!string.IsNullOrWhiteSpace(m.key) && !string.IsNullOrWhiteSpace(m.field)) valid.Add(m);
+                if (valid.Count == 0) continue;
+
+                if (!firstSet) sb.Append(',');
+                firstSet = false;
+                sb.Append("{\"id\":").Append(Quote(s.id)).Append(",\"name\":").Append(Quote(s.name)).Append(",\"metrics\":[");
+                for (int i = 0; i < valid.Count; i++)
+                {
+                    var m = valid[i];
+                    if (i > 0) sb.Append(',');
+                    sb.Append("{\"key\":").Append(Quote(m.key.Trim()))
+                      .Append(",\"label\":").Append(Quote(string.IsNullOrWhiteSpace(m.label) ? m.key : m.label.Trim()))
+                      .Append(",\"type\":").Append(Quote(m.type))
+                      .Append(",\"field\":").Append(Quote(m.field.Trim()))
+                      .Append(",\"field2\":").Append(Quote(m.type == "ratio" ? m.field2?.Trim() ?? "" : ""))
+                      .Append(",\"equals\":").Append(Quote(m.type == "pct" ? m.equals?.Trim() ?? "" : ""))
+                      .Append(",\"format\":").Append(Quote(m.format))
+                      .Append(",\"enabled\":").Append(m.enabled ? "true" : "false")
+                      .Append('}');
+                }
+                sb.Append("]}");
+            }
+            sb.Append("]}");
+            if (firstSet) { _status = "Ошибка: нужен хотя бы один набор с метрикой (ключ и поле)"; return; }
+
+            _busy = true; Repaint();
+            try
+            {
+                await Send(HttpMethod.Post, "/api/ab/metrics", sb.ToString());
+                _editingMetrics = false;
+                _status = "";
+            }
+            catch (Exception ex) { _status = $"Ошибка сохранения метрик: {ex.Message}"; }
+            finally { _busy = false; Repaint(); }
+
+            await LoadStats();
         }
 
         private async Task Save()
