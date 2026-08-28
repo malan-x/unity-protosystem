@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace ProtoSystem.LiveOps
 {
@@ -270,11 +271,77 @@ namespace ProtoSystem.LiveOps
         /// онлайн, пока они приходят (см. server/telemetry.pb.js в дашборде).
         /// </summary>
         /// <summary>
-        /// Вариант баланса игрока (A/B-группа). По умолчанию "1". Игра ставит
-        /// его при получении назначения с сервера — каждый батч телеметрии
-        /// уезжает с ним, и агрегаты дашборда делятся по вариантам.
+        /// Вариант баланса игрока (A/B-группа). По умолчанию "1"; назначение
+        /// приходит с сервера при старте (POST /api/ab/assign) и кэшируется
+        /// для оффлайна. Каждый батч телеметрии уезжает с ним — агрегаты
+        /// дашборда делятся по вариантам.
         /// </summary>
         public string Variant { get; set; } = "1";
+
+        /// <summary>Вариант изменился (строка-вариант) — игра применяет свой баланс.</summary>
+        public event Action<string> VariantChanged;
+
+        private const string VARIANT_PREF_KEY = "ProtoSystem.AB.Variant";
+
+        /// <summary>
+        /// Спросить у сервера A/B-вариант игрока. Сервер назначает по конфигу
+        /// эксперимента (веса-доли или квоты «ровно N игроков») и персистит
+        /// решение — повторный вход стабилен. Оффлайн — кэш прошлого ответа,
+        /// до первого контакта — "1" (дефолтный баланс).
+        /// </summary>
+        private async Task FetchAbVariantAsync()
+        {
+            // Кэш применяем сразу: если сеть упадёт ниже, играем прошлым назначением
+            string cached = PlayerPrefs.GetString(VARIANT_PREF_KEY, "");
+            if (!string.IsNullOrEmpty(cached)) ApplyVariant(cached);
+
+            if (string.IsNullOrEmpty(config.serverUrl)) return;
+
+            try
+            {
+                string url = config.serverUrl.TrimEnd('/') + "/api/ab/assign";
+                string body = "{\"project\":\"" + config.projectId + "\",\"playerId\":\"" + _playerId + "\"}";
+
+                using var req = new UnityWebRequest(url, "POST");
+                req.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(body));
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+                req.timeout = Mathf.Max(2, config.healthCheckTimeoutSeconds);
+
+                var op = req.SendWebRequest();
+                while (!op.isDone) await Task.Yield();
+
+                if (req.result != UnityWebRequest.Result.Success) return;
+
+                var resp = JsonUtility.FromJson<AbAssignResponse>(req.downloadHandler.text);
+                if (resp == null || string.IsNullOrEmpty(resp.variant)) return;
+
+                PlayerPrefs.SetString(VARIANT_PREF_KEY, resp.variant);
+                ApplyVariant(resp.variant);
+                if (resp.variant != "1")
+                    ProtoLogger.LogRuntime(SystemId, $"A/B: вариант {resp.variant}" +
+                        (string.IsNullOrEmpty(resp.experiment) ? "" : $" (эксперимент '{resp.experiment}')"));
+            }
+            catch (Exception ex)
+            {
+                ProtoLogger.LogWarning(SystemId, $"A/B assign failed: {ex.Message}");
+            }
+        }
+
+        private void ApplyVariant(string variant)
+        {
+            if (Variant == variant) return;
+            Variant = variant;
+            try { VariantChanged?.Invoke(variant); }
+            catch (Exception ex) { ProtoLogger.LogWarning(SystemId, $"VariantChanged handler: {ex.Message}"); }
+        }
+
+        [Serializable]
+        private class AbAssignResponse
+        {
+            public string variant;
+            public string experiment;
+        }
 
         public void TrackEvent(string eventName, Dictionary<string, string> data = null)
         {
@@ -605,6 +672,7 @@ namespace ProtoSystem.LiveOps
                 if (_serverAvailable)
                 {
                     await FetchAsync();
+                    await FetchAbVariantAsync();
                     TrackSessionStart();
 
                     // Ждём, не уточнит ли проект id (Steam стартует после нас). Пачка
