@@ -637,7 +637,7 @@ namespace ProtoSystem.Editor.LiveOps
             if (slice == project) return "Релизный билд";
             var suffix = slice.Length > project.Length + 1 ? slice.Substring(project.Length + 1) : slice;
             return suffix.Replace("demo", "Демо").Replace("playtest", "Плейтест").Replace("editor", "Unity Editor")
-                         .Replace(".", " · ");
+                         .Replace("bot", "Бот").Replace(".", " · ");
         }
 
         private static float ValueOf(StatRow row, string key)

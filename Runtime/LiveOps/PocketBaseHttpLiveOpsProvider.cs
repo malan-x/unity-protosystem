@@ -230,6 +230,7 @@ namespace ProtoSystem.LiveOps
             if (!string.IsNullOrEmpty(batch.build))     sb.Append(",\"build\":\"").Append(EscapeJson(batch.build)).Append('"');
             if (!string.IsNullOrEmpty(batch.device))    sb.Append(",\"device\":\"").Append(EscapeJson(batch.device)).Append('"');
             if (!string.IsNullOrEmpty(batch.variant))   sb.Append(",\"variant\":\"").Append(EscapeJson(batch.variant)).Append('"');
+            if (batch.bot)                              sb.Append(",\"bot\":true");
             sb.Append(",\"tz\":").Append(batch.tzOffsetMinutes);
 
             if (batch.specs != null)

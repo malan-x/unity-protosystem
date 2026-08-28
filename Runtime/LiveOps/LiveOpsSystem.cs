@@ -281,6 +281,14 @@ namespace ProtoSystem.LiveOps
         /// <summary>Вариант изменился (строка-вариант) — игра применяет свой баланс.</summary>
         public event Action<string> VariantChanged;
 
+        /// <summary>
+        /// Заезды проводит бот (авто-фармер), не человек. Сервер выносит такие
+        /// сессии в отдельный срез статистики (суффикс ".bot" у project_id) —
+        /// боты не искажают ни метрики баланса, ни DAU. Ставить ДО первого
+        /// батча (сразу после инициализации).
+        /// </summary>
+        public bool BotMode { get; set; }
+
         private const string VARIANT_PREF_KEY = "ProtoSystem.AB.Variant";
 
         /// <summary>
@@ -895,6 +903,7 @@ namespace ProtoSystem.LiveOps
                 tzOffsetMinutes = (int)TimeZoneInfo.Local.GetUtcOffset(DateTime.Now).TotalMinutes,
                 env             = Application.isEditor ? "editor" : "player",
                 variant         = Variant,
+                bot             = BotMode,
                 build           = BuildInfo.Flavor.ToString().ToLowerInvariant(), // normal / demo / playtest
                 device          = !string.IsNullOrEmpty(_deviceTag) ? _deviceTag : LiveOpsDeviceSpecs.PlatformTag(),
             };
