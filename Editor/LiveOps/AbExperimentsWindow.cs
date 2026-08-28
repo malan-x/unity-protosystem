@@ -12,8 +12,11 @@ namespace ProtoSystem.Editor.LiveOps
     /// <summary>
     /// Окно A/B-экспериментов баланса: та же коллекция и те же роуты, что у
     /// веб-дашборда (/api/ab/experiments) — один источник правды, правь где
-    /// удобнее. Сервер и проект берутся из LiveOpsConfig, доступ — логин
-    /// superuser'а PocketBase (токен хранится в EditorPrefs, пароль — нет).
+    /// удобнее. Сервер и проект берутся из LiveOpsConfig.
+    ///
+    /// Доступ — логин superuser'а PocketBase. Креды хранятся в EditorPrefs
+    /// (пароль — обфусцированным, это машина разработчика, не билд), и при
+    /// протухшем токене окно перелогинивается само — пароль вводится один раз.
     ///
     /// Формат: сервер отдаёт ?flat=1 — оверрайды и счётчики массивами пар,
     /// потому что JsonUtility не умеет словари.
@@ -22,6 +25,7 @@ namespace ProtoSystem.Editor.LiveOps
     {
         private const string TOKEN_KEY = "ProtoSystem.LiveOps.SuToken";
         private const string EMAIL_KEY = "ProtoSystem.LiveOps.SuEmail";
+        private const string PASS_KEY  = "ProtoSystem.LiveOps.SuPass";
 
         private static readonly HttpClient Http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
 
@@ -78,11 +82,45 @@ namespace ProtoSystem.Editor.LiveOps
             public string overrides = "";  // «ключ=значение; …»
         }
 
+        // ── Палитра (тёмный/светлый скин) ──
+
+        private static bool Pro => EditorGUIUtility.isProSkin;
+        private static Color CardBg     => Pro ? new Color(0.17f, 0.18f, 0.20f) : new Color(0.92f, 0.92f, 0.93f);
+        private static Color CardBorder => Pro ? new Color(0.10f, 0.10f, 0.11f) : new Color(0.72f, 0.72f, 0.74f);
+        private static Color ActiveTint => Pro ? new Color(0.20f, 0.30f, 0.22f) : new Color(0.84f, 0.93f, 0.85f);
+        private static Color ZebraTint  => Pro ? new Color(1f, 1f, 1f, 0.03f) : new Color(0f, 0f, 0f, 0.03f);
+        private static Color Green      => Pro ? new Color(0.42f, 0.85f, 0.50f) : new Color(0.10f, 0.55f, 0.20f);
+        private static Color Dim        => Pro ? new Color(0.62f, 0.64f, 0.67f) : new Color(0.40f, 0.40f, 0.42f);
+        private static Color ChipBg     => Pro ? new Color(0.28f, 0.32f, 0.44f) : new Color(0.75f, 0.79f, 0.92f);
+        private static Color CodeBg     => Pro ? new Color(0.13f, 0.14f, 0.15f) : new Color(0.85f, 0.86f, 0.88f);
+        private static Color RedBtn     => new Color(1f, 0.55f, 0.55f);
+
+        private GUIStyle _titleStyle, _dimStyle, _chipStyle, _codeStyle, _headerStyle;
+
+        private void BuildStyles()
+        {
+            if (_titleStyle != null) return;
+            _titleStyle = new GUIStyle(EditorStyles.boldLabel) { fontSize = 13 };
+            _dimStyle = new GUIStyle(EditorStyles.miniLabel);
+            _dimStyle.normal.textColor = Dim;
+            _chipStyle = new GUIStyle(EditorStyles.miniBoldLabel)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = Pro ? Color.white : Color.black },
+            };
+            _codeStyle = new GUIStyle(EditorStyles.miniLabel)
+            {
+                font = EditorStyles.miniLabel.font,
+                normal = { textColor = Pro ? new Color(0.80f, 0.86f, 1f) : new Color(0.15f, 0.25f, 0.55f) },
+            };
+            _headerStyle = new GUIStyle(EditorStyles.boldLabel) { fontSize = 12 };
+        }
+
         [MenuItem("ProtoSystem/LiveOps/A-B Эксперименты", false, 400)]
         public static void Open()
         {
             var w = GetWindow<AbExperimentsWindow>("A/B Эксперименты");
-            w.minSize = new Vector2(560, 400);
+            w.minSize = new Vector2(620, 420);
         }
 
         private void OnEnable()
@@ -90,10 +128,13 @@ namespace ProtoSystem.Editor.LiveOps
             _token = EditorPrefs.GetString(TOKEN_KEY, "");
             _email = EditorPrefs.GetString(EMAIL_KEY, "");
             FindConfig();
-            if (IsLoggedIn && _config != null) _ = Reload();
+            if (_config == null) return;
+            if (IsLoggedIn) _ = Reload();
+            else if (HasStoredPassword) _ = Login(LoadPassword());   // пароль вводится один раз
         }
 
         private bool IsLoggedIn => !string.IsNullOrEmpty(_token);
+        private bool HasStoredPassword => !string.IsNullOrEmpty(_email) && !string.IsNullOrEmpty(EditorPrefs.GetString(PASS_KEY, ""));
         private string ServerUrl => _config != null ? _config.serverUrl.TrimEnd('/') : "";
 
         private void FindConfig()
@@ -105,12 +146,40 @@ namespace ProtoSystem.Editor.LiveOps
             }
         }
 
+        // ── Хранение пароля: XOR + Base64. Не криптография, а защита от
+        // случайного взгляда в реестр — окно и так живёт на машине владельца ──
+
+        private static string Mask(string s)
+        {
+            var key = SystemInfo.deviceUniqueIdentifier;
+            var bytes = Encoding.UTF8.GetBytes(s);
+            for (int i = 0; i < bytes.Length; i++) bytes[i] ^= (byte)key[i % key.Length];
+            return Convert.ToBase64String(bytes);
+        }
+
+        private static string Unmask(string s)
+        {
+            try
+            {
+                var key = SystemInfo.deviceUniqueIdentifier;
+                var bytes = Convert.FromBase64String(s);
+                for (int i = 0; i < bytes.Length; i++) bytes[i] ^= (byte)key[i % key.Length];
+                return Encoding.UTF8.GetString(bytes);
+            }
+            catch { return ""; }
+        }
+
+        private void SavePassword(string password) => EditorPrefs.SetString(PASS_KEY, Mask(password));
+        private string LoadPassword() => Unmask(EditorPrefs.GetString(PASS_KEY, ""));
+
         // ─────────────────────────────────────────────────────────────
         // GUI
         // ─────────────────────────────────────────────────────────────
 
         private void OnGUI()
         {
+            BuildStyles();
+
             if (_config == null)
             {
                 EditorGUILayout.HelpBox("LiveOpsConfig не найден в проекте — без него неизвестны сервер и проект.", MessageType.Warning);
@@ -118,47 +187,70 @@ namespace ProtoSystem.Editor.LiveOps
                 return;
             }
 
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.Label($"{ServerUrl}  ·  проект: {_config.projectId}", EditorStyles.miniLabel);
-                GUILayout.FlexibleSpace();
-                if (IsLoggedIn && GUILayout.Button("Выйти", EditorStyles.miniButton, GUILayout.Width(60)))
-                {
-                    _token = "";
-                    EditorPrefs.DeleteKey(TOKEN_KEY);
-                }
-            }
+            DrawToolbar();
 
             if (!IsLoggedIn) { DrawLogin(); DrawStatus(); return; }
 
             using (new EditorGUI.DisabledScope(_busy))
             {
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    if (GUILayout.Button("Обновить", GUILayout.Width(90))) _ = Reload();
-                    if (_editingId == null && GUILayout.Button("Новый эксперимент", GUILayout.Width(150)))
-                        StartEdit(null);
-                    GUILayout.FlexibleSpace();
-                }
-
                 _scroll = EditorGUILayout.BeginScrollView(_scroll);
+                EditorGUILayout.Space(6);
                 if (_editingId != null) DrawForm();
                 foreach (var x in _experiments) DrawExperiment(x);
                 if (_experiments.Count == 0 && _editingId == null)
-                    EditorGUILayout.HelpBox("Экспериментов нет. «Новый эксперимент» — создать.", MessageType.Info);
+                {
+                    EditorGUILayout.Space(20);
+                    var c = GUI.color; GUI.color = Dim;
+                    EditorGUILayout.LabelField("Экспериментов нет — «+ Новый» в шапке.", EditorStyles.centeredGreyMiniLabel);
+                    GUI.color = c;
+                }
                 EditorGUILayout.EndScrollView();
             }
             DrawStatus();
         }
 
+        private void DrawToolbar()
+        {
+            using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
+            {
+                using (new EditorGUI.DisabledScope(_busy || !IsLoggedIn))
+                {
+                    if (GUILayout.Button("⟳ Обновить", EditorStyles.toolbarButton, GUILayout.Width(90))) _ = Reload();
+                    if (_editingId == null &&
+                        GUILayout.Button("+ Новый", EditorStyles.toolbarButton, GUILayout.Width(70)))
+                        StartEdit(null);
+                }
+                GUILayout.FlexibleSpace();
+                GUILayout.Label($"{ServerUrl.Replace("https://", "")}  ·  {_config.projectId}", _dimStyle);
+                if (IsLoggedIn && GUILayout.Button("Выйти", EditorStyles.toolbarButton, GUILayout.Width(56)))
+                {
+                    _token = "";
+                    EditorPrefs.DeleteKey(TOKEN_KEY);
+                    EditorPrefs.DeleteKey(PASS_KEY);
+                }
+            }
+        }
+
         private void DrawLogin()
         {
-            EditorGUILayout.Space(6);
-            EditorGUILayout.LabelField("Вход (superuser PocketBase)", EditorStyles.boldLabel);
-            _email = EditorGUILayout.TextField("Email", _email);
-            _password = EditorGUILayout.PasswordField("Пароль", _password);
-            using (new EditorGUI.DisabledScope(_busy || string.IsNullOrEmpty(_email) || string.IsNullOrEmpty(_password)))
-                if (GUILayout.Button("Войти", GUILayout.Width(120))) _ = Login();
+            EditorGUILayout.Space(20);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.FlexibleSpace();
+                using (new EditorGUILayout.VerticalScope(GUILayout.Width(340)))
+                {
+                    GUILayout.Label("Вход (superuser PocketBase)", _headerStyle);
+                    EditorGUILayout.Space(4);
+                    _email = EditorGUILayout.TextField("Email", _email);
+                    _password = EditorGUILayout.PasswordField("Пароль", _password);
+                    GUILayout.Label("Пароль запоминается — вход дальше автоматический.", _dimStyle);
+                    EditorGUILayout.Space(4);
+                    using (new EditorGUI.DisabledScope(_busy || string.IsNullOrEmpty(_email) || string.IsNullOrEmpty(_password)))
+                        if (GUILayout.Button(_busy ? "Вход…" : "Войти", GUILayout.Height(26)))
+                            _ = Login(_password);
+                }
+                GUILayout.FlexibleSpace();
+            }
         }
 
         private void DrawStatus()
@@ -167,53 +259,121 @@ namespace ProtoSystem.Editor.LiveOps
                 EditorGUILayout.HelpBox(_status, _status.StartsWith("Ошибка") ? MessageType.Error : MessageType.Info);
         }
 
+        // ── Карточка эксперимента ──
+
         private void DrawExperiment(Experiment x)
         {
-            using (new EditorGUILayout.VerticalScope("box"))
+            // Rect от BeginVertical в Layout-пассе нулевой, в Repaint — готовый:
+            // фон рисуем в Repaint ДО контента, иначе он закрасит текст
+            var card = EditorGUILayout.BeginVertical();
+            if (Event.current.type == EventType.Repaint)
             {
+                EditorGUI.DrawRect(new Rect(card.x + 6, card.y, card.width - 12, card.height), x.active ? ActiveTint : CardBg);
+                EditorGUI.DrawRect(new Rect(card.x + 6, card.y, card.width - 12, 1), CardBorder);
+                EditorGUI.DrawRect(new Rect(card.x + 6, card.yMax - 1, card.width - 12, 1), CardBorder);
+                if (x.active)
+                    EditorGUI.DrawRect(new Rect(card.x + 6, card.y, 3, card.height), Green);
+            }
+            GUILayout.Space(2);
+
+            using (new EditorGUILayout.VerticalScope(new GUIStyle { padding = new RectOffset(12, 12, 8, 10) }))
+            {
+                // Шапка: имя + бейдж + заметка …… кнопки
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    var title = x.active ? $"● {x.name}  [ACTIVE]" : x.name;
-                    var style = new GUIStyle(EditorStyles.boldLabel);
-                    if (x.active) style.normal.textColor = new Color(0.35f, 0.85f, 0.45f);
-                    GUILayout.Label(title, style);
+                    GUILayout.Label(x.name, _titleStyle, GUILayout.ExpandWidth(false));
+                    if (x.active) DrawChip("ACTIVE", Green, Color.black);
+                    if (!string.IsNullOrEmpty(x.note))
+                        GUILayout.Label("· " + x.note, _dimStyle, GUILayout.ExpandWidth(false));
                     GUILayout.FlexibleSpace();
 
-                    if (GUILayout.Button(x.active ? "Выключить" : "Включить", GUILayout.Width(90)))
+                    if (GUILayout.Button(x.active ? "Выключить" : "Включить", EditorStyles.miniButtonLeft, GUILayout.Width(80)))
                         _ = SetActive(x, !x.active);
-                    if (GUILayout.Button("Изменить", GUILayout.Width(80))) StartEdit(x);
-                    if (GUILayout.Button("Удалить", GUILayout.Width(70)) &&
+                    if (GUILayout.Button("Изменить", EditorStyles.miniButtonMid, GUILayout.Width(70)))
+                        StartEdit(x);
+                    var gc = GUI.contentColor; GUI.contentColor = RedBtn;
+                    if (GUILayout.Button("Удалить", EditorStyles.miniButtonRight, GUILayout.Width(64)) &&
                         EditorUtility.DisplayDialog("Удалить эксперимент?",
                             $"«{x.name}» будет удалён. Назначения игроков останутся в истории.", "Удалить", "Отмена"))
                         _ = Delete(x);
+                    GUI.contentColor = gc;
                 }
-                if (!string.IsNullOrEmpty(x.note))
-                    GUILayout.Label(x.note, EditorStyles.miniLabel);
+                EditorGUILayout.Space(6);
 
-                GUILayout.Label($"вариант 1 — контроль, все неназначенные · назначено {CountOf(x, "1")}", EditorStyles.miniLabel);
-                foreach (var v in x.variants)
+                // Варианты: контроль первой строкой, зебра
+                DrawVariantRow(0, "1", "контроль — все неназначенные", CountOf(x, "1"), null, true);
+                for (int i = 0; i < x.variants.Length; i++)
                 {
+                    var v = x.variants[i];
                     string size = v.quota > 0
                         ? $"квота {CountOf(x, v.id)} / {v.quota}" + (v.fillChance < 1f ? $" · набор {Mathf.RoundToInt(v.fillChance * 100)}%" : "")
-                        : $"вес {v.weight / 100f:0.#}% игроков · назначено {CountOf(x, v.id)}";
-                    string ov = OverridesToText(v.overrides);
-                    GUILayout.Label($"вариант {v.id} — {size}  ·  {(string.IsNullOrEmpty(ov) ? "без оверрайдов (играет как «1»)" : ov)}",
-                                    EditorStyles.miniLabel);
+                        : $"вес {v.weight / 100f:0.#}% игроков";
+                    DrawVariantRow(i + 1, v.id, size, CountOf(x, v.id), v.overrides, false);
                 }
+            }
+
+            GUILayout.Space(2);
+            EditorGUILayout.EndVertical();
+            EditorGUILayout.Space(8);
+        }
+
+        private void DrawVariantRow(int index, string id, string size, int assigned, KV[] overrides, bool isControl)
+        {
+            var row = EditorGUILayout.BeginHorizontal(new GUIStyle { padding = new RectOffset(2, 2, 3, 3) });
+            if (Event.current.type == EventType.Repaint && index % 2 == 1)
+                EditorGUI.DrawRect(row, ZebraTint);
+
+            DrawChip("вариант " + id, isControl ? CodeBg : ChipBg, Pro ? Color.white : Color.black, 74);
+            GUILayout.Label(size, isControl ? _dimStyle : EditorStyles.miniLabel, GUILayout.Width(210));
+            GUILayout.Label($"назначено {assigned}", _dimStyle, GUILayout.Width(100));
+
+            if (isControl)
+                GUILayout.Label("дефолтный баланс", _dimStyle);
+            else if (overrides == null || overrides.Length == 0)
+                GUILayout.Label("без оверрайдов — играет как «1»", _dimStyle);
+            else
+                GUILayout.Label(OverridesToText(overrides), _codeStyle);
+
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawChip(string text, Color bg, Color fg, float width = 0)
+        {
+            var content = new GUIContent(text);
+            if (width <= 0) width = _chipStyle.CalcSize(content).x + 12;
+            var r = GUILayoutUtility.GetRect(width, 16, GUILayout.Width(width));
+            if (Event.current.type == EventType.Repaint)
+            {
+                EditorGUI.DrawRect(r, bg);
+                var s = new GUIStyle(_chipStyle);
+                s.normal.textColor = fg;
+                s.Draw(r, content, false, false, false, false);
             }
         }
 
+        // ── Форма ──
+
         private void DrawForm()
         {
-            using (new EditorGUILayout.VerticalScope("box"))
+            var card = EditorGUILayout.BeginVertical();
+            if (Event.current.type == EventType.Repaint)
             {
-                GUILayout.Label(_editingId == "" ? "Новый эксперимент" : $"Изменить: {_formName}", EditorStyles.boldLabel);
+                EditorGUI.DrawRect(new Rect(card.x + 6, card.y, card.width - 12, card.height), CardBg);
+                EditorGUI.DrawRect(new Rect(card.x + 6, card.y, 3, card.height), ChipBg);
+            }
+            using (new EditorGUILayout.VerticalScope(new GUIStyle { padding = new RectOffset(12, 12, 10, 10) }))
+            {
+                GUILayout.Label(_editingId == "" ? "Новый эксперимент" : $"Изменить: {_formName}", _headerStyle);
+                EditorGUILayout.Space(4);
                 _formName = EditorGUILayout.TextField("Имя", _formName);
                 _formNote = EditorGUILayout.TextField("Заметка", _formNote);
-                _formActive = EditorGUILayout.Toggle("Активировать сразу", _formActive);
+                _formActive = EditorGUILayout.Toggle(new GUIContent("Активировать сразу",
+                    "Включит этот эксперимент и выключит текущий активный"), _formActive);
 
-                EditorGUILayout.Space(4);
+                EditorGUILayout.Space(6);
                 GUILayout.Label("Варианты («1» не задаётся — это контроль)", EditorStyles.miniBoldLabel);
+                EditorGUILayout.Space(2);
 
                 int remove = -1;
                 for (int i = 0; i < _formVariants.Count; i++)
@@ -221,36 +381,42 @@ namespace ProtoSystem.Editor.LiveOps
                     var fv = _formVariants[i];
                     using (new EditorGUILayout.HorizontalScope())
                     {
-                        GUILayout.Label("вариант", GUILayout.Width(52));
-                        fv.id = EditorGUILayout.TextField(fv.id, GUILayout.Width(36));
+                        GUILayout.Label("вариант", _dimStyle, GUILayout.Width(50));
+                        fv.id = EditorGUILayout.TextField(fv.id, GUILayout.Width(34));
                         fv.isQuota = EditorGUILayout.Popup(fv.isQuota ? 1 : 0,
-                            new[] { "вес, % игроков", "квота, человек" }, GUILayout.Width(120)) == 1;
-                        fv.value = EditorGUILayout.TextField(fv.value, GUILayout.Width(56));
+                            new[] { "вес, % игроков", "квота, человек" }, GUILayout.Width(118)) == 1;
+                        fv.value = EditorGUILayout.TextField(fv.value, GUILayout.Width(54));
                         if (fv.isQuota)
                         {
                             GUILayout.Label(new GUIContent("набор,%",
                                 "Шанс взять нового игрока в группу; меньше 100 — набор растянется по времени"),
-                                GUILayout.Width(52));
-                            fv.chance = EditorGUILayout.TextField(fv.chance, GUILayout.Width(40));
+                                _dimStyle, GUILayout.Width(48));
+                            fv.chance = EditorGUILayout.TextField(fv.chance, GUILayout.Width(38));
                         }
-                        if (GUILayout.Button("✕", GUILayout.Width(24))) remove = i;
+                        GUILayout.Space(8);
+                        GUILayout.Label(new GUIContent("оверрайды",
+                            "Что вариант меняет в игре: «ключ=значение; …», ключи — из белого списка клиента"),
+                            _dimStyle, GUILayout.Width(62));
+                        fv.overrides = EditorGUILayout.TextField(fv.overrides);
+                        var gc = GUI.contentColor; GUI.contentColor = RedBtn;
+                        if (GUILayout.Button("✕", EditorStyles.miniButton, GUILayout.Width(22))) remove = i;
+                        GUI.contentColor = gc;
                     }
-                    fv.overrides = EditorGUILayout.TextField(
-                        new GUIContent("  оверрайды", "Что вариант меняет в игре: «ключ=значение; …», ключи — из белого списка клиента"),
-                        fv.overrides);
                 }
                 if (remove >= 0) _formVariants.RemoveAt(remove);
 
+                EditorGUILayout.Space(4);
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button("+ вариант", GUILayout.Width(90)))
+                    if (GUILayout.Button("+ вариант", EditorStyles.miniButton, GUILayout.Width(80)))
                         _formVariants.Add(new FormVariant { id = NextFreeId() });
                     GUILayout.FlexibleSpace();
-                    if (GUILayout.Button("Отмена", GUILayout.Width(80))) _editingId = null;
-                    if (GUILayout.Button("Сохранить", GUILayout.Width(100))) _ = Save();
+                    if (GUILayout.Button("Отмена", GUILayout.Width(80), GUILayout.Height(22))) _editingId = null;
+                    if (GUILayout.Button("Сохранить", GUILayout.Width(110), GUILayout.Height(22))) _ = Save();
                 }
             }
-            EditorGUILayout.Space(6);
+            EditorGUILayout.EndVertical();
+            EditorGUILayout.Space(10);
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -324,12 +490,12 @@ namespace ProtoSystem.Editor.LiveOps
         // Сеть
         // ─────────────────────────────────────────────────────────────
 
-        private async Task Login()
+        private async Task Login(string password)
         {
             _busy = true; _status = "Вход…"; Repaint();
             try
             {
-                var body = $"{{\"identity\":{Quote(_email)},\"password\":{Quote(_password)}}}";
+                var body = $"{{\"identity\":{Quote(_email)},\"password\":{Quote(password)}}}";
                 var resp = await Http.PostAsync($"{ServerUrl}/api/collections/_superusers/auth-with-password",
                     new StringContent(body, Encoding.UTF8, "application/json"));
                 var text = await resp.Content.ReadAsStringAsync();
@@ -338,6 +504,7 @@ namespace ProtoSystem.Editor.LiveOps
                 if (string.IsNullOrEmpty(_token)) throw new Exception("сервер не вернул токен");
                 EditorPrefs.SetString(TOKEN_KEY, _token);
                 EditorPrefs.SetString(EMAIL_KEY, _email);
+                SavePassword(password);
                 _password = "";
                 _status = "";
                 await Reload();
@@ -430,6 +597,7 @@ namespace ProtoSystem.Editor.LiveOps
             StartEdit(x);
             _formActive = active;
             await Save();
+            _editingId = null;
         }
 
         private async Task Delete(Experiment x)
@@ -445,20 +613,44 @@ namespace ProtoSystem.Editor.LiveOps
 
         private async Task<string> Send(HttpMethod method, string path, string jsonBody)
         {
-            var req = new HttpRequestMessage(method, ServerUrl + path);
-            req.Headers.TryAddWithoutValidation("Authorization", _token);
-            if (jsonBody != null) req.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-            var resp = await Http.SendAsync(req);
-            var text = await resp.Content.ReadAsStringAsync();
-            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
-                resp.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            for (int attempt = 0; ; attempt++)
             {
-                _token = "";
-                EditorPrefs.DeleteKey(TOKEN_KEY);
-                throw new Exception("токен протух — войдите заново");
+                var req = new HttpRequestMessage(method, ServerUrl + path);
+                req.Headers.TryAddWithoutValidation("Authorization", _token);
+                if (jsonBody != null) req.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+                var resp = await Http.SendAsync(req);
+                var text = await resp.Content.ReadAsStringAsync();
+
+                if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
+                    resp.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                {
+                    // Токен протух — один тихий перелогин сохранёнными кредами
+                    if (attempt == 0 && HasStoredPassword && await TryRelogin()) continue;
+                    _token = "";
+                    EditorPrefs.DeleteKey(TOKEN_KEY);
+                    throw new Exception("токен протух — войдите заново");
+                }
+                if (!resp.IsSuccessStatusCode) throw new Exception($"{(int)resp.StatusCode}: {text}");
+                return text;
             }
-            if (!resp.IsSuccessStatusCode) throw new Exception($"{(int)resp.StatusCode}: {text}");
-            return text;
+        }
+
+        private async Task<bool> TryRelogin()
+        {
+            try
+            {
+                var body = $"{{\"identity\":{Quote(_email)},\"password\":{Quote(LoadPassword())}}}";
+                var resp = await Http.PostAsync($"{ServerUrl}/api/collections/_superusers/auth-with-password",
+                    new StringContent(body, Encoding.UTF8, "application/json"));
+                if (!resp.IsSuccessStatusCode) return false;
+                var text = await resp.Content.ReadAsStringAsync();
+                var token = JsonUtility.FromJson<AuthResponse>(text)?.token;
+                if (string.IsNullOrEmpty(token)) return false;
+                _token = token;
+                EditorPrefs.SetString(TOKEN_KEY, _token);
+                return true;
+            }
+            catch { return false; }
         }
 
         private static string Quote(string s)
