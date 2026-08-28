@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.44.0] - 2026-08-28
+
+### Added
+- **LiveOps: оверрайды баланса варианта** — сервер отдаёт с назначением
+  пары «ключ → число» (`GetBalanceOverride`, `GetBalanceOverridesSnapshot`);
+  игра применяет их по своему белому списку — правка баланса из дашборда
+  без обновления билда. Кэшируются для оффлайна. `VariantChanged` теперь
+  стреляет и при том же варианте — подписчики перечитывают оверрайды.
+
 ## [1.43.0] - 2026-08-28
 
 ### Added

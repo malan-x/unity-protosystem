@@ -293,7 +293,11 @@ namespace ProtoSystem.LiveOps
         {
             // Кэш применяем сразу: если сеть упадёт ниже, играем прошлым назначением
             string cached = PlayerPrefs.GetString(VARIANT_PREF_KEY, "");
-            if (!string.IsNullOrEmpty(cached)) ApplyVariant(cached);
+            if (!string.IsNullOrEmpty(cached))
+            {
+                LoadCachedOverrides();
+                ApplyVariant(cached);
+            }
 
             if (string.IsNullOrEmpty(config.serverUrl)) return;
 
@@ -317,6 +321,7 @@ namespace ProtoSystem.LiveOps
                 if (resp == null || string.IsNullOrEmpty(resp.variant)) return;
 
                 PlayerPrefs.SetString(VARIANT_PREF_KEY, resp.variant);
+                SetOverrides(resp.overrides, persist: true);
                 ApplyVariant(resp.variant);
                 if (resp.variant != "1")
                     ProtoLogger.LogRuntime(SystemId, $"A/B: вариант {resp.variant}" +
@@ -330,7 +335,8 @@ namespace ProtoSystem.LiveOps
 
         private void ApplyVariant(string variant)
         {
-            if (Variant == variant) return;
+            // Событие шлём и при том же варианте: оверрайды могли измениться
+            // на сервере, а подписчики перечитывают их снапшотом по событию
             Variant = variant;
             try { VariantChanged?.Invoke(variant); }
             catch (Exception ex) { ProtoLogger.LogWarning(SystemId, $"VariantChanged handler: {ex.Message}"); }
@@ -341,6 +347,54 @@ namespace ProtoSystem.LiveOps
         {
             public string variant;
             public string experiment;
+            public AbOverride[] overrides;
+        }
+
+        [Serializable]
+        private class AbOverride { public string k; public float v; }
+
+        [Serializable]
+        private class AbOverrideList { public AbOverride[] items; }
+
+        // ── Оверрайды баланса варианта ──
+        // Сервер отдаёт вместе с назначением пары «ключ → число»; игра применяет
+        // их по СВОЕМУ белому списку — так дашборд меняет баланс без обновления
+        // билда. Кэшируются для оффлайна вместе с вариантом.
+        private readonly Dictionary<string, float> _abOverrides = new Dictionary<string, float>();
+        private const string OVERRIDES_PREF_KEY = "ProtoSystem.AB.Overrides";
+
+        /// <summary>Оверрайд баланса из назначенного варианта, иначе дефолт.</summary>
+        public float GetBalanceOverride(string key, float defaultValue)
+            => _abOverrides.TryGetValue(key, out float v) ? v : defaultValue;
+
+        /// <summary>Снимок оверрайдов (для зеркалирования в игру).</summary>
+        public Dictionary<string, float> GetBalanceOverridesSnapshot()
+            => new Dictionary<string, float>(_abOverrides);
+
+        private void SetOverrides(AbOverride[] pairs, bool persist)
+        {
+            _abOverrides.Clear();
+            if (pairs != null)
+                foreach (var p in pairs)
+                    if (p != null && !string.IsNullOrEmpty(p.k)) _abOverrides[p.k] = p.v;
+
+            if (persist)
+            {
+                var wrap = new AbOverrideList { items = pairs ?? Array.Empty<AbOverride>() };
+                PlayerPrefs.SetString(OVERRIDES_PREF_KEY, JsonUtility.ToJson(wrap));
+            }
+        }
+
+        private void LoadCachedOverrides()
+        {
+            try
+            {
+                string raw = PlayerPrefs.GetString(OVERRIDES_PREF_KEY, "");
+                if (string.IsNullOrEmpty(raw)) return;
+                var wrap = JsonUtility.FromJson<AbOverrideList>(raw);
+                SetOverrides(wrap?.items, persist: false);
+            }
+            catch (Exception) { }
         }
 
         public void TrackEvent(string eventName, Dictionary<string, string> data = null)
