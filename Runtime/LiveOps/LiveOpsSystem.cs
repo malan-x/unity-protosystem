@@ -306,7 +306,7 @@ namespace ProtoSystem.LiveOps
                 req.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(body));
                 req.downloadHandler = new DownloadHandlerBuffer();
                 req.SetRequestHeader("Content-Type", "application/json");
-                req.timeout = Mathf.Max(2, config.healthCheckTimeoutSeconds);
+                req.timeout = Mathf.Max(2, Mathf.RoundToInt(config.healthCheckTimeoutSeconds));
 
                 var op = req.SendWebRequest();
                 while (!op.isDone) await Task.Yield();
