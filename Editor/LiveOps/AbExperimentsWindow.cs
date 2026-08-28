@@ -166,10 +166,10 @@ namespace ProtoSystem.Editor.LiveOps
             _headerStyle = new GUIStyle(EditorStyles.boldLabel) { fontSize = 12 };
         }
 
-        [MenuItem("ProtoSystem/LiveOps/A-B Эксперименты", false, 400)]
+        [MenuItem("ProtoSystem/LiveOps/A-B тестирование", false, 400)]
         public static void Open()
         {
-            var w = GetWindow<AbExperimentsWindow>("A/B Эксперименты");
+            var w = GetWindow<AbExperimentsWindow>("A/B тестирование");
             w.minSize = new Vector2(620, 420);
         }
 
