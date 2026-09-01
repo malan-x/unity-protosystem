@@ -1,0 +1,108 @@
+/* Панель «Добавить в желаемое» (WishlistPromptSystem) — базовый вид.
+
+   Как и CommunityPanel.uss: всё сведено к переменным --wl-* на .wl-root,
+   проект переопределяет их (или селекторы .wl-*) в своём USS — специфичность
+   проектных правил выше, пакет править не нужно.
+
+   Шрифты не задаются намеренно: панель живёт в собственном UIDocument и
+   наследует шрифт из PanelSettings проекта. */
+
+.wl-root {
+    --wl-scrim: rgba(0, 0, 0, 0.55);
+    --wl-card-bg: rgb(12, 6, 2);
+    --wl-border: rgb(90, 42, 10);
+    --wl-accent: rgb(208, 120, 48);
+    --wl-title: rgb(240, 160, 64);
+    --wl-text: rgb(154, 112, 80);
+    --wl-primary-bg: rgb(21, 10, 2);
+    --wl-primary-text: rgb(240, 160, 64);
+    --wl-ghost-text: rgb(122, 64, 32);
+    --wl-focus: rgb(232, 174, 88);
+
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+
+    /* Затемнение под панелью заодно ловит клики: пока игрок не ответил,
+       случайно попасть по игровому UI за панелью нельзя */
+    background-color: var(--wl-scrim);
+    align-items: center;
+    justify-content: center;
+}
+
+.wl-card {
+    width: 520px;
+    max-width: 90%;
+    padding: 24px 28px 20px 28px;
+    background-color: var(--wl-card-bg);
+    border-width: 1px;
+    border-color: var(--wl-border);
+    border-top-color: var(--wl-accent);
+    border-top-width: 2px;
+}
+
+.wl-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    margin: 0;
+    padding: 0;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    color: var(--wl-ghost-text);
+    font-size: 16px;
+}
+.wl-close:hover { color: var(--wl-title); }
+
+.wl-title {
+    color: var(--wl-title);
+    font-size: 22px;
+    -unity-font-style: bold;
+    margin-bottom: 10px;
+    white-space: normal;
+}
+
+.wl-body {
+    color: var(--wl-text);
+    font-size: 15px;
+    white-space: normal;
+    margin-bottom: 20px;
+}
+
+.wl-buttons {
+    flex-direction: row;
+    justify-content: flex-end;
+}
+
+.wl-btn {
+    height: 40px;
+    padding-left: 20px;
+    padding-right: 20px;
+    margin: 0 0 0 10px;
+    border-radius: 0;
+    border-width: 1px;
+    font-size: 15px;
+}
+
+.wl-btn--primary {
+    background-color: var(--wl-primary-bg);
+    border-color: var(--wl-border);
+    color: var(--wl-primary-text);
+    -unity-font-style: bold;
+}
+.wl-btn--primary:hover { border-color: var(--wl-accent); }
+
+.wl-btn--ghost {
+    background-color: rgba(0, 0, 0, 0);
+    border-color: rgba(0, 0, 0, 0);
+    color: var(--wl-ghost-text);
+}
+.wl-btn--ghost:hover { color: var(--wl-text); }
+
+/* Видимый фокус обязателен: панель ловят и с геймпада, и на Steam Deck */
+.wl-btn:focus,
+.wl-close:focus {
+    border-width: 2px;
+    border-color: var(--wl-focus);
+}

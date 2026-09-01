@@ -1,0 +1,31 @@
+<UXML xmlns="UnityEngine.UIElements">
+    <!--
+        Панель «Добавить в желаемое» (WishlistPromptSystem).
+
+        Имена элементов — контракт с системой, менять нельзя:
+        title, body, add-button, already-button, close-button.
+
+        Тексты подставляет система из конфига; строка вида «#ключ» уходит
+        в локализацию (ToolkitLocalization), поэтому здесь их нет.
+
+        Стилизация — WishlistPrompt.uss, переменные --wl-*: проект
+        переопределяет их у себя, не трогая пакет.
+    -->
+    <Style src="WishlistPrompt.uss" />
+
+    <VisualElement name="wishlist-root" class="wl-root">
+        <VisualElement name="wishlist-card" class="wl-card">
+
+            <Button name="close-button" class="wl-close" text="✕" tooltip="#wishlist_prompt_close" />
+
+            <Label name="title" class="wl-title" />
+            <Label name="body"  class="wl-body" />
+
+            <VisualElement class="wl-buttons">
+                <Button name="add-button"     class="wl-btn wl-btn--primary" />
+                <Button name="already-button" class="wl-btn wl-btn--ghost" />
+            </VisualElement>
+
+        </VisualElement>
+    </VisualElement>
+</UXML>
