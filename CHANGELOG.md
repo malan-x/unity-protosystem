@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.49.5] - 2026-09-01
+
+### Fixed
+- **Панель вишлиста не отрисовывалась совсем**: UXML был написан с namespace
+  по умолчанию (`<UXML xmlns=...>`) вместо принятого в Unity префикса
+  (`<ui:UXML xmlns:ui=...>`). Импортёр молча отдавал пустое дерево — панель
+  создавалась, засчитывала показ и содержала ноль элементов. Формат исправлен
+  по образцу CommunityPanel.uxml.
+- Инспектор системы больше не перебивает общий `InitializableSystemEditor`:
+  свой `CustomEditor` на систему ломал разворачивание `[InlineConfig]`, и
+  вместо содержимого ассета оставалась одна ссылка.
+
+### Changed
+- Кнопки «Сбросить показы и решение» и «Показать сейчас» переехали в инспектор
+  **конфига** — он разворачивается внутри инспектора системы, так что рядом
+  видно и настройки, и состояние. Плюс предупреждения о тихих поломках:
+  нет шаблона, нет триггеров, некуда вести кнопку.
+- Состояние вынесено в публичный `WishlistPromptState` (Decided / Shows /
+  RegisterShow / MarkDecided / Reset) — им пользуются и система, и инспектор.
+
 ## [1.49.4] - 2026-09-01
 
 ### Added

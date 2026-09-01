@@ -50,10 +50,6 @@ namespace ProtoSystem.LiveOps
 
         #region State
 
-        // Ключи PlayerPrefs общие для всех проектов: панель одна на игру
-        private const string PrefDecided = "wishlist_prompt_decided";
-        private const string PrefShows   = "wishlist_prompt_shows";
-
         [Dependency(required: false)] private LiveOpsSystem _liveOps;
 
         private readonly Dictionary<int, int> _hits = new();               // eventId -> сколько раз пришло
@@ -66,8 +62,8 @@ namespace ProtoSystem.LiveOps
         private bool _visible;
         private Coroutine _pending;
 
-        private bool Decided => !ignoreSavedDecision && PlayerPrefs.GetInt(PrefDecided, 0) == 1;
-        private int  Shows   => PlayerPrefs.GetInt(PrefShows, 0);
+        private bool Decided => !ignoreSavedDecision && WishlistPromptState.Decided;
+        private int  Shows   => WishlistPromptState.Shows;
 
         #endregion
 
@@ -155,8 +151,7 @@ namespace ProtoSystem.LiveOps
             BuildOverlay();
             _visible = true;
 
-            PlayerPrefs.SetInt(PrefShows, Shows + 1);
-            PlayerPrefs.Save();
+            WishlistPromptState.RegisterShow();
 
             Track("wishlist_prompt_shown");
             LogRuntime($"Показ панели вишлиста ({Shows}/{config.maxShows})");
@@ -291,8 +286,7 @@ namespace ProtoSystem.LiveOps
 
         private void Decide(string telemetryEvent)
         {
-            PlayerPrefs.SetInt(PrefDecided, 1);
-            PlayerPrefs.Save();
+            WishlistPromptState.MarkDecided();
             Track(telemetryEvent);
             Hide();
         }
@@ -320,7 +314,7 @@ namespace ProtoSystem.LiveOps
         public int ShownCount => Shows;
 
         /// <summary>Нажал ли игрок одну из двух кнопок — после этого панель молчит навсегда.</summary>
-        public bool IsDecided => PlayerPrefs.GetInt(PrefDecided, 0) == 1;
+        public bool IsDecided => WishlistPromptState.Decided;
 
         /// <summary>
         /// Забыть решение игрока и счётчик показов. Нужно для проверки: панель
@@ -329,9 +323,7 @@ namespace ProtoSystem.LiveOps
         /// </summary>
         public void ResetPromptState()
         {
-            PlayerPrefs.DeleteKey(PrefDecided);
-            PlayerPrefs.DeleteKey(PrefShows);
-            PlayerPrefs.Save();
+            WishlistPromptState.Reset();
             _hits.Clear();
             LogRuntime("Состояние панели сброшено: показы и решение забыты");
         }
