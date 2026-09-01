@@ -62,6 +62,7 @@ namespace ProtoSystem.LiveOps
 
         private GameObject _overlay;
         private UIDocument _document;
+        private PanelSettings _panelSettings;   // клон: порядок отрисовки свой, исходный ассет не трогаем
         private bool _visible;
         private Coroutine _pending;
 
@@ -168,7 +169,7 @@ namespace ProtoSystem.LiveOps
                 _overlay = new GameObject("WishlistPromptOverlay");
                 Object.DontDestroyOnLoad(_overlay);
                 _document = _overlay.AddComponent<UIDocument>();
-                _document.panelSettings = ResolvePanelSettings();
+                _document.panelSettings = BuildPanelSettings();
                 _document.sortingOrder  = config.sortingOrder;
             }
 
@@ -214,23 +215,49 @@ namespace ProtoSystem.LiveOps
         }
 
         /// <summary>
-        /// PanelSettings обязателен для UIDocument. Свой в конфиге надёжнее,
-        /// но если его забыли, берём любой из проекта: панель с чужим
-        /// масштабированием лучше, чем невидимая панель.
+        /// Отдельный клон PanelSettings с поднятым порядком отрисовки.
+        ///
+        /// Грабли, на которых панель молча не появлялась: UIDocument.sortingOrder
+        /// упорядочивает документы только ВНУТРИ одной панели, а порядок между
+        /// разными PanelSettings задаёт их собственный sortingOrder. Игровые окна
+        /// живут на своих ассетах с высоким порядком, и панель на общем
+        /// (sortingOrder = 0) создавалась, считалась показанной и рисовалась под
+        /// ними. Поэтому клонируем ассет и ставим порядок из конфига.
+        ///
+        /// Клон нужен именно клон: правка исходного ассета в рантайме утечёт в
+        /// проект в редакторе и поменяет порядок всем, кто им пользуется.
         /// </summary>
-        private PanelSettings ResolvePanelSettings()
+        private PanelSettings BuildPanelSettings()
         {
-            if (config.panelSettings != null) return config.panelSettings;
+            var source = config.panelSettings;
 
-            var found = Resources.FindObjectsOfTypeAll<PanelSettings>();
-            if (found != null && found.Length > 0)
+            if (source == null)
             {
-                LogWarning($"В конфиге нет PanelSettings — взяли «{found[0].name}» из проекта.");
-                return found[0];
+                var found = Resources.FindObjectsOfTypeAll<PanelSettings>();
+                if (found != null && found.Length > 0)
+                {
+                    source = found[0];
+                    LogWarning($"В конфиге нет PanelSettings — взяли «{source.name}» из проекта.");
+                }
             }
 
-            LogWarning("PanelSettings не найдены — панель не отрисуется.");
-            return null;
+            if (source == null)
+            {
+                LogWarning("PanelSettings не найдены — панель не отрисуется.");
+                return null;
+            }
+
+            _panelSettings = Instantiate(source);
+            _panelSettings.name = source.name + " (WishlistPrompt)";
+            _panelSettings.sortingOrder = config.sortingOrder;
+            return _panelSettings;
+        }
+
+        private void OnDestroy()
+        {
+            // Клон PanelSettings живёт ровно столько, сколько оверлей
+            if (_panelSettings != null) Destroy(_panelSettings);
+            if (_overlay != null) Destroy(_overlay);
         }
 
         private void Hide()
