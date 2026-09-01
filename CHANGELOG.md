@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.50.1] - 2026-09-01
+
+### Fixed
+- Инспектор конфига не компилировался: остался код, проверявший поле
+  `template`, которое в 1.50.0 переехало в префаб окна (CS1061).
+  Заодно вместо него появилась проверка полезнее — есть ли в проекте префаб
+  окна, и кнопка «Создать префаб окна» прямо в инспекторе.
+
 ## [1.50.0] - 2026-09-01
 
 ### Changed
