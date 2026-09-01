@@ -93,6 +93,31 @@ namespace ProtoSystem.LiveOps
                 _handlers.Add(handler);
                 AddEvent(id, handler);
             }
+
+            // Отменяющие события: игрок ушёл из спокойного места, пока панель
+            // ждала своего момента
+            foreach (var id in config.cancelEventIds)
+            {
+                if (id == 0 || !subscribed.Add(id)) continue;
+                System.Action<object> handler = _ => CancelPending();
+                _handlers.Add(handler);
+                AddEvent(id, handler);
+            }
+        }
+
+        /// <summary>
+        /// Забыть отложенный показ. Вызывается, когда игрок начал новый забег
+        /// (или другое событие из cancelEventIds): панель дождалась закрытия
+        /// экрана итогов, но показывать её посреди боя уже некстати — там фокус
+        /// у игрового HUD, и выбрать вариант с геймпада всё равно нельзя.
+        /// Счётчик показов при этом не тратится: покажем на следующем триггере.
+        /// </summary>
+        private void CancelPending()
+        {
+            if (_pending == null) return;
+            StopCoroutine(_pending);
+            _pending = null;
+            LogRuntime("Отложенный показ панели отменён — момент уже не тот");
         }
 
         #endregion
@@ -252,9 +277,19 @@ namespace ProtoSystem.LiveOps
             _modalRoot.RegisterCallback<NavigationCancelEvent>(OnModalCancel);
 
             _focusTarget = focusTarget;
+            _modalRoot.focusable = true;
 
-            // Фокус на «Добавить»: без него геймпад и Steam Deck остаются без курсора
-            focusTarget?.Focus();
+            // Фокус ставим следующим кадром: сразу после CloneTree дерево ещё не
+            // разложено, Focus() уходит в пустоту — панель появлялась без фокуса,
+            // и с геймпада выбрать вариант было нельзя. Сначала забираем фокус на
+            // затемнение (панель UI Toolkit становится активной), потом на кнопку.
+            _modalRoot.Focus();
+            _modalRoot.schedule.Execute(() =>
+            {
+                if (!_visible) return;
+                if (_focusTarget != null) _focusTarget.Focus();
+                else _modalRoot?.Focus();
+            }).ExecuteLater(16);
         }
 
 
