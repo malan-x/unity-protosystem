@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.50.0] - 2026-09-01
+
+### Changed
+- **Просьба о вишлисте стала обычным окном UISystem** (`WishlistPromptWindow`,
+  слой `Modals`). Раньше она жила в собственном `UIDocument` мимо UISystem —
+  ради того, чтобы пакету не требовался префаб. Это вышло дороже: пришлось
+  руками повторять порядок отрисовки, затемнение, модальность и фокус, и всё
+  равно окно наслаивалось на чужие экраны и ломало им выход (см. 1.49.3–1.49.8).
+  Теперь это делает UISystem — стек окон, `modalOverlayColor`, возврат фокуса
+  при закрытии.
+- `WishlistPromptSystem` отвечает только за момент показа: ловит события шины и
+  зовёт `UISystem.Open`. Ответ приходит обратно событием `WishlistPromptWindow.Answered`,
+  система пишет состояние и телеметрию. Минус клон PanelSettings, ручное
+  затемнение, удержание фокуса и собственный оверлей.
+- Из конфига убраны `template`, `panelSettings`, `sortingOrder`, `scrimColor` —
+  внешний вид теперь целиком в префабе окна и UISystemConfig. Добавлен
+  `waitForQuietMoment`: не показывать поверх чужой модалки.
+
+### Added
+- **ProtoSystem → LiveOps → Создать префаб окна вишлиста** — префаб создаётся
+  в проекте (класс и разметка остаются в пакете), помечается меткой `UIWindow`
+  и подхватывается UISystem без ручной регистрации.
+
 ## [1.49.8] - 2026-09-01
 
 ### Added

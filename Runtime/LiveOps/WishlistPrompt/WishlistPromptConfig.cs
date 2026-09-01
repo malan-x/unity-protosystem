@@ -2,27 +2,26 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace ProtoSystem.LiveOps
 {
     /// <summary>
-    /// Настройки панели «Добавить в желаемое»: когда показывать, куда вести,
-    /// что писать.
+    /// Настройки просьбы о вишлисте: когда показывать, куда вести, что писать.
     ///
     /// Класс живёт в пакете, а ассет создаётся В ПРОЕКТЕ — там же выбираются
     /// проектные события шины (drawer собирает их из всех сборок). Пакет ничего
-    /// не знает о конкретной игре: подключил систему, положил ассет — работает.
+    /// не знает о конкретной игре: подключил систему, положил ассет, создал
+    /// префаб окна — работает.
     ///
-    /// Зачем вообще панель: у страницы в Steam кнопка «В желаемое» видна только
-    /// снаружи, а игрок сидит в демо. Момент, когда он доволен (взял сектор,
-    /// прокачал базу), — единственный, когда просьба уместна.
+    /// Внешний вид здесь не настраивается: окно — обычное модальное окно
+    /// UISystem, его разметка в WishlistPrompt.uxml/.uss, затемнение и слой
+    /// берутся из UISystemConfig.
     /// </summary>
     [CreateAssetMenu(fileName = "WishlistPromptConfig",
                      menuName  = "ProtoSystem/LiveOps/Wishlist Prompt Config")]
     public class WishlistPromptConfig : ScriptableObject
     {
-        /// <summary>Событие шины, по которому панель показывается.</summary>
+        /// <summary>Событие шины, по которому окно показывается.</summary>
         [Serializable]
         public class Trigger
         {
@@ -32,16 +31,15 @@ namespace ProtoSystem.LiveOps
             [Tooltip("Комментарий для инспектора: зачем этот триггер. На логику не влияет.")]
             public string note;
 
-            [Tooltip("Какое по счёту срабатывание события показывает панель. 1 = первое.")]
+            [Tooltip("Какое по счёту срабатывание события показывает окно. 1 = первое.")]
             [Min(1)] public int occurrence = 1;
 
-            [Tooltip("Пауза перед показом: событие обычно приходит под анимацию/переход, " +
-                     "и панель поверх неё выглядит выскочившей из ниоткуда.")]
+            [Tooltip("Пауза перед показом: событие обычно приходит под анимацию или переход экрана.")]
             [Min(0f)] public float delaySeconds = 1.0f;
         }
 
         [Header("Куда ведём")]
-        [Tooltip("AppID ПОЛНОЙ игры (не демо и не плейтеста) — оверлей Steam добавит в желаемое именно её.")]
+        [Tooltip("AppID ПОЛНОЙ игры (не демо и не плейтеста) — оверлей Steam откроет именно её страницу.")]
         public uint steamAppId;
 
         [Tooltip("Фолбэк, когда оверлей Steam недоступен (выключен игроком, не-Steam сборка). " +
@@ -52,15 +50,19 @@ namespace ProtoSystem.LiveOps
         public List<Trigger> triggers = new();
 
         [Tooltip("События, отменяющие ОТЛОЖЕННЫЙ показ: игрок ушёл из спокойного места, " +
-                 "и панель там уже неуместна. Типичный случай — начался новый забег, пока " +
-                 "панель ждала закрытия экрана итогов. Список событий тот же, что у триггеров.")]
+                 "и просьба там уже неуместна. Типичный случай — начался новый забег, пока " +
+                 "окно ждало закрытия экрана итогов.")]
         [EventId] public List<int> cancelEventIds = new();
 
+        [Tooltip("Дождаться, пока закроются чужие модальные окна. Иначе просьба ляжет " +
+                 "поверх экрана итогов и перекроет его кнопки.")]
+        public bool waitForQuietMoment = true;
+
         [Tooltip("Показать не больше N раз за всё время. Решение игрока (любая из двух кнопок) " +
-                 "закрывает панель навсегда независимо от этого числа.")]
+                 "закрывает окно навсегда независимо от этого числа.")]
         [Min(1)] public int maxShows = 3;
 
-        [Tooltip("Крестик закрывает панель, но НЕ считается решением: она придёт на следующем триггере.")]
+        [Tooltip("Крестик закрывает окно, но НЕ считается решением: оно придёт на следующем триггере.")]
         public bool showCloseButton = true;
 
         [Header("Тексты")]
@@ -70,21 +72,7 @@ namespace ProtoSystem.LiveOps
         public string addText     = "#wishlist_prompt_add";
         public string alreadyText = "#wishlist_prompt_already";
 
-        [Header("Визуал")]
-        [Tooltip("Шаблон панели. По умолчанию — WishlistPrompt.uxml из пакета; можно подменить своим.")]
-        public VisualTreeAsset template;
-
-        [Tooltip("PanelSettings для оверлея. Пусто — берём первый попавшийся в проекте.")]
-        public PanelSettings panelSettings;
-
-        [Tooltip("Порядок отрисовки: панель должна лежать поверх игрового UI.")]
-        public int sortingOrder = 500;
-
-        [Tooltip("Затемнение под панелью. Оно же ловит мышь: пока игрок не ответил, " +
-                 "кликнуть по игре под панелью нельзя.")]
-        public Color scrimColor = new(0f, 0f, 0f, 0.55f);
-
-        /// <summary>Ссылка на магазин без UTM — на случай пустого поля в ассете.</summary>
+        /// <summary>Ссылка на магазин; если поле пустое — собираем из AppID.</summary>
         public string ResolveStoreUrl()
         {
             if (!string.IsNullOrWhiteSpace(storeUrl)) return storeUrl.Trim();

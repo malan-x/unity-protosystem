@@ -8,7 +8,6 @@
    наследует шрифт из PanelSettings проекта. */
 
 .wl-root {
-    --wl-scrim: rgba(0, 0, 0, 0.55);
     --wl-card-bg: rgb(12, 6, 2);
     --wl-border: rgb(90, 42, 10);
     --wl-accent: rgb(208, 120, 48);
@@ -22,9 +21,8 @@
     position: absolute;
     left: 0; top: 0; right: 0; bottom: 0;
 
-    /* Затемнение под панелью заодно ловит клики: пока игрок не ответил,
-       случайно попасть по игровому UI за панелью нельзя */
-    background-color: var(--wl-scrim);
+    /* Затемнение НЕ задаём: окно модальное, и подложку рисует сама UISystem
+       (modalOverlayColor в UISystemConfig) — иначе получили бы два слоя тьмы */
     align-items: center;
     justify-content: center;
 }
