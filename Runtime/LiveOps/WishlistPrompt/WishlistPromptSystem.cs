@@ -59,6 +59,8 @@ namespace ProtoSystem.LiveOps
         private GameObject _overlay;
         private UIDocument _document;
         private PanelSettings _panelSettings;   // клон: порядок отрисовки свой, исходный ассет не трогаем
+        private VisualElement _modalRoot;       // затемнение: держит фокус и ловит клики
+        private Button _focusTarget;
         private bool _visible;
         private Coroutine _pending;
 
@@ -199,8 +201,73 @@ namespace ProtoSystem.LiveOps
 
             _localization.Localize(root);
 
+            MakeModal(root, add);
+        }
+
+        /// <summary>
+        /// Модальность: пока игрок не ответил, ни мышью, ни клавишами до игры
+        /// под панелью не добраться.
+        ///
+        /// Штатная модальность UISystem сюда не дотягивается — панель живёт в
+        /// собственном UIDocument, то есть в отдельной панели UI Toolkit со
+        /// своим фокусом. Поэтому держим фокус сами: без этого игрок уходил
+        /// клавишами в окно под панелью и не мог вернуться обратно.
+        ///
+        /// Растяжку и затемнение задаём кодом, а не только в USS: если стиль
+        /// пакета не подхватится (свой шаблон в проекте, перенос файла),
+        /// модальность превратилась бы в фикцию — панель осталась бы кликабельной
+        /// насквозь.
+        /// </summary>
+        private void MakeModal(VisualElement root, Button focusTarget)
+        {
+            _modalRoot = root.Q("wishlist-root") ?? root;
+
+            _modalRoot.style.position = Position.Absolute;
+            _modalRoot.style.left = 0;
+            _modalRoot.style.top = 0;
+            _modalRoot.style.right = 0;
+            _modalRoot.style.bottom = 0;
+            _modalRoot.style.backgroundColor = config.scrimColor;
+            _modalRoot.pickingMode = PickingMode.Position;   // затемнение ловит клики
+            _modalRoot.focusable = true;
+
+            _modalRoot.RegisterCallback<FocusOutEvent>(OnModalFocusOut);
+            _modalRoot.RegisterCallback<NavigationCancelEvent>(OnModalCancel);
+
+            _focusTarget = focusTarget;
+
             // Фокус на «Добавить»: без него геймпад и Steam Deck остаются без курсора
-            add?.Focus();
+            if (focusTarget != null) focusTarget.Focus();
+            else _modalRoot.Focus();
+        }
+
+        /// <summary>Фокус ушёл из панели — возвращаем на следующем кадре.</summary>
+        private void OnModalFocusOut(FocusOutEvent evt)
+        {
+            if (!_visible || _modalRoot == null) return;
+
+            // relatedTarget — куда фокус уходит. Внутри панели это нормальный
+            // переход между кнопками; наружу или в никуда — забираем обратно
+            if (evt.relatedTarget is VisualElement next && _modalRoot.Contains(next)) return;
+
+            _modalRoot.schedule.Execute(() =>
+            {
+                if (!_visible || _modalRoot == null) return;
+                if (_focusTarget != null) _focusTarget.Focus();
+                else _modalRoot.Focus();
+            }).ExecuteLater(0);
+        }
+
+        /// <summary>
+        /// Esc и «кружок» геймпада закрывают панель — но только если крестик
+        /// разрешён. Иначе выхода не будет вовсе, а запирать игрока в просьбе
+        /// о вишлисте — худшее, что можно сделать с этой панелью.
+        /// </summary>
+        private void OnModalCancel(NavigationCancelEvent evt)
+        {
+            if (!_visible || !config.showCloseButton) return;
+            evt.StopPropagation();
+            OnCloseClicked();
         }
 
         private void SetText(VisualElement root, string name, string value)
@@ -257,7 +324,12 @@ namespace ProtoSystem.LiveOps
 
         private void Hide()
         {
+            // Сначала снимаем модальность: иначе FocusOut при скрытии утащит
+            // фокус обратно в уже закрытую панель
             _visible = false;
+            _modalRoot = null;
+            _focusTarget = null;
+
             if (_overlay != null) _overlay.SetActive(false);
         }
 

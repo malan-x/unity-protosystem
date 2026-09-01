@@ -75,6 +75,10 @@ namespace ProtoSystem.LiveOps
         [Tooltip("Порядок отрисовки: панель должна лежать поверх игрового UI.")]
         public int sortingOrder = 500;
 
+        [Tooltip("Затемнение под панелью. Оно же ловит мышь: пока игрок не ответил, " +
+                 "кликнуть по игре под панелью нельзя.")]
+        public Color scrimColor = new(0f, 0f, 0f, 0.55f);
+
         /// <summary>Ссылка на магазин без UTM — на случай пустого поля в ассете.</summary>
         public string ResolveStoreUrl()
         {
