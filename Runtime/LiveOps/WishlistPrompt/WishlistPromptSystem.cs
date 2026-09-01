@@ -51,6 +51,10 @@ namespace ProtoSystem.LiveOps
         #region State
 
         [Dependency(required: false)] private LiveOpsSystem _liveOps;
+        [Dependency(required: false)] private UISystem _ui;
+
+        /// <summary>Сколько ждём закрытия модального окна игры, прежде чем сдаться.</summary>
+        private const float ModalWaitSeconds = 60f;
 
         private readonly Dictionary<int, int> _hits = new();               // eventId -> сколько раз пришло
         private readonly List<System.Action<object>> _handlers = new();    // держим делегаты: RemoveEvent требует тот же экземпляр
@@ -133,7 +137,24 @@ namespace ProtoSystem.LiveOps
         {
             // Realtime: событие часто приходит на паузе (окно базы, экран итогов)
             if (delay > 0f) yield return new WaitForSecondsRealtime(delay);
+
+            // Ждём, пока закроются модальные окна игры. Триггеры вроде «забег
+            // завершён» приходят ровно тогда, когда открыт экран итогов, и
+            // панель поверх него перекрывала его же кнопки: выйти было нечем,
+            // а затемнение оставалось висеть чёрным экраном.
+            float waited = 0f;
+            while (_ui != null && _ui.HasModal && waited < ModalWaitSeconds)
+            {
+                yield return new WaitForSecondsRealtime(0.5f);
+                waited += 0.5f;
+            }
+
             _pending = null;
+
+            // Игрок завис в меню — лучше не показать вовсе, чем выскочить
+            // спустя минуту посреди следующего боя
+            if (_ui != null && _ui.HasModal) yield break;
+
             Show();
         }
 
@@ -205,18 +226,16 @@ namespace ProtoSystem.LiveOps
         }
 
         /// <summary>
-        /// Модальность: пока игрок не ответил, ни мышью, ни клавишами до игры
-        /// под панелью не добраться.
+        /// Мягкая модальность: затемнение растянуто на весь экран и ловит клики,
+        /// поэтому мышью сквозь панель до игры не добраться.
         ///
-        /// Штатная модальность UISystem сюда не дотягивается — панель живёт в
-        /// собственном UIDocument, то есть в отдельной панели UI Toolkit со
-        /// своим фокусом. Поэтому держим фокус сами: без этого игрок уходил
-        /// клавишами в окно под панелью и не мог вернуться обратно.
+        /// Фокус НЕ удерживаем силой. Первая версия возвращала его в панель на
+        /// каждый FocusOut — и ломала навигацию геймпадом между самими кнопками
+        /// панели. От «ушёл и не вернулся» защищаемся иначе: панель ждёт, пока
+        /// закроются модальные окна игры, и не наслаивается на них.
         ///
-        /// Растяжку и затемнение задаём кодом, а не только в USS: если стиль
-        /// пакета не подхватится (свой шаблон в проекте, перенос файла),
-        /// модальность превратилась бы в фикцию — панель осталась бы кликабельной
-        /// насквозь.
+        /// Растяжку и цвет задаём кодом, а не только в USS: со своим шаблоном
+        /// в проекте панель осталась бы прозрачной для кликов.
         /// </summary>
         private void MakeModal(VisualElement root, Button focusTarget)
         {
@@ -229,34 +248,15 @@ namespace ProtoSystem.LiveOps
             _modalRoot.style.bottom = 0;
             _modalRoot.style.backgroundColor = config.scrimColor;
             _modalRoot.pickingMode = PickingMode.Position;   // затемнение ловит клики
-            _modalRoot.focusable = true;
 
-            _modalRoot.RegisterCallback<FocusOutEvent>(OnModalFocusOut);
             _modalRoot.RegisterCallback<NavigationCancelEvent>(OnModalCancel);
 
             _focusTarget = focusTarget;
 
             // Фокус на «Добавить»: без него геймпад и Steam Deck остаются без курсора
-            if (focusTarget != null) focusTarget.Focus();
-            else _modalRoot.Focus();
+            focusTarget?.Focus();
         }
 
-        /// <summary>Фокус ушёл из панели — возвращаем на следующем кадре.</summary>
-        private void OnModalFocusOut(FocusOutEvent evt)
-        {
-            if (!_visible || _modalRoot == null) return;
-
-            // relatedTarget — куда фокус уходит. Внутри панели это нормальный
-            // переход между кнопками; наружу или в никуда — забираем обратно
-            if (evt.relatedTarget is VisualElement next && _modalRoot.Contains(next)) return;
-
-            _modalRoot.schedule.Execute(() =>
-            {
-                if (!_visible || _modalRoot == null) return;
-                if (_focusTarget != null) _focusTarget.Focus();
-                else _modalRoot.Focus();
-            }).ExecuteLater(0);
-        }
 
         /// <summary>
         /// Esc и «кружок» геймпада закрывают панель — но только если крестик
