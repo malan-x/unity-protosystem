@@ -313,5 +313,41 @@ namespace ProtoSystem.LiveOps
         {
             _liveOps?.TrackEvent(eventName);
         }
+
+        #region Отладка (кнопки в инспекторе)
+
+        /// <summary>Сколько раз панель уже показывалась.</summary>
+        public int ShownCount => Shows;
+
+        /// <summary>Нажал ли игрок одну из двух кнопок — после этого панель молчит навсегда.</summary>
+        public bool IsDecided => PlayerPrefs.GetInt(PrefDecided, 0) == 1;
+
+        /// <summary>
+        /// Забыть решение игрока и счётчик показов. Нужно для проверки: панель
+        /// по замыслу одноразовая, и без сброса второй раз её не увидеть — а
+        /// проверять приходится на каждой машине заново.
+        /// </summary>
+        public void ResetPromptState()
+        {
+            PlayerPrefs.DeleteKey(PrefDecided);
+            PlayerPrefs.DeleteKey(PrefShows);
+            PlayerPrefs.Save();
+            _hits.Clear();
+            LogRuntime("Состояние панели сброшено: показы и решение забыты");
+        }
+
+        /// <summary>
+        /// Показать панель немедленно, минуя триггеры и лимит показов.
+        /// Счётчик при этом растёт как при обычном показе — чтобы проверять
+        /// именно то поведение, которое увидит игрок.
+        /// </summary>
+        public void ShowNow()
+        {
+            if (!Application.isPlaying) return;
+            _visible = false;
+            Show();
+        }
+
+        #endregion
     }
 }

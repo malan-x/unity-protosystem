@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.49.4] - 2026-09-01
+
+### Added
+- Инспектор `WishlistPromptSystem`: видно, сколько раз панель показывалась и
+  принято ли решение, плюс кнопки «Сбросить показы и решение» и «Показать
+  сейчас» (в Play Mode). Панель одноразовая, состояние лежит в `PlayerPrefs` —
+  своё на каждой машине и общее у редактора с билдом, так что без сброса
+  проверить её повторно нельзя.
+- Публичные `ShownCount`, `IsDecided`, `ResetPromptState()`, `ShowNow()` —
+  ими же можно дёргать панель из своих отладочных инструментов.
+
 ## [1.49.3] - 2026-09-01
 
 ### Fixed
