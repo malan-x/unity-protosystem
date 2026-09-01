@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.49.2] - 2026-09-01
+
+### Added
+- **`StoreLink`** — открытие страницы игры в магазине одним способом для всех,
+  кто просит вишлист: панель, кнопка в главном меню, экран финала. Оверлей
+  Steam, если доступен, иначе браузер. Панель вишлиста теперь ходит через него.
+
+### Fixed
+- У крестика панели убран `tooltip` с ключом локализации: ключи у каждого
+  проекта свои, а несуществующий показывался бы игроку как есть.
+
 ## [1.49.1] - 2026-09-01
 
 ### Fixed

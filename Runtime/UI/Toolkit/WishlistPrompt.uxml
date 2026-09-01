@@ -16,7 +16,9 @@
     <VisualElement name="wishlist-root" class="wl-root">
         <VisualElement name="wishlist-card" class="wl-card">
 
-            <Button name="close-button" class="wl-close" text="✕" tooltip="#wishlist_prompt_close" />
+            <!-- tooltip не задаём: ключ локализации у каждого проекта свой,
+             а несуществующий ключ показался бы игроку как есть -->
+        <Button name="close-button" class="wl-close" text="✕" />
 
             <Label name="title" class="wl-title" />
             <Label name="body"  class="wl-body" />

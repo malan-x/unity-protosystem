@@ -6,10 +6,6 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using ProtoSystem.UI;
 
-#if STEAMWORKS_NET
-using Steamworks;
-#endif
-
 namespace ProtoSystem.LiveOps
 {
     /// <summary>
@@ -275,35 +271,13 @@ namespace ProtoSystem.LiveOps
         }
 
         /// <summary>
-        /// Открывает страницу игры в оверлее Steam — там игрок жмёт «В желаемое»
-        /// сам, не выходя из игры.
-        ///
-        /// Добавить в вишлист напрямую нельзя: у Steamworks такого API нет вовсе
-        /// (EOverlayToStoreFlag умеет только корзину — None / AddToCart /
-        /// AddToCartAndShow), и это сознательное ограничение Valve. Поэтому
-        /// максимум, что доступно, — довести человека до кнопки в один клик.
-        ///
-        /// Оверлей доступен не всегда (выключен игроком, не-Steam сборка) —
-        /// тогда открываем страницу магазина в браузере.
+        /// Открывает страницу игры (оверлей Steam или браузер) — см. StoreLink,
+        /// он же используется кнопкой вишлиста в меню, чтобы поведение совпадало.
         /// </summary>
         private void OpenStore()
         {
-#if STEAMWORKS_NET
-            if (config.steamAppId > 0 && SteamInitProvider.IsInitialized && SteamUtils.IsOverlayEnabled())
-            {
-                SteamFriends.ActivateGameOverlayToStore(
-                    new AppId_t(config.steamAppId),
-                    EOverlayToStoreFlag.k_EOverlayToStoreFlag_None);
-                return;
-            }
-#endif
-            var url = config.ResolveStoreUrl();
-            if (string.IsNullOrEmpty(url))
-            {
+            if (!StoreLink.OpenStorePage(config))
                 LogWarning("Ни AppID, ни URL магазина не заданы — открывать нечего.");
-                return;
-            }
-            Application.OpenURL(url);
         }
 
         #endregion
