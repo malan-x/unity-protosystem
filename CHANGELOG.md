@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.49.1] - 2026-09-01
+
+### Fixed
+- Панель вишлиста собиралась с несуществующим флагом
+  `EOverlayToStoreFlag.k_EOverlayToStoreFlag_AddToWishlist` (CS0117).
+  Такого API у Steam нет вовсе: `EOverlayToStoreFlag` умеет только корзину
+  (`None` / `AddToCart` / `AddToCartAndShow`), добавить игру в желаемое
+  программно нельзя — это сознательное ограничение Valve.
+  Кнопка «Добавить» теперь открывает страницу игры в оверлее
+  (`k_EOverlayToStoreFlag_None`), где игрок жмёт «В желаемое» сам.
+
 ## [1.49.0] - 2026-09-01
 
 ### Added
