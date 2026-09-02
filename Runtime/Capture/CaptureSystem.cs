@@ -636,36 +636,66 @@ namespace ProtoSystem
 
         #region Capture Coroutine
 
+        /// <summary>
+        /// Снимок скрытого UI: что вернуть после кадра. Canvas'ы выключаем целиком,
+        /// у UIDocument прячем корень дерева — сам компонент трогать нельзя, окна
+        /// UISystem пулятся и при выключении документа теряют дерево.
+        /// </summary>
+        private sealed class HiddenUI
+        {
+            public readonly List<Canvas> Canvases = new List<Canvas>();
+            public readonly List<(UnityEngine.UIElements.UIDocument doc,
+                                  UnityEngine.UIElements.StyleEnum<UnityEngine.UIElements.DisplayStyle> display)> Documents
+                = new List<(UnityEngine.UIElements.UIDocument, UnityEngine.UIElements.StyleEnum<UnityEngine.UIElements.DisplayStyle>)>();
+        }
+
+        /// <summary>
+        /// Спрятать весь интерфейс перед чистым кадром. Раньше гасились только Canvas —
+        /// HUD на UI Toolkit оставался в «кадре без UI», и проектам приходилось прятать
+        /// его самим.
+        /// </summary>
+        private HiddenUI HideAllUI()
+        {
+            var h = new HiddenUI();
+            foreach (var canvas in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+            {
+                if (!canvas.enabled) continue;
+                canvas.enabled = false;
+                h.Canvases.Add(canvas);
+            }
+            foreach (var doc in FindObjectsByType<UnityEngine.UIElements.UIDocument>(FindObjectsSortMode.None))
+            {
+                var root = doc.rootVisualElement;
+                if (root == null) continue;
+                if (root.resolvedStyle.display == UnityEngine.UIElements.DisplayStyle.None) continue;
+                h.Documents.Add((doc, root.style.display));
+                root.style.display = UnityEngine.UIElements.DisplayStyle.None;
+            }
+            return h;
+        }
+
+        private static void RestoreUI(HiddenUI h)
+        {
+            if (h == null) return;
+            foreach (var canvas in h.Canvases)
+                if (canvas != null) canvas.enabled = true;
+            foreach (var (doc, display) in h.Documents)
+                if (doc != null && doc.rootVisualElement != null) doc.rootVisualElement.style.display = display;
+        }
+
         private IEnumerator CaptureCoroutine(bool includeUI, Action<Texture2D> onComplete, bool saveToFile, string eventLabel = null)
         {
             _capturing = true;
 
-            // Отключаем Canvas для режима без UI
-            List<Canvas> disabledCanvases = null;
-            if (!includeUI)
-            {
-                disabledCanvases = new List<Canvas>();
-                foreach (var canvas in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
-                {
-                    if (canvas.enabled)
-                    {
-                        canvas.enabled = false;
-                        disabledCanvases.Add(canvas);
-                    }
-                }
-            }
+            // Чистый кадр: гасим весь UI — и uGUI, и UI Toolkit
+            var hidden = includeUI ? null : HideAllUI();
 
             yield return new WaitForEndOfFrame();
 
             // Захват
             Texture2D tex = ScreenCapture.CaptureScreenshotAsTexture(config.superSampling);
 
-            // Возвращаем Canvas
-            if (disabledCanvases != null)
-            {
-                foreach (var canvas in disabledCanvases)
-                    if (canvas != null) canvas.enabled = true;
-            }
+            RestoreUI(hidden);
 
             if (tex == null)
             {
@@ -759,20 +789,13 @@ namespace ProtoSystem
                 // 2) Дать окнам достроить текст (часть перелокализуется отложенно на кадр).
                 for (int i = 0; i < waitFrames; i++) yield return null;
 
-                // 3) Снять кадр (по желанию без UI — временно гасим Canvas'ы)
-                List<Canvas> disabled = null;
-                if (!includeUI)
-                {
-                    disabled = new List<Canvas>();
-                    foreach (var c in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
-                        if (c.enabled) { c.enabled = false; disabled.Add(c); }
-                }
+                // 3) Снять кадр (по желанию без UI — временно гасим uGUI и UI Toolkit)
+                var disabled = includeUI ? null : HideAllUI();
 
                 yield return new WaitForEndOfFrame();
                 Texture2D tex = ScreenCapture.CaptureScreenshotAsTexture(config.superSampling);
 
-                if (disabled != null)
-                    foreach (var c in disabled) if (c != null) c.enabled = true;
+                RestoreUI(disabled);
 
                 if (tex == null) { LogError($"Не удалось захватить кадр ({code})"); continue; }
 
