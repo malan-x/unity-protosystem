@@ -69,6 +69,10 @@ namespace ProtoSystem.Publishing.Editor
         private Color _statusColor = Color.green;
         private bool _isProcessing;
 
+        // Живой лог SteamCMD (последние строки) — виден под статус-баром
+        private const int LiveLogMaxLines = 8;
+        private readonly List<string> _liveLog = new List<string>();
+
         // SDK Search
         private List<SDKSearchResult> _steamCmdResults;
         private bool _isSearchingSteamCmd;
@@ -1917,6 +1921,25 @@ namespace ProtoSystem.Publishing.Editor
             GUI.contentColor = Color.white;
             
             EditorGUILayout.EndHorizontal();
+
+            if (_liveLog.Count > 0)
+            {
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                var style = new GUIStyle(EditorStyles.miniLabel) { wordWrap = false, richText = false };
+                style.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
+                foreach (var line in _liveLog)
+                    EditorGUILayout.LabelField(line, style, GUILayout.Height(14));
+                EditorGUILayout.EndVertical();
+            }
+        }
+
+        /// <summary>Добавить строку живого лога (null/пусто — игнор); хранятся последние LiveLogMaxLines.</summary>
+        private void AppendLiveLog(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line)) return;
+            _liveLog.Add(line.Trim());
+            while (_liveLog.Count > LiveLogMaxLines)
+                _liveLog.RemoveAt(0);
         }
 
         #endregion
@@ -2570,11 +2593,14 @@ namespace ProtoSystem.Publishing.Editor
             try
             {
                 var publisher = new SteamPublisher(_steamConfig);
+                _liveLog.Clear();
 
                 var progress = new Progress<PublishProgress>(p =>
                 {
                     SetStatus(p.Status, Color.yellow);
-                    Debug.Log($"[BuildPublisher] {p.Status}");
+                    AppendLiveLog(p.LogLine);
+                    if (p.LogLine == null)
+                        Debug.Log($"[BuildPublisher] {p.Status}");
                     Repaint();
                 });
 
@@ -2712,10 +2738,12 @@ namespace ProtoSystem.Publishing.Editor
                 Repaint();
 
                 var publisher = new SteamPublisher(_steamConfig);
+                _liveLog.Clear();
 
                 var progress = new Progress<PublishProgress>(p =>
                 {
                     SetStatus($"[2/2] {p.Status}", Color.yellow);
+                    AppendLiveLog(p.LogLine);
                     Repaint();
                 });
 
@@ -2790,9 +2818,11 @@ namespace ProtoSystem.Publishing.Editor
             try
             {
                 var publisher = new SteamPublisher(_steamConfig);
+                _liveLog.Clear();
                 var progress = new Progress<PublishProgress>(p =>
                 {
                     SetStatus(p.Status, Color.yellow);
+                    AppendLiveLog(p.LogLine);
                     Repaint();
                 });
 

@@ -34,6 +34,8 @@ namespace ProtoSystem.Publishing.Editor
         public float Progress { get; set; } // 0-1
         public string Status { get; set; }
         public bool IsIndeterminate { get; set; }
+        /// <summary>Строка живого лога (вывод SteamCMD и т.п.); null — только статус.</summary>
+        public string LogLine { get; set; }
     }
 
     /// <summary>

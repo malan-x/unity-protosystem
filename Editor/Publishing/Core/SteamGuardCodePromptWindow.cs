@@ -113,6 +113,28 @@ namespace ProtoSystem.Publishing.Editor
 
         private void OnGUI()
         {
+            // Клавиши — ДО отрисовки поля: IMGUI-TextField сам «съедает» Return,
+            // и проверка после него никогда не срабатывала (Submit приходилось жать мышью).
+            var e = Event.current;
+            if (e.type == EventType.KeyDown)
+            {
+                if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter)
+                {
+                    if (!string.IsNullOrWhiteSpace(_code))
+                    {
+                        e.Use();
+                        Submit();
+                        return;
+                    }
+                }
+                else if (e.keyCode == KeyCode.Escape)
+                {
+                    e.Use();
+                    Cancel();
+                    return;
+                }
+            }
+
             // Фон
             EditorGUILayout.Space(10);
 
@@ -153,7 +175,7 @@ namespace ProtoSystem.Publishing.Editor
             var statusStyle = new GUIStyle(EditorStyles.wordWrappedMiniLabel);
             statusStyle.normal.textColor = new Color(0.55f, 0.75f, 0.55f);
             EditorGUILayout.LabelField(
-                string.IsNullOrEmpty(_status) ? "SteamCMD: сессия запущена, ждёт входа…" : _status,
+                string.IsNullOrEmpty(_status) ? "SteamCMD: сессия запущена, ждёт входа… (строки лога появятся здесь)" : _status,
                 statusStyle);
 
             EditorGUILayout.Space(7);
@@ -163,7 +185,7 @@ namespace ProtoSystem.Publishing.Editor
             GUILayout.FlexibleSpace();
 
             GUI.enabled = !string.IsNullOrWhiteSpace(_code);
-            if (GUILayout.Button("Submit", GUILayout.Width(100), GUILayout.Height(28)))
+            if (GUILayout.Button("Submit (Enter)", GUILayout.Width(110), GUILayout.Height(28)))
             {
                 Submit();
             }
@@ -178,25 +200,6 @@ namespace ProtoSystem.Publishing.Editor
 
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
-
-            // Обработка клавиш
-            var e = Event.current;
-            if (e.type == EventType.KeyDown)
-            {
-                if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter)
-                {
-                    if (!string.IsNullOrWhiteSpace(_code))
-                    {
-                        Submit();
-                        e.Use();
-                    }
-                }
-                else if (e.keyCode == KeyCode.Escape)
-                {
-                    Cancel();
-                    e.Use();
-                }
-            }
 
             // Постоянная перерисовка для responsiveness
             if (focusedWindow == this)
