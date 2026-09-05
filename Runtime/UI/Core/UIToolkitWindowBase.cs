@@ -246,17 +246,59 @@ namespace ProtoSystem.UI
                 onComplete?.Invoke();
             }
 
-            // Запечённое в сцену окно уже нарисовано с первого кадра — fade-in «из прозрачности»
-            // дал бы моргание ровно в момент подхвата окна системой
-            if (SkipShowAnimation)
+            void Reveal()
             {
-                SkipShowAnimation = false;
-                root.style.opacity = 1f;
-                FinishShow();
+                // Масштаб шрифтов — ДО первого показанного кадра. Периодический проход
+                // ниже подхватывает элементы, созданные позже, но окно к тому моменту
+                // уже нарисовано, и игрок видел, как текст скачком меняет размер
+                // (репорт 05.09). Здесь layout уже посчитан, значит resolvedStyle
+                // отдаёт настоящие размеры из USS — то единственное, чего ждал Apply
+                UIFontScaler.Apply(root);
+
+                // Запечённое в сцену окно уже нарисовано с первого кадра — fade-in «из
+                // прозрачности» дал бы моргание ровно в момент подхвата окна системой
+                if (SkipShowAnimation)
+                {
+                    SkipShowAnimation = false;
+                    root.style.opacity = 1f;
+                    FinishShow();
+                    return;
+                }
+
+                StartFade(root, show: true, FinishShow);
+            }
+
+            // Layout уже есть (окно из пула, повторное открытие) — показываем сразу
+            if (!float.IsNaN(root.layout.width) && root.layout.width > 0f)
+            {
+                Reveal();
                 return;
             }
 
-            StartFade(root, show: true, FinishShow);
+            // Первый показ: дерево ещё не разложено, размеры шрифтов не разрешены.
+            // Держим окно прозрачным и ждём геометрию — иначе кадр уходит на экран
+            // с исходным размером текста, а масштаб приезжает следующим проходом
+            root.style.opacity = 0f;
+
+            EventCallback<GeometryChangedEvent> onGeometry = null;
+            IVisualElementScheduledItem revealGuard = null;
+            bool revealed = false;
+
+            void RevealOnce()
+            {
+                if (revealed) return;
+                revealed = true;
+                if (onGeometry != null) root.UnregisterCallback(onGeometry);
+                revealGuard?.Pause();
+                Reveal();
+            }
+
+            onGeometry = _ => RevealOnce();
+            root.RegisterCallback(onGeometry);
+
+            // Страховка: у окна нулевого размера (или свёрнутой панели) геометрия может
+            // не прийти вовсе, и без неё окно осталось бы прозрачным навсегда
+            revealGuard = root.schedule.Execute(RevealOnce).StartingIn(120);
         }
 
         public override void Hide(Action onComplete = null)
