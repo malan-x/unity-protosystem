@@ -1770,6 +1770,36 @@ namespace ProtoSystem.Publishing.Editor
 
             EditorGUILayout.EndHorizontal();
 
+            // Предыдущая кнопка могла оставить GUI выключенным, а DisabledScope
+            // только сужает доступность — своё состояние считаем с чистого листа
+            GUI.enabled = true;
+
+            // Вся пачка приложений разом: Main → Playtest → Demo.
+            // Отдельной строкой и другим цветом — операция долгая и не отменяемая
+            // на полпути, случайно попасть по ней вместо соседней кнопки не должно
+            var allTargets = _steamConfig != null
+                ? _steamConfig.GetEnabledTargets().Where(t => t.Validate(out _))
+                    .OrderBy(t => TargetOrder(t.targetType)).ToList()
+                : new List<SteamAppTarget>();
+            var canBuildAll = !_isProcessing && allTargets.Count > 0 && _cache.steamConfigValid;
+
+            using (new EditorGUI.DisabledScope(!canBuildAll))
+            {
+                GUI.backgroundColor = canBuildAll ? new Color(0.45f, 0.65f, 0.95f) : Color.gray;
+                var allNames = string.Join(" → ", allTargets.Select(t => t.ShortName));
+                var allTip = canBuildAll
+                    ? $"Собрать и залить подряд: {allNames}.\nСбой сборки прерывает очередь, заливка повторяется до 5 раз."
+                    : (allTargets.Count == 0 ? "Нет настроенных приложений" : _cache.steamConfigError);
+
+                if (GUILayout.Button(new GUIContent(
+                        $"Build & Upload All builds ({allTargets.Count})", allTip),
+                        GUILayout.Height(26)))
+                {
+                    BuildAndPublishAll();
+                }
+                GUI.backgroundColor = Color.white;
+            }
+
             GUI.enabled = true;
         }
 
@@ -2794,6 +2824,254 @@ namespace ProtoSystem.Publishing.Editor
             _isProcessing = false;
             RefreshGitCache();
             Repaint();
+        }
+
+        /// <summary>
+        /// Собрать и залить все настроенные приложения подряд: сначала основное,
+        /// затем плейтест, затем демо — те из них, что включены и настроены.
+        ///
+        /// Порядок не случаен. Основная версия важнее прочих, и если сборка сломалась
+        /// на ней, собирать остальные незачем: сбой СБОРКИ означает, что не в порядке
+        /// код или ассеты, и следующие флейворы упрутся в ту же ошибку — поэтому он
+        /// обрывает очередь. Сбой ЗАЛИВКИ, наоборот, почти всегда временный (сеть,
+        /// занятый предыдущим билдом Steam, отвалившийся SteamCMD), поэтому заливка
+        /// повторяется до пяти раз с растущей паузой.
+        ///
+        /// Каждое приложение собирается со своим флейвором: и дефайны, и путь сборки
+        /// берутся от активного таргета, поэтому мы переключаем его перед сборкой и
+        /// возвращаем исходный в конце — иначе окно осталось бы смотреть на демо.
+        /// Депот берём первый включённый у таргета, ветку — его defaultBranch.
+        /// </summary>
+        private async void BuildAndPublishAll()
+        {
+            if (_steamConfig == null)
+            {
+                EditorUtility.DisplayDialog("Build & Upload All", "Steam config is not set.", "OK");
+                return;
+            }
+
+            var queue = _steamConfig.GetEnabledTargets()
+                .Where(t => t.Validate(out _))
+                .OrderBy(t => TargetOrder(t.targetType))
+                .ToList();
+
+            if (queue.Count == 0)
+            {
+                EditorUtility.DisplayDialog("Build & Upload All",
+                    "Нет ни одного готового приложения: проверьте App ID и депоты в Steam Config.", "OK");
+                return;
+            }
+
+            var plan = string.Join("\n", queue.Select(t =>
+            {
+                var d = t.depotConfig.GetEnabledDepots()[0];
+                return $"• {t.targetType} — App {t.appId}, {d.displayName} → {BranchOf(t)}";
+            }));
+
+            if (!EditorUtility.DisplayDialog("Build & Upload All",
+                    $"Собрать и залить подряд ({queue.Count}):\n\n{plan}\n\n" +
+                    $"Сбой сборки прервёт очередь, сбой заливки — до {UploadRetries} попыток.",
+                    "Поехали", "Отмена"))
+                return;
+
+            var originalTarget = _steamConfig.activeBuildTarget;
+            var done = new List<string>();
+            _isProcessing = true;
+
+            try
+            {
+                for (int i = 0; i < queue.Count; i++)
+                {
+                    var appTarget = queue[i];
+                    var step = $"[{i + 1}/{queue.Count}] {appTarget.targetType}";
+                    var depot = appTarget.depotConfig.GetEnabledDepots()[0];
+                    var branch = BranchOf(appTarget);
+
+                    if (string.IsNullOrEmpty(branch))
+                        throw new Exception($"{appTarget.targetType}: не задана ветка публикации");
+
+                    // Дефайны флейвора и путь сборки идут от активного таргета
+                    _steamConfig.activeBuildTarget = appTarget.targetType;
+                    EditorUtility.SetDirty(_steamConfig);
+                    RefreshSteamCache();
+                    Repaint();
+
+                    Debug.Log($"[BuildPublisher] {step}: {depot.displayName} → {branch} (App {appTarget.appId})");
+
+                    // ── Сборка: сбой обрывает всю очередь ──
+                    SetStatus($"{step}: сборка {depot.displayName}...", Color.yellow);
+                    Repaint();
+                    await Task.Yield();
+
+                    var buildPath = GetFullBuildPath(depot);
+                    if (!TryBuildDepot(depot, buildPath, out var buildError))
+                        throw new Exception($"{appTarget.targetType}: сборка не удалась.\n{buildError}");
+
+                    // ── Заливка: временные сбои переживаем повторами ──
+                    string uploadError = "не начиналась";
+                    var uploaded = false;
+
+                    for (int attempt = 1; attempt <= UploadRetries && !uploaded; attempt++)
+                    {
+                        var suffix = attempt > 1 ? $" (попытка {attempt}/{UploadRetries})" : "";
+                        SetStatus($"{step}: заливка в {branch}{suffix}...", Color.yellow);
+                        Repaint();
+
+                        var publisher = new SteamPublisher(_steamConfig);
+                        _liveLog.Clear();
+
+                        var progress = new Progress<PublishProgress>(p =>
+                        {
+                            SetStatus($"{step}: {p.Status}", Color.yellow);
+                            AppendLiveLog(p.LogLine);
+                            Repaint();
+                        });
+
+                        PublishResult result = null;
+                        try
+                        {
+                            result = await publisher.UploadAsync(buildPath, branch, _buildDescription, progress);
+                        }
+                        catch (Exception ex)
+                        {
+                            uploadError = ex.Message;
+                        }
+
+                        if (result != null && result.Success)
+                        {
+                            uploaded = true;
+                            done.Add($"{appTarget.targetType} → {branch} (build {result.BuildId ?? "N/A"})");
+                            Debug.Log($"[BuildPublisher] {step}: залито, build {result.BuildId}");
+
+                            if (_currentEntry != null)
+                            {
+                                _currentEntry.MarkPublished("steam", branch, result.BuildId);
+                                EditorUtility.SetDirty(_patchNotesData);
+                            }
+                            break;
+                        }
+
+                        if (result != null) uploadError = result.Error;
+                        Debug.LogWarning($"[BuildPublisher] {step}: заливка не прошла ({attempt}/{UploadRetries}): {uploadError}");
+                        AppendLiveLog($"! Попытка {attempt} не удалась: {uploadError}");
+
+                        // Пауза растёт: если Steam ещё занят предыдущим билдом,
+                        // частые повторы только продлевают очередь
+                        if (attempt < UploadRetries)
+                            await Task.Delay(attempt * 5000);
+                    }
+
+                    if (!uploaded)
+                        throw new Exception($"{appTarget.targetType}: заливка не удалась за {UploadRetries} попыток.\n{uploadError}");
+                }
+
+                // Тег ставим один на всю пачку — версия у всех приложений общая
+                if (_createGitTag && _patchNotesData != null)
+                {
+                    var tagName = _mainConfig?.GetGitTag(_patchNotesData.currentVersion)
+                        ?? $"v{_patchNotesData.currentVersion}";
+
+                    if (GitIntegration.CreateTag(tagName, _buildDescription) && _pushGitTag)
+                        GitIntegration.PushTag(tagName);
+                }
+
+                SetStatus($"✓ Залито приложений: {done.Count}", Color.green);
+                EditorUtility.DisplayDialog("Build & Upload All",
+                    "Готово:\n\n" + string.Join("\n", done), "OK");
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"✗ {ex.Message}", Color.red);
+                Debug.LogError($"[BuildPublisher] Build & Upload All: {ex}");
+
+                var doneText = done.Count > 0
+                    ? "\n\nУспели залить:\n" + string.Join("\n", done)
+                    : "\n\nЗалить не успели ничего.";
+                EditorUtility.DisplayDialog("Build & Upload All — остановлено", ex.Message + doneText, "OK");
+            }
+            finally
+            {
+                _steamConfig.activeBuildTarget = originalTarget;
+                EditorUtility.SetDirty(_steamConfig);
+                RefreshSteamCache();
+                _isProcessing = false;
+                RefreshGitCache();
+                Repaint();
+            }
+        }
+
+        /// <summary>Сколько раз пробуем залить, прежде чем сдаться.</summary>
+        private const int UploadRetries = 5;
+
+        /// <summary>Очередь: основное приложение первым, демо последним.</summary>
+        private static int TargetOrder(SteamBuildTargetType type) => type switch
+        {
+            SteamBuildTargetType.Main => 0,
+            SteamBuildTargetType.Playtest => 1,
+            SteamBuildTargetType.Demo => 2,
+            _ => 3
+        };
+
+        /// <summary>Ветка публикации таргета: своя, если задана, иначе первая из списка.</summary>
+        private static string BranchOf(SteamAppTarget target)
+        {
+            if (!string.IsNullOrEmpty(target.defaultBranch)) return target.defaultBranch;
+            return target.branches != null && target.branches.Count > 0 ? target.branches[0].name : null;
+        }
+
+        /// <summary>
+        /// Собрать один депот. Не бросает: вызывающий сам решает, что делать со сбоем.
+        /// </summary>
+        private bool TryBuildDepot(DepotEntry depot, string buildPath, out string error)
+        {
+            error = null;
+            try
+            {
+                if (!Directory.Exists(buildPath)) Directory.CreateDirectory(buildPath);
+
+                var scenes = EditorBuildSettings.scenes
+                    .Where(s => s.enabled)
+                    .Select(s => s.path)
+                    .ToArray();
+
+                if (scenes.Length == 0)
+                {
+                    error = "No scenes in Build Settings!";
+                    return false;
+                }
+
+                var buildTarget = DepotConfig.ToUnityBuildTarget(depot.buildTarget);
+                var options = new BuildPlayerOptions
+                {
+                    scenes = scenes,
+                    locationPathName = Path.Combine(buildPath, GetExecutableName(depot.buildTarget)),
+                    target = buildTarget,
+                    targetGroup = BuildPipeline.GetBuildTargetGroup(buildTarget),
+                    options = BuildOptions.None,
+                    extraScriptingDefines = GetActiveFlavorDefines()
+                };
+
+                var report = BuildPipeline.BuildPlayer(options);
+                if (report.summary.result != BuildResult.Succeeded)
+                {
+                    var messages = report.steps
+                        .SelectMany(s => s.messages)
+                        .Where(m => m.type == UnityEngine.LogType.Error)
+                        .Take(3)
+                        .Select(m => m.content);
+                    error = $"{report.summary.totalErrors} errors. Check Console.\n{string.Join("\n", messages)}";
+                    return false;
+                }
+
+                Debug.Log($"[BuildPublisher] Build succeeded: {report.summary.totalTime}");
+                CleanupBuildArtifacts(buildPath);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return false;
+            }
         }
 
         private void SetStatus(string message, Color color)

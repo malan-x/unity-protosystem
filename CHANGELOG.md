@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.52.3] - 2026-09-06
+
+### Added
+- Build Publisher: кнопка «Build & Upload All builds» — собирает и заливает все
+  настроенные приложения подряд, Main → Playtest → Demo, каждое со своим флейвором
+  (активный таргет переключается перед сборкой и возвращается в конце). Сбой сборки
+  обрывает очередь: он означает поломку в коде или ассетах, и следующие флейворы
+  упрутся в ту же ошибку. Сбой заливки, наоборот, обычно временный, поэтому заливка
+  повторяется до пяти раз с растущей паузой. Депот берётся первый включённый у
+  таргета, ветка — его defaultBranch. Git-тег ставится один на всю пачку.
+
 ## [1.52.2] - 2026-09-05
 
 ### Fixed
