@@ -288,11 +288,44 @@ liveOpsConfig.SetProvider(new MyGameProvider(serverUrl, projectId));
 
 ---
 
+## Игроки: группы, читы, выдачи, благодарности
+
+Страница «Игроки» дашборда. Игра ничего не знает про смысл ключей — сервер
+хранит безликие пары и записи, игра применяет по своему белому списку.
+
+- **Группы** (`Groups`, `HasGroup("testers")`, событие `GroupsChanged`) — метки
+  из дашборда. Приходят при старте, при `SetPlayerId` и при каждом
+  периодическом `FetchAsync`; кэшируются для оффлайна.
+- **Оверрайды игрока** (группы + персональные) кладутся поверх A/B-варианта и
+  уходят тем же `VariantChanged` / `GetBalanceOverridesSnapshot()` — игре,
+  которая уже зеркалит оверрайды A/B, дописывать ничего не нужно. Пример:
+  ключ `cheats_unlocked=1` → `SettingsSystem.SetCheatsUnlocked(true)`.
+- **Выдачи** — одноразовые (`resource:scrap × 500`, `achievement:ACH_X`).
+  Игра регистрирует обработчик на тип:
+
+  ```csharp
+  liveOps.RegisterGrantHandler("resource", g => {
+      if (campaign.Data == null) return false;   // сейв не загружен — повторим позже
+      campaign.Data.totalScrap += Mathf.RoundToInt(g.amount);
+      return true;                               // применено → система подтвердит серверу
+  });
+  ```
+
+  `true` → выдача подтверждается серверу (`/api/player/grants/confirm`) и
+  больше не приходит; `false` → повтор при следующем опросе или по
+  `DispatchPendingGrants()` (зовите после загрузки сейва). Тип без
+  обработчика лежит в `PendingGrants`. Применённые, но не подтверждённые
+  (сеть упала) id помнятся в PlayerPrefs — повторно не применяются.
+- **Благодарности** — `await liveOps.FetchThanksAsync()` → имена для титров;
+  `CreditsData.SetRuntimeThanks(names)` подмешивает их в секцию Thanks
+  (категория `liveOpsThanksCategory`).
+
 ## Файлы пакета
 
 | Файл | Назначение |
 |------|-----------|
 | `LiveOpsSystem.cs` | Главная система |
+| `LiveOpsSystem.Players.cs` | Группы игрока, персональные оверрайды (читы), одноразовые выдачи, благодарности для титров — см. раздел «Игроки» ниже |
 | `LiveOpsConfig.cs` | ScriptableObject конфига |
 | `DefaultHttpLiveOpsProvider.cs` | Встроенный HTTP-провайдер |
 | `ILiveOpsProvider.cs` | Интерфейс провайдера |

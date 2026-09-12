@@ -29,7 +29,7 @@ namespace ProtoSystem.LiveOps
     /// </summary>
     [ProtoSystemComponent("LiveOps", "Связь с игроками без обновления билда",
         "Core", "📡", 150)]
-    public class LiveOpsSystem : InitializableSystemBase
+    public partial class LiveOpsSystem : InitializableSystemBase
     {
         #region InitializableSystemBase
 
@@ -153,6 +153,9 @@ namespace ProtoSystem.LiveOps
             else if (_provider is PocketBaseHttpLiveOpsProvider pbProvider) pbProvider.SetPlayerId(id);
 
             LiveOpsLog.Info($"[LiveOps] PlayerId уточнён: {previous} → {id}, переклеено событий: {moved}");
+
+            // Группы, оверрайды и выдачи привязаны к id — под новым id спрашиваем заново
+            if (_serverAvailable) _ = FetchPlayerStateAsync();
         }
 
         /// <summary>
@@ -371,13 +374,24 @@ namespace ProtoSystem.LiveOps
         private readonly Dictionary<string, float> _abOverrides = new Dictionary<string, float>();
         private const string OVERRIDES_PREF_KEY = "ProtoSystem.AB.Overrides";
 
-        /// <summary>Оверрайд баланса из назначенного варианта, иначе дефолт.</summary>
+        /// <summary>
+        /// Оверрайд баланса: персональный/групповой (дашборд «Игроки», см.
+        /// LiveOpsSystem.Players.cs) побеждает A/B-вариант, иначе дефолт.
+        /// </summary>
         public float GetBalanceOverride(string key, float defaultValue)
-            => _abOverrides.TryGetValue(key, out float v) ? v : defaultValue;
+            => _playerOverrides.TryGetValue(key, out float p) ? p
+             : _abOverrides.TryGetValue(key, out float v) ? v : defaultValue;
 
-        /// <summary>Снимок оверрайдов (для зеркалирования в игру).</summary>
+        /// <summary>
+        /// Снимок оверрайдов (для зеркалирования в игру): A/B-вариант, поверх —
+        /// оверрайды групп игрока и персональные.
+        /// </summary>
         public Dictionary<string, float> GetBalanceOverridesSnapshot()
-            => new Dictionary<string, float>(_abOverrides);
+        {
+            var snap = new Dictionary<string, float>(_abOverrides);
+            foreach (var kv in _playerOverrides) snap[kv.Key] = kv.Value;
+            return snap;
+        }
 
         private void SetOverrides(AbOverride[] pairs, bool persist)
         {
@@ -700,6 +714,9 @@ namespace ProtoSystem.LiveOps
 
             ProtoLogger.LogInit(SystemId, $"PlayerId: {_playerId} | Lang: {Language} | Project: {config.projectId}");
 
+            // Группы и оверрайды игрока из кэша — работают и оффлайн, до ответа сервера
+            LoadCachedPlayerState();
+
             ReportProgress(0.3f);
 
             // Health check
@@ -735,6 +752,7 @@ namespace ProtoSystem.LiveOps
                 {
                     await FetchAsync();
                     await FetchAbVariantAsync();
+                    await FetchPlayerStateAsync();
                     TrackSessionStart();
 
                     // Ждём, не уточнит ли проект id (Steam стартует после нас). Пачка
@@ -870,6 +888,7 @@ namespace ProtoSystem.LiveOps
             try
             {
                 await FetchAsync();
+                await FetchPlayerStateAsync();
                 await FlushTelemetryAsync();
             }
             catch (Exception ex)

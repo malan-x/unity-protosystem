@@ -95,6 +95,26 @@ Reverse proxy — nginx (порты 80/443), домен `api.twohuyakproduction.
 Локализуемые поля коллекций хранятся как JSON `{lang: text}` → `LocalizedString`
 на клиенте. Ответы разработчика на сообщения — `reply` + `reply_localized`.
 
+## Игроки: группы, оверрайды, выдачи, благодарности
+
+Хук `players.pb.js` + `players_lib.js`. Публичные роуты (шлёт игра, без авторизации):
+
+| Роут | Что делает |
+|------|-----------|
+| `POST /api/player/state` `{project, playerId}` | `{groups: [..], overrides: [{k, v}], grants: [{id, type, key, amount, payload, note}]}` — группы игрока, эффективные оверрайды (группы по порядку → персональные), выдачи в статусе pending |
+| `POST /api/player/grants/confirm` `{ids: [..]}` | `{confirmed}` — игра применила выдачи; pending → delivered, больше не отдаются |
+| `GET /api/player/credits?project=` | `{names: [..]}` — имена для раздела «Благодарности» в титрах (только имена) |
+
+Superuser (дашборд): `/api/players/profiles`, `/api/players/profile`,
+`/api/players/groups[/delete]`, `/api/players/grants[/delete]`,
+`/api/players/catalog`. Коллекции: `player_profiles`, `player_group_defs`,
+`player_grants`, `player_catalogs`. `project_id` — базовый, без суффиксов
+`.demo/.playtest/.editor`.
+
+Клиент (`LiveOpsSystem.Players.cs`) зовёт `state` при старте, после
+`SetPlayerId` и при каждом периодическом `FetchAsync`; `payload` приходит
+строкой (JSON), потому что JsonUtility не умеет произвольные объекты.
+
 ## Идентификация
 
 - `player_id` — GUID из PlayerPrefs либо задаётся `LiveOpsSystem.SetPlayerId()`.

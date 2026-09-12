@@ -52,6 +52,19 @@ namespace ProtoSystem.Settings
         /// <summary>Разблокированы ли читы (валидация по хэшу из [Cheats] секции)</summary>
         public bool IsCheatsUnlocked { get; private set; }
 
+        /// <summary>
+        /// Открыть/закрыть читы извне — без чит-кода в настройках. Используется
+        /// LiveOps: оверрайд cheats_unlocked=1 от дашборда (группа developers,
+        /// персональный профиль игрока). Не сохраняется в настройки — при следующем
+        /// запуске решает снова сервер (или кэш его ответа).
+        /// </summary>
+        public void SetCheatsUnlocked(bool unlocked)
+        {
+            if (IsCheatsUnlocked == unlocked) return;
+            IsCheatsUnlocked = unlocked;
+            LogMessage(unlocked ? "Cheats unlocked (external)" : "Cheats locked (external)");
+        }
+
         #region Singleton Access
         
         private static SettingsSystem _instance;

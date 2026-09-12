@@ -122,9 +122,34 @@ namespace ProtoSystem.UI
         /// </summary>
         public List<ThanksEntry> GetThanksByCategory(string category)
         {
-            if (string.IsNullOrEmpty(category))
-                return new List<ThanksEntry>(specialThanks);
-            return specialThanks.FindAll(t => t.category == category);
+            var list = string.IsNullOrEmpty(category)
+                ? new List<ThanksEntry>(specialThanks)
+                : specialThanks.FindAll(t => t.category == category);
+            if (_runtimeThanks != null)
+                foreach (var t in _runtimeThanks)
+                    if (string.IsNullOrEmpty(category) || t.category == category) list.Add(t);
+            return list;
+        }
+
+        // ── Благодарности из LiveOps ────────────────────────────────────────
+        // Дашборд (страница «Игроки», галочка «В благодарностях») отдаёт имена
+        // игроков; окно титров подмешивает их сюда перед генерацией текста.
+
+        [Header("LiveOps")]
+        [Tooltip("Категория благодарностей, в которую попадают имена игроков из дашборда LiveOps. " +
+                 "Должна совпадать с thanksCategory нужной секции Thanks; пусто — в секцию без фильтра.")]
+        public string liveOpsThanksCategory = "playtesters";
+
+        [NonSerialized] private List<ThanksEntry> _runtimeThanks;
+
+        /// <summary>Имена из LiveOps (не сериализуются, живут только в рантайме): заменяют прошлый набор.</summary>
+        public void SetRuntimeThanks(IEnumerable<string> names)
+        {
+            _runtimeThanks = new List<ThanksEntry>();
+            if (names == null) return;
+            foreach (var n in names)
+                if (!string.IsNullOrWhiteSpace(n))
+                    _runtimeThanks.Add(new ThanksEntry { category = liveOpsThanksCategory, text = n.Trim() });
         }
 
         /// <summary>
@@ -332,10 +357,11 @@ namespace ProtoSystem.UI
                 sb.AppendLine();
             }
 
-            if (specialThanks.Count > 0)
+            var allThanks = GetThanksByCategory("");
+            if (allThanks.Count > 0)
             {
                 sb.AppendLine("<size=24><b>Благодарности</b></size>");
-                foreach (var thanks in specialThanks)
+                foreach (var thanks in allThanks)
                 {
                     if (!string.IsNullOrEmpty(thanks.category))
                         sb.AppendLine($"<i>{thanks.category}</i>");
