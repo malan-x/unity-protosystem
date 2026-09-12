@@ -183,7 +183,9 @@ namespace ProtoSystem.UI
 
             string label = LocByLang(liveOpsLabelKey, liveOpsLabelRu, liveOpsLabelEn);
             if (!string.IsNullOrEmpty(label))
-                sb.AppendLine($"<size={captionSize + 2}><i>{label}</i></size>");
+                // Размером с основной текст, чуть меньше: подпись должна читаться,
+                // а не выглядеть сноской (captionSize=12 оказался мелким)
+                sb.AppendLine($"<size={Math.Max(captionSize, bodySize - 2)}>{label}</size>");
 
             var others = new List<string>(_runtimeThanksNames);
             var line = new System.Text.StringBuilder();
