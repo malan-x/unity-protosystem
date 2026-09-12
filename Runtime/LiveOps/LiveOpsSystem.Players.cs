@@ -49,6 +49,7 @@ namespace ProtoSystem.LiveOps
         private const string PLAYER_OVERRIDES_PREF_KEY = "ProtoSystem.Players.Overrides";
         private const string APPLIED_GRANTS_PREF_KEY   = "ProtoSystem.Players.AppliedGrants";
         private const string THANKS_PREF_KEY           = "ProtoSystem.Players.Thanks";
+        private const string THANKS_YOU_PREF_KEY       = "ProtoSystem.Players.ThanksYou";
         private const int    APPLIED_GRANTS_KEEP       = 200;
 
         private readonly List<string>              _groups          = new();
@@ -59,6 +60,7 @@ namespace ProtoSystem.LiveOps
         private readonly List<string>    _appliedGrantIds = new();
         private readonly HashSet<string> _confirmInFlight = new();
         private List<string> _thanks;
+        private string _thanksYou;
         private bool _playerStateCacheLoaded;
 
         // ── Группы ──────────────────────────────────────────────
@@ -151,8 +153,15 @@ namespace ProtoSystem.LiveOps
         public IReadOnlyList<string> Thanks => _thanks;
 
         /// <summary>
-        /// Имена игроков для раздела «Благодарности» в титрах. Ходит на сервер;
-        /// при ошибке отдаёт кэш прошлого ответа (или пустой список).
+        /// Имя ТЕКУЩЕГО игрока в благодарностях (как оно записано в дашборде),
+        /// если он там есть; иначе null. Титры ставят его первым и выделяют.
+        /// </summary>
+        public string ThanksYou => _thanksYou;
+
+        /// <summary>
+        /// Имена игроков для раздела «Благодарности» в титрах. Ходит на сервер
+        /// с id игрока — сервер отдельно отвечает, есть ли он сам в списке
+        /// (<see cref="ThanksYou"/>). При ошибке — кэш прошлого ответа или пусто.
         /// </summary>
         public async Task<IReadOnlyList<string>> FetchThanksAsync()
         {
@@ -162,13 +171,16 @@ namespace ProtoSystem.LiveOps
             try
             {
                 string url = config.serverUrl.TrimEnd('/') + "/api/player/credits?project="
-                           + UnityWebRequest.EscapeURL(config.projectId);
+                           + UnityWebRequest.EscapeURL(config.projectId)
+                           + "&playerId=" + UnityWebRequest.EscapeURL(_playerId ?? "");
                 string json = await PlayersHttpAsync("GET", url, null);
                 if (json == null) return _thanks ?? new List<string>();
 
                 var resp = JsonUtility.FromJson<CreditsResponse>(json);
                 _thanks = new List<string>(resp?.names ?? Array.Empty<string>());
+                _thanksYou = string.IsNullOrEmpty(resp?.you) ? null : resp.you;
                 PlayerPrefs.SetString(THANKS_PREF_KEY, JsonUtility.ToJson(new StringList { items = _thanks.ToArray() }));
+                PlayerPrefs.SetString(THANKS_YOU_PREF_KEY, _thanksYou ?? "");
             }
             catch (Exception ex)
             {
@@ -344,6 +356,8 @@ namespace ProtoSystem.LiveOps
             {
                 var list = JsonUtility.FromJson<StringList>(PlayerPrefs.GetString(THANKS_PREF_KEY, ""));
                 if (list?.items != null) _thanks = new List<string>(list.items);
+                string you = PlayerPrefs.GetString(THANKS_YOU_PREF_KEY, "");
+                _thanksYou = string.IsNullOrEmpty(you) ? null : you;
             }
             catch (Exception) { }
         }
@@ -395,7 +409,7 @@ namespace ProtoSystem.LiveOps
             public LiveOpsGrant[] grants;
         }
 
-        [Serializable] private class CreditsResponse { public string[] names; }
+        [Serializable] private class CreditsResponse { public string[] names; public string you; }
         [Serializable] private class StringList { public string[] items; }
     }
 }

@@ -122,35 +122,79 @@ namespace ProtoSystem.UI
         /// </summary>
         public List<ThanksEntry> GetThanksByCategory(string category)
         {
-            var list = string.IsNullOrEmpty(category)
-                ? new List<ThanksEntry>(specialThanks)
-                : specialThanks.FindAll(t => t.category == category);
-            if (_runtimeThanks != null)
-                foreach (var t in _runtimeThanks)
-                    if (string.IsNullOrEmpty(category) || t.category == category) list.Add(t);
-            return list;
+            if (string.IsNullOrEmpty(category))
+                return new List<ThanksEntry>(specialThanks);
+            return specialThanks.FindAll(t => t.category == category);
         }
 
-        // ── Благодарности из LiveOps ────────────────────────────────────────
+        // ── Благодарности игрокам из LiveOps ────────────────────────────────
         // Дашборд (страница «Игроки», галочка «В благодарностях») отдаёт имена
-        // игроков; окно титров подмешивает их сюда перед генерацией текста.
+        // игроков и, если текущий игрок среди них, его имя отдельно. Окно титров
+        // кладёт их сюда (SetRuntimeThanks), а секция Thanks дописывает блок:
+        //   <подпись «Игрокам, без которых…»>
+        //   <золотом: сам игрок>, а также Имя, Имя, Имя
+        // Подпись и союз — ключи локализации с fallback по языку (ru/en), как в
+        // проектных LCKeys: таблицу заводить не обязательно.
 
-        [Header("LiveOps")]
-        [Tooltip("Категория благодарностей, в которую попадают имена игроков из дашборда LiveOps. " +
-                 "Пусто — имена идут в секцию Thanks без фильтра (как обычные записи без категории). " +
-                 "Задать, если в титрах несколько секций Thanks с разными thanksCategory.")]
+        [Header("LiveOps: благодарности игрокам")]
+        [Tooltip("Категория секции Thanks, в которую дописывается блок с именами игроков. Пусто — секция без фильтра.")]
         public string liveOpsThanksCategory = "";
+        [Tooltip("Ключ локализации подписи над именами игроков (fallback — поля Ru/En ниже)")]
+        public string liveOpsLabelKey = "ui.credits.players_thanks";
+        public string liveOpsLabelRu = "Игрокам, без которых игра была бы хуже:";
+        public string liveOpsLabelEn = "To the players who made the game better:";
+        [Tooltip("Ключ локализации союза между именем самого игрока и остальными")]
+        public string liveOpsAlsoKey = "ui.credits.players_also";
+        public string liveOpsAlsoRu = ", а также ";
+        public string liveOpsAlsoEn = ", and also ";
+        [Tooltip("Цвет имени самого игрока (rich text), чтобы он сразу нашёл себя")]
+        public string liveOpsYouColor = "#f0c75e";
 
-        [NonSerialized] private List<ThanksEntry> _runtimeThanks;
+        [NonSerialized] private List<string> _runtimeThanksNames;
+        [NonSerialized] private string _runtimeThanksYou;
 
-        /// <summary>Имена из LiveOps (не сериализуются, живут только в рантайме): заменяют прошлый набор.</summary>
-        public void SetRuntimeThanks(IEnumerable<string> names)
+        public bool HasLiveOpsThanks => _runtimeThanksNames != null && _runtimeThanksNames.Count > 0;
+
+        /// <summary>
+        /// Имена из LiveOps (только рантайм, не сериализуются): заменяют прошлый набор.
+        /// <paramref name="you"/> — имя текущего игрока, если он в списке: пойдёт первым и золотом.
+        /// </summary>
+        public void SetRuntimeThanks(IEnumerable<string> names, string you = null)
         {
-            _runtimeThanks = new List<ThanksEntry>();
-            if (names == null) return;
-            foreach (var n in names)
-                if (!string.IsNullOrWhiteSpace(n))
-                    _runtimeThanks.Add(new ThanksEntry { category = liveOpsThanksCategory, text = n.Trim() });
+            _runtimeThanksNames = new List<string>();
+            _runtimeThanksYou = string.IsNullOrWhiteSpace(you) ? null : you.Trim();
+            if (names != null)
+                foreach (var n in names)
+                    if (!string.IsNullOrWhiteSpace(n) && !_runtimeThanksNames.Contains(n.Trim()))
+                        _runtimeThanksNames.Add(n.Trim());
+            if (_runtimeThanksYou != null && !_runtimeThanksNames.Contains(_runtimeThanksYou))
+                _runtimeThanksNames.Insert(0, _runtimeThanksYou);
+        }
+
+        private static string LocByLang(string key, string ru, string en)
+        {
+            string fallback = Loc.IsReady && Loc.CurrentLanguage == "ru" ? ru : en;
+            return string.IsNullOrEmpty(key) ? fallback : UIKeys.L(key, fallback);
+        }
+
+        private void AppendLiveOpsThanks(System.Text.StringBuilder sb, int bodySize, int captionSize)
+        {
+            if (!HasLiveOpsThanks) return;
+
+            string label = LocByLang(liveOpsLabelKey, liveOpsLabelRu, liveOpsLabelEn);
+            if (!string.IsNullOrEmpty(label))
+                sb.AppendLine($"<size={captionSize + 2}><i>{label}</i></size>");
+
+            var others = new List<string>(_runtimeThanksNames);
+            var line = new System.Text.StringBuilder();
+            if (_runtimeThanksYou != null)
+            {
+                others.Remove(_runtimeThanksYou);
+                line.Append($"<color={liveOpsYouColor}><b>{_runtimeThanksYou}</b></color>");
+                if (others.Count > 0) line.Append(LocByLang(liveOpsAlsoKey, liveOpsAlsoRu, liveOpsAlsoEn));
+            }
+            line.Append(string.Join(", ", others));
+            sb.AppendLine($"<size={bodySize}>{line}</size>");
         }
 
         /// <summary>
@@ -263,6 +307,13 @@ namespace ProtoSystem.UI
                     sb.AppendLine($"<i>{thanks.category}</i>");
                 sb.AppendLine(thanks.GetLocalizedText());
             }
+
+            // Имена игроков из LiveOps — отдельным блоком после штатных строк
+            if ((section.thanksCategory ?? "") == (liveOpsThanksCategory ?? "") && HasLiveOpsThanks)
+            {
+                if (entries.Count > 0) sb.AppendLine();
+                AppendLiveOpsThanks(sb, bodySize, defaultCaptionSize);
+            }
             sb.AppendLine();
         }
 
@@ -359,7 +410,7 @@ namespace ProtoSystem.UI
             }
 
             var allThanks = GetThanksByCategory("");
-            if (allThanks.Count > 0)
+            if (allThanks.Count > 0 || HasLiveOpsThanks)
             {
                 sb.AppendLine("<size=24><b>Благодарности</b></size>");
                 foreach (var thanks in allThanks)
@@ -369,6 +420,7 @@ namespace ProtoSystem.UI
                     sb.AppendLine(thanks.GetLocalizedText());
                     sb.AppendLine();
                 }
+                AppendLiveOpsThanks(sb, defaultBodySize, defaultCaptionSize);
             }
 
             return sb.ToString();
