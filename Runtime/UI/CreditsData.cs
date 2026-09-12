@@ -137,8 +137,9 @@ namespace ProtoSystem.UI
 
         [Header("LiveOps")]
         [Tooltip("Категория благодарностей, в которую попадают имена игроков из дашборда LiveOps. " +
-                 "Должна совпадать с thanksCategory нужной секции Thanks; пусто — в секцию без фильтра.")]
-        public string liveOpsThanksCategory = "playtesters";
+                 "Пусто — имена идут в секцию Thanks без фильтра (как обычные записи без категории). " +
+                 "Задать, если в титрах несколько секций Thanks с разными thanksCategory.")]
+        public string liveOpsThanksCategory = "";
 
         [NonSerialized] private List<ThanksEntry> _runtimeThanks;
 
