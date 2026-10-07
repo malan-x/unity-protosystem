@@ -2,7 +2,6 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.InputSystem;
 using TMPro;
 
 namespace ProtoSystem.UI
@@ -36,12 +35,17 @@ namespace ProtoSystem.UI
 
         private void Update()
         {
-            var kb = Keyboard.current;
+            // Enter / Return → подтвердить
+#if PROTO_HAS_INPUT_SYSTEM
+            var kb = UnityEngine.InputSystem.Keyboard.current;
             if (kb == null) return;
 
-            // Enter / Return → подтвердить
             if (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame)
                 OnYesClicked();
+#else
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+                OnYesClicked();
+#endif
         }
 
         protected override void Awake()
