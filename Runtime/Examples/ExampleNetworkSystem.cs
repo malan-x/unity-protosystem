@@ -13,13 +13,14 @@ namespace ProtoSystem.Examples
     public class ExampleNetworkSystem : NetworkEventBus, IInitializableSystem
     {
         /// <summary>
-        /// Примерные константы событий для демонстрации
+        /// Примерные константы событий для демонстрации.
+        /// Свой диапазон 11500+, чтобы не совпадать с событиями пакета (10003 — Evt.UI.WindowShown).
         /// </summary>
         private static class ExampleNetworkEvents
         {
-            public const int PlayerConnected = 10001;
-            public const int PlayerDisconnected = 10002;
-            public const int DataSynchronized = 10003;
+            public const int PlayerConnected = 11501;
+            public const int PlayerDisconnected = 11502;
+            public const int DataSynchronized = 11503;
         }
 
         [Header("Система")]

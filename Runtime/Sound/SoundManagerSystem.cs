@@ -66,11 +66,11 @@ namespace ProtoSystem.Sound
             AddEvent(EventBus.UI.WindowClosed, OnWindowClosed);
 
             // GameSession события
-            AddEvent(Evt.Session.Started, OnSessionStarted);
-            AddEvent(Evt.Session.Ended, OnSessionEnded);
-            AddEvent(Evt.Session.Paused, OnSessionPaused);
-            AddEvent(Evt.Session.Resumed, OnSessionResumed);
-            AddEvent(Evt.Session.StateChanged, OnSessionStateChanged);
+            AddEvent(EventBus.Session.Started, OnSessionStarted);
+            AddEvent(EventBus.Session.Ended, OnSessionEnded);
+            AddEvent(EventBus.Session.Paused, OnSessionPaused);
+            AddEvent(EventBus.Session.Resumed, OnSessionResumed);
+            AddEvent(EventBus.Session.StateChanged, OnSessionStateChanged);
 
             // Settings события - используем EventBus.Settings.Audio (из SettingsEvents.cs)
             // с проверкой инициализации и типа payload
@@ -82,9 +82,9 @@ namespace ProtoSystem.Sound
             AddEvent(EventBus.Settings.Audio.UIChanged, OnUIVolumeChanged);
 
             // Scene события
-            AddEvent(Evt.Scene.LoadStarted, OnSceneLoadStarted);
-            AddEvent(Evt.Scene.LoadCompleted, OnSceneLoadCompleted);
-            AddEvent(Evt.Scene.Unloaded, OnSceneUnloaded);
+            AddEvent(EventBus.SceneFlow.LoadStarted, OnSceneLoadStarted);
+            AddEvent(EventBus.SceneFlow.LoadCompleted, OnSceneLoadCompleted);
+            AddEvent(EventBus.SceneFlow.UnloadCompleted, OnSceneUnloaded);
 
             // Sound события (для внешнего управления через EventBus)
             AddEvent(Evt.Sound.Play, OnPlaySoundEvent);
@@ -595,9 +595,23 @@ namespace ProtoSystem.Sound
         
         // === Обработчики событий Scene ===
         
+        /// <summary>
+        /// Имя сцены из payload событий сцен: SceneFlowSystem шлёт структуры, внешний код — строку
+        /// </summary>
+        private static string GetSceneName(object payload)
+        {
+            return payload switch
+            {
+                string name => name,
+                SceneFlow.SceneLoadEventData load => load.SceneName,
+                SceneFlow.SceneUnloadEventData unload => unload.SceneName,
+                _ => null
+            };
+        }
+
         private void OnSceneLoadStarted(object payload)
         {
-            var sceneName = payload as string;
+            var sceneName = GetSceneName(payload);
             if (string.IsNullOrEmpty(sceneName)) return;
             
             // Загрузить банки для сцены
@@ -617,7 +631,7 @@ namespace ProtoSystem.Sound
         
         private void OnSceneUnloaded(object payload)
         {
-            var sceneName = payload as string;
+            var sceneName = GetSceneName(payload);
             if (string.IsNullOrEmpty(sceneName)) return;
             
             // Выгрузить банки, которые больше не нужны
