@@ -1,0 +1,30 @@
+{
+    "name": "ProtoSystem.SpriteGen",
+    "rootNamespace": "ProtoSystem.SpriteGen",
+    "references": [
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_EDITOR"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.render-pipelines.universal",
+            "expression": "",
+            "define": "PROTO_HAS_URP"
+        },
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "",
+            "define": "PROTO_HAS_INPUT_SYSTEM"
+        }
+    ],
+    "noEngineReferences": false
+}

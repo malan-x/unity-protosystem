@@ -1,0 +1,26 @@
+{
+    "name": "ProtoSystem.SpriteGen.Editor",
+    "rootNamespace": "ProtoSystem.SpriteGen.Editor",
+    "references": [
+        "ProtoSystem.SpriteGen",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "ProtoSystem.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.render-pipelines.universal",
+            "expression": "",
+            "define": "PROTO_HAS_URP"
+        }
+    ],
+    "noEngineReferences": false
+}

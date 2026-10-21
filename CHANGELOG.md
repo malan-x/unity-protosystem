@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.55.0] - 2026-10-21
+
+### Added
+- ИИ-студии переехали в пакет целиком — окна, хранилища вариантов, кнопки тулбара:
+  - **Арт** (`Runtime/IconGen`, `Editor/IconGen`): IconStudioWindow, IconVariantStore,
+    IconVariantLibrary/IconPack, атласы из буфера (AtlasTools, AtlasSliceWindow,
+    PixelArtSliceWindow), кнопка «🎨 Арт»;
+  - **Аудио** (`Editor/AudioGen`): AudioStudioWindow, AudioVariantStore, режим «Соло»,
+    поиск использований id, переходы из SoundLibrary, кнопка «🎵 Звук»;
+  - **3D** (`Runtime/ModelGen`, `Editor/ModelGen`): ModelStudioWindow, ModelVariantStore,
+    рендер спрайт-листов (турнтейбл и анимации), кнопка «🧊 3D»;
+  - **Генератор спрайтов** (`Runtime/SpriteGen`, `Editor/SpriteGen`), кнопка «🎞 Спрайты».
+- Меню **ProtoSystem → ИИ студии**. Руководство по подключению в новом проекте —
+  `Documentation~/AIStudios.md`, подробности студий — `AIArtStudio.md`, `AIAudioStudio.md`.
+- Точки расширения для проекта: `IconStudioExtensions`, `AudioStudioExtensions`,
+  `ModelStudioExtensions` — игровые надстройки (обновление UI в Play Mode, игровые лупы,
+  гейт соло, мост 3D → 2D-пайплайн игры) регистрируются из `[InitializeOnLoad]`-класса.
+- `ToolbarButtonPainter` — общая покраска кнопок главного тулбара пакета.
+
+### Changed
+- Библиотеки вариантов (`IconVariantLibrary`, `AudioVariantLibrary`, `ModelVariantLibrary`)
+  и `SoundLibrary` студии ищут по типу; без ассета библиотека создаётся в `Assets/AIStudio/…`.
+  Папки проекта (паки, референсы стиля, спрайт-листы, префабы, публикация) — поля библиотек;
+  пусто — подпапка рядом с библиотекой.
+- SpriteGen не требует URP и Input System: компоненты URP под `PROTO_HAS_URP`, ввод превью —
+  через Input System или старый Input Manager, SubShader'ы шейдеров с `PackageRequirements`.
+  Рантайм-сборка SpriteGen существует только в редакторе (`defineConstraints: UNITY_EDITOR`).
+- GUID скриптов сохранены: ассеты проектов, перенёсших студии из `Assets/`, не теряют ссылок.
+
 ## [1.52.3] - 2026-09-06
 
 ### Added

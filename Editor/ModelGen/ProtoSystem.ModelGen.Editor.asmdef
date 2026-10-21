@@ -1,0 +1,23 @@
+{
+    "name": "ProtoSystem.ModelGen.Editor",
+    "rootNamespace": "ProtoSystem.ModelGen.Editor",
+    "references": [
+        "ProtoSystem.ModelGen",
+        "ProtoSystem.IconGen",
+        "ProtoSystem.IconGen.Editor",
+        "ProtoSystem.SpriteGen",
+        "ProtoSystem.SpriteGen.Editor",
+        "ProtoSystem.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

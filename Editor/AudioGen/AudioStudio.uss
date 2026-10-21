@@ -1,0 +1,343 @@
+/* ИИ Аудио студия — стили окна (зеркалит подачу IconStudio.uss) */
+
+.left-panel {
+    min-width: 240px;
+    padding: 6px;
+}
+
+.panel-header {
+    font-size: 14px;
+    -unity-font-style: bold;
+    margin: 4px 2px 8px 2px;
+}
+
+.comfy-row {
+    flex-direction: row;
+    align-items: center;
+    margin: 2px 0 8px 0;
+}
+
+.comfy-row > Label {
+    margin-right: 6px;
+}
+
+.engine-label {
+    margin: 6px 2px 2px 2px;
+    opacity: 0.8;
+}
+
+.profile-desc {
+    margin: 2px 4px 6px 4px;
+    white-space: normal;
+    opacity: 0.7;
+}
+
+.style-field {
+    margin: 4px 0;
+}
+
+.style-field > Label {
+    margin-bottom: 2px;
+    opacity: 0.8;
+}
+
+.style-field TextField {
+    white-space: normal;
+}
+
+.param-row {
+    flex-direction: row;
+}
+
+.settings-btn {
+    margin-top: 10px;
+}
+
+.credits-row {
+    margin: 8px 2px 0 2px;
+    font-size: 11px;
+}
+
+.volume-icon {
+    -unity-text-align: middle-center;
+    margin-left: 4px;
+}
+
+.volume-slider {
+    width: 90px;
+    margin: 0 8px 0 2px;
+    align-self: center;
+}
+
+.sound-search {
+    width: 160px;
+    margin-left: 6px;
+}
+
+.entry-volume {
+    width: 280px;
+    margin: 0 4px 0 8px;
+    align-self: center;
+}
+
+.entry-volume-num {
+    width: 44px;
+    align-self: center;
+    margin-right: 2px;
+}
+
+.queue-label {
+    -unity-text-align: middle-left;
+    margin: 0 6px;
+    color: rgb(200, 180, 120);
+}
+
+/* Монитор «Сейчас звучит» */
+
+.now-playing-header {
+    -unity-font-style: bold;
+    margin: 12px 2px 4px 2px;
+    border-top-width: 1px;
+    border-top-color: rgba(128, 128, 128, 0.35);
+    padding-top: 8px;
+}
+
+.now-playing-hint {
+    opacity: 0.5;
+    margin: 2px 4px;
+}
+
+.now-playing-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 1px 2px;
+    border-radius: 3px;
+}
+
+.now-playing-row:hover {
+    background-color: rgba(128, 128, 128, 0.12);
+}
+
+.now-playing-stop {
+    width: 20px;
+    padding: 0;
+    margin: 0 4px 0 0;
+}
+
+.now-playing-name {
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.now-playing-time {
+    opacity: 0.6;
+    font-size: 10px;
+    margin-left: 4px;
+}
+
+/* Витрина */
+
+.section {
+    margin: 6px 8px 12px 8px;
+}
+
+.section-head {
+    flex-direction: row;
+    align-items: center;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(128, 128, 128, 0.35);
+    padding-bottom: 3px;
+    margin-bottom: 3px;
+}
+
+.section-note {
+    margin-left: 10px;
+    opacity: 0.55;
+    font-size: 10px;
+}
+
+.entity-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.entity-row:hover {
+    background-color: rgba(128, 128, 128, 0.12);
+}
+
+.entity-row.selected {
+    background-color: rgba(90, 130, 180, 0.25);
+}
+
+.entity-row.playing {
+    background-color: rgba(120, 180, 90, 0.18);
+}
+
+.entity-row.playing .entity-name {
+    color: rgb(150, 210, 120);
+}
+
+.entity-row.playing.selected {
+    background-color: rgba(105, 155, 135, 0.28);
+}
+
+.accent-strip {
+    width: 3px;
+    height: 16px;
+    border-radius: 1px;
+    margin-right: 6px;
+}
+
+.play-btn {
+    width: 24px;
+    margin: 0 4px 0 0;
+}
+
+.entity-name {
+    min-width: 220px;
+}
+
+.loop-mark {
+    margin-right: 6px;
+    opacity: 0.6;
+}
+
+.clip-info {
+    min-width: 46px;
+    -unity-text-align: middle-right;
+    margin-right: 8px;
+}
+
+.prompt-mark {
+    margin-right: 8px;
+}
+
+.variant-badge {
+    min-width: 52px;
+    opacity: 0.65;
+    font-size: 10px;
+}
+
+.mini-btn {
+    padding: 1px 6px;
+}
+
+.solo-btn {
+    width: 20px;
+    padding: 0;
+    margin: 0 4px 0 0;
+    opacity: 0.55;
+}
+
+.solo-btn.solo-on {
+    opacity: 1;
+    background-color: rgb(190, 150, 40);
+    color: rgb(30, 25, 10);
+    -unity-font-style: bold;
+}
+
+.solo-master {
+    background-color: rgb(190, 150, 40);
+    color: rgb(30, 25, 10);
+    -unity-font-style: bold;
+    margin: 0 4px;
+}
+
+.usage-ok {
+    margin-right: 6px;
+    color: rgb(120, 180, 90);
+}
+
+.usage-none {
+    margin-right: 6px;
+    color: rgb(220, 150, 60);
+    -unity-font-style: bold;
+    font-size: 10px;
+}
+
+/* Пикер */
+
+.picker-head {
+    flex-direction: row;
+    align-items: center;
+    margin: 6px 8px 2px 8px;
+}
+
+.usage-note-field {
+    min-width: 220px;
+    margin-left: 10px;
+    opacity: 0.85;
+}
+
+.usage-note-placeholder {
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    opacity: 0.4;
+}
+
+.picker-hint {
+    margin: 10px;
+    opacity: 0.6;
+}
+
+.prompt-field {
+    margin: 4px 8px;
+}
+
+.variants-lane {
+    margin: 6px 8px;
+    min-height: 120px;
+}
+
+.variant-cell {
+    width: 170px;
+    margin: 2px 6px 2px 0;
+    padding: 4px;
+    border-radius: 4px;
+    border-width: 2px;
+    border-color: rgba(128, 128, 128, 0.25);
+}
+
+.variant-cell.active {
+    border-color: rgb(120, 180, 90);
+}
+
+.variant-cell.picked {
+    background-color: rgba(90, 130, 180, 0.25);
+}
+
+.variant-cell.bad {
+    opacity: 0.45;
+}
+
+.waveform {
+    height: 64px;
+    background-color: rgba(0, 0, 0, 0.25);
+    border-radius: 3px;
+}
+
+.variant-meta {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 3px;
+}
+
+.variant-info {
+    margin-left: 4px;
+    font-size: 10px;
+}
+
+.variant-voice {
+    margin-left: 4px;
+    font-size: 10px;
+    color: rgb(150, 190, 220);
+    flex-shrink: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

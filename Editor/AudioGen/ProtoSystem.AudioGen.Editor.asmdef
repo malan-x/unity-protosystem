@@ -3,7 +3,8 @@
     "rootNamespace": "ProtoSystem.AudioGen.Editor",
     "references": [
         "ProtoSystem.AudioGen",
-        "ProtoSystem.Runtime"
+        "ProtoSystem.Runtime",
+        "ProtoSystem.Editor"
     ],
     "includePlatforms": [
         "Editor"

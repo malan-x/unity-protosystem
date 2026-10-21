@@ -1,0 +1,19 @@
+{
+    "name": "ProtoSystem.IconGen.Editor",
+    "rootNamespace": "ProtoSystem.IconGen.Editor",
+    "references": [
+        "ProtoSystem.IconGen",
+        "ProtoSystem.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
