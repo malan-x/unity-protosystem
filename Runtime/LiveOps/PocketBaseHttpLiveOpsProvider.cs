@@ -231,6 +231,19 @@ namespace ProtoSystem.LiveOps
             }
         }
 
+        /// <summary>
+        /// Сообщает серверу, чем кончился показ опроса. Ошибку глотаем: это
+        /// статистика, из-за неё игроку ничего ломать нельзя.
+        /// </summary>
+        public async Task<bool> ReportPollStateAsync(string pollId, string state)
+        {
+            if (string.IsNullOrEmpty(pollId) || string.IsNullOrEmpty(_playerId)) return false;
+
+            var body = $"{{\"project_id\":\"{EscapeJson(_projectId)}\",\"poll_id\":\"{EscapeJson(pollId)}\","
+                     + $"\"player_id\":\"{EscapeJson(_playerId)}\",\"state\":\"{EscapeJson(state)}\"}}";
+            return await PostAsync("/api/polls/state", body);
+        }
+
         /// <summary>Кеш id записей голосов для PATCH при переголосовании.</summary>
         private readonly Dictionary<string, string> _cachedVoteRecordIds = new();
 

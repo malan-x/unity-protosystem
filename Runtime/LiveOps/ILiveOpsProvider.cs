@@ -1,4 +1,4 @@
-// Packages/com.protosystem.core/Runtime/LiveOps/ILiveOpsProvider.cs
+﻿// Packages/com.protosystem.core/Runtime/LiveOps/ILiveOpsProvider.cs
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -26,6 +26,13 @@ namespace ProtoSystem.LiveOps
         Task<List<LiveOpsMessage>> FetchMessagesAsync();
         Task<List<LiveOpsPoll>>    FetchPollsAsync();
         Task<bool>                 SubmitPollAnswerAsync(LiveOpsPollAnswer answer);
+
+        /// <summary>
+        /// Что стало с показанным опросом: shown | later | dismissed | answered | form.
+        /// Ответ и так виден по голосу, но остальные исходы иначе нигде не остаются:
+        /// показали и промолчал, отложил, закрыл.
+        /// </summary>
+        Task<bool>                 ReportPollStateAsync(string pollId, string state);
         Task<bool>                 SendEventAsync(LiveOpsEvent evt);
         Task<bool>                 SubmitFeedbackAsync(LiveOpsFeedback feedback);
 

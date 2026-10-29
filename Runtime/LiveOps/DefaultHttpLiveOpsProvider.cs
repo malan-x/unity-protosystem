@@ -1,4 +1,4 @@
-// Packages/com.protosystem.core/Runtime/LiveOps/DefaultHttpLiveOpsProvider.cs
+﻿// Packages/com.protosystem.core/Runtime/LiveOps/DefaultHttpLiveOpsProvider.cs
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -90,6 +90,10 @@ namespace ProtoSystem.LiveOps
             var json = await GetAsync("/polls");
             return ParseList<LiveOpsPoll>(json, "polls");
         }
+
+        /// <summary>Состояния показа ведёт только PocketBase-провайдер.</summary>
+        public Task<bool> ReportPollStateAsync(string pollId, string state)
+            => Task.FromResult(false);
 
         public async Task<bool> SubmitPollAnswerAsync(LiveOpsPollAnswer answer)
         {

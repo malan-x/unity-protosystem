@@ -1,6 +1,6 @@
 ﻿{
   "name": "com.protosystem.core",
-  "version": "1.56.0",
+  "version": "1.57.0",
   "displayName": "ProtoSystem Core",
   "description": "ProtoSystem — модульный фреймворк для Unity: глобальная шина событий (EventBus) и атрибутивная система инициализации/DI для модульных и масштабируемых (в т.ч. multiplayer) приложений. Готовые модули: UISystem (граф-навигация окон, генераторы префабов и UI Toolkit-окон), SoundManagerSystem (SoundLibrary, схемы, музыка), LocalizationSystem (обёртка Unity Localization + ИИ-перевод), SettingsSystem, EffectsManager, CursorManager, SceneFlowSystem, GameSessionSystem, NetworkLobbySystem, CaptureSystem (скриншоты/реплеи, мультиязычный захват), LiveOps (события, опросы, фидбек, девлог). ИИ-студии (Documentation~/AIStudios.md): Арт (IconGen — иконки и UI-элементы 9-slice на ComfyUI, варианты, паки, публикация с синхронизацией USS), Аудио (AudioGen — SFX/эмбиенты/музыка/TTS-озвучка: ComfyUI Stable Audio Open / ACE-Step, ElevenLabs, Qwen3-TTS; публикация в SoundLibrary), 3D (ModelGen — Hunyuan3D / Meshy, риггинг и анимации, спрайт-листы), генератор спрайтов из 3D-моделей (SpriteGen). Инструменты редактора: Build Publisher (сборки, Steam-аплоад, читы), TODO-лист в тулбаре, интеграция MCP.",
   "unity": "2021.3",

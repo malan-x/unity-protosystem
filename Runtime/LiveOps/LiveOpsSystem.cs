@@ -1,4 +1,4 @@
-// Packages/com.protosystem.core/Runtime/LiveOps/LiveOpsSystem.cs
+﻿// Packages/com.protosystem.core/Runtime/LiveOps/LiveOpsSystem.cs
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -441,6 +441,16 @@ namespace ProtoSystem.LiveOps
         }
 
         /// <summary>Отправить ответ на опрос. Работает для single и multi.</summary>
+        /// <summary>
+        /// Отметить, что стало с показанным опросом: shown | later | dismissed |
+        /// answered | form. Без ожидания: это статистика, игре ждать нечего.
+        /// </summary>
+        public void ReportPollState(string pollId, string state)
+        {
+            if (_provider == null || string.IsNullOrEmpty(pollId)) return;
+            _ = _provider.ReportPollStateAsync(pollId, state);
+        }
+
         public async Task<bool> SubmitPollAnswerAsync(string pollId, string[] optionIds)
         {
             if (config == null || !config.enablePolls || _provider == null) return false;
