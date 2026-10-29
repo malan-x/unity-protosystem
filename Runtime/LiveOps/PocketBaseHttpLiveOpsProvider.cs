@@ -1,4 +1,4 @@
-// Packages/com.protosystem.core/Runtime/LiveOps/PocketBaseHttpLiveOpsProvider.cs
+﻿// Packages/com.protosystem.core/Runtime/LiveOps/PocketBaseHttpLiveOpsProvider.cs
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -98,10 +98,33 @@ namespace ProtoSystem.LiveOps
             return result;
         }
 
+        /// <summary>PlayerPrefs-ключ со списком опросов на случай отсутствия сети.</summary>
+        private string PollsCacheKey => $"liveops_polls_{_projectId}_{_playerId}";
+
+        /// <summary>
+        /// Опросы для текущего игрока.
+        ///
+        /// Отбор делает сервер (/api/polls/for-player): он один знает наигранное
+        /// время, группы и версию, поэтому условия опроса («наиграно от N часов»)
+        /// меняются из дашборда без патча игры.
+        ///
+        /// Если роут недоступен — старые сборки сервера или нет сети — работаем
+        /// как раньше: читаем коллекцию целиком и фильтруем на клиенте. Если и
+        /// это не вышло, отдаём последний удачный ответ из кэша: окно-просьба
+        /// без сети лучше покажет вчерашний вопрос, чем не откроется совсем.
+        /// </summary>
         public async Task<List<LiveOpsPoll>> FetchPollsAsync()
         {
-            // 1. Получаем активные опросы
-            var items = await FetchCollection<PbPoll>("polls");
+            List<PbPoll> items = await FetchPollsForPlayer();
+            if (items == null)
+            {
+                items = await FetchCollection<PbPoll>("polls");
+                if (items == null) items = LoadCachedPolls();
+            }
+            else
+            {
+                SaveCachedPolls(items);
+            }
             if (items == null) return null;
 
             var result = new List<LiveOpsPoll>();
@@ -149,6 +172,63 @@ namespace ProtoSystem.LiveOps
                 result.Add(poll);
             }
             return result;
+        }
+
+        /// <summary>Персональный список опросов; null — роут недоступен.</summary>
+        private async Task<List<PbPoll>> FetchPollsForPlayer()
+        {
+            if (string.IsNullOrEmpty(_playerId)) return null;
+
+            var url = $"{_baseUrl}/api/polls/for-player?project_id={_projectId}&player_id={_playerId}";
+            var json = await GetAsync(url);
+            if (string.IsNullOrEmpty(json)) return null;
+
+            return ParsePollList(json);
+        }
+
+        private List<PbPoll> ParsePollList(string json)
+        {
+            try
+            {
+                var wrapper = JsonUtility.FromJson<PbListResponse<PbPoll>>(FlattenNestedJsonObjects(json));
+                if (wrapper?.items == null) return null;
+                return new List<PbPoll>(wrapper.items);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[LiveOps] Разбор списка опросов не удался: {ex.Message}");
+                return null;
+            }
+        }
+
+        private void SaveCachedPolls(List<PbPoll> items)
+        {
+            try
+            {
+                var wrap = new PbListResponse<PbPoll> { items = items.ToArray() };
+                PlayerPrefs.SetString(PollsCacheKey, JsonUtility.ToJson(wrap));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[LiveOps] Не удалось сохранить опросы в кэш: {ex.Message}");
+            }
+        }
+
+        private List<PbPoll> LoadCachedPolls()
+        {
+            var raw = PlayerPrefs.GetString(PollsCacheKey, "");
+            if (string.IsNullOrEmpty(raw)) return null;
+            try
+            {
+                var wrap = JsonUtility.FromJson<PbListResponse<PbPoll>>(raw);
+                if (wrap?.items == null) return null;
+                LiveOpsLog.Info("[LiveOps] Опросы взяты из кэша: сервер недоступен");
+                return new List<PbPoll>(wrap.items);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>Кеш id записей голосов для PATCH при переголосовании.</summary>

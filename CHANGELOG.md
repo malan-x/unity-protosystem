@@ -1,9 +1,21 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.56.0] - 2026-10-29
+
+### Changed
+- LiveOps, опросы: список берётся персональным роутом `/api/polls/for-player`
+  (`project_id` + `player_id`) — отбор по условиям («наиграно от N часов»,
+  группы, версия, срез сборки) делает сервер, поэтому пороги меняются из
+  дашборда без патча игры.
+- Если роут недоступен (старый сервер или нет сети) — прежнее поведение:
+  читаем коллекцию `polls` целиком и фильтруем на клиенте.
+- Последний удачный ответ кладётся в PlayerPrefs: без сети окно-просьба
+  покажет вчерашний вопрос, а не промолчит.
 
 ## [1.55.0] - 2026-10-21
 
