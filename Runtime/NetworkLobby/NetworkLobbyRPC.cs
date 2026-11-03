@@ -16,8 +16,8 @@ namespace ProtoSystem.NetworkLobby
             _system = system;
         }
 
-        [ServerRpc(RequireOwnership = false)]
-        public void SetReadyServerRpc(bool ready, ServerRpcParams rpcParams = default)
+        [Rpc(SendTo.Server)]
+        public void SetReadyServerRpc(bool ready, RpcParams rpcParams = default)
         {
             var clientId = rpcParams.Receive.SenderClientId;
             var players = _system.Players;
@@ -31,8 +31,8 @@ namespace ProtoSystem.NetworkLobby
             }
         }
 
-        [ServerRpc(RequireOwnership = false)]
-        public void SetPlayerNameServerRpc(string name, ServerRpcParams rpcParams = default)
+        [Rpc(SendTo.Server)]
+        public void SetPlayerNameServerRpc(string name, RpcParams rpcParams = default)
         {
             var clientId = rpcParams.Receive.SenderClientId;
             var players = _system.Players;

@@ -266,37 +266,37 @@ namespace ProtoSystem
         
         #region Server RPCs
         
-        [ServerRpc(RequireOwnership = false)]
+        [Rpc(SendTo.Server)]
         private void StartSessionServerRpc()
         {
             ExecuteStartSession();
         }
         
-        [ServerRpc(RequireOwnership = false)]
+        [Rpc(SendTo.Server)]
         private void RestartSessionServerRpc()
         {
             ExecuteRestartSession();
         }
         
-        [ServerRpc(RequireOwnership = false)]
+        [Rpc(SendTo.Server)]
         private void PauseSessionServerRpc()
         {
             ExecutePauseSession();
         }
         
-        [ServerRpc(RequireOwnership = false)]
+        [Rpc(SendTo.Server)]
         private void ResumeSessionServerRpc()
         {
             ExecuteResumeSession();
         }
         
-        [ServerRpc(RequireOwnership = false)]
+        [Rpc(SendTo.Server)]
         private void EndSessionServerRpc(int reason, bool isVictory)
         {
             ExecuteEndSession((SessionEndReason)reason, isVictory);
         }
         
-        [ServerRpc(RequireOwnership = false)]
+        [Rpc(SendTo.Server)]
         private void ReturnToMenuServerRpc()
         {
             ExecuteReturnToMenu();
