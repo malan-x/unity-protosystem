@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.57.3] - 2026-11-12
+
+### Fixed
+- LiveOps (PocketBase): панель сообщества показывала карточки с истёкшим сроком. Анонс теперь
+  виден только в окне `published_at`…`remove_at`, опрос и сообщение — до своего `expires_at`.
+  Клиент эти поля не проверял (у анонса не читал вовсе), а сервер отдаёт записи, пока они
+  `is_active`, — снимал их только дашборд у себя в таблице.
+
 ## [1.57.2] - 2026-11-03
 
 ### Fixed

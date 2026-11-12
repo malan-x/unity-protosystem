@@ -85,6 +85,7 @@ namespace ProtoSystem.LiveOps
             foreach (var r in items)
             {
                 if (r.project_id != _projectId) continue;
+                if (IsPast(r.expires_at)) continue;          // срок вышел — не показываем
                 result.Add(new LiveOpsMessage
                 {
                     id          = r.id,
@@ -132,6 +133,9 @@ namespace ProtoSystem.LiveOps
             {
                 if (r.project_id != _projectId) continue;
                 if (!r.is_active) continue;
+                // Срок вышел — опрос закрыт. Сервер отдаёт его по-прежнему (снимает только дашборд у себя),
+                // и игроки видели опросы месячной давности
+                if (IsPast(r.expires_at)) continue;
 
                 var poll = new LiveOpsPoll
                 {
@@ -407,6 +411,9 @@ namespace ProtoSystem.LiveOps
             foreach (var r in items)
             {
                 if (r.project_id != _projectId) continue;
+                // Окно показа из дашборда: до published_at анонса ещё нет, после remove_at — уже нет.
+                // Клиент этих полей не читал, и снятые анонсы висели в панели неделями
+                if (IsFuture(r.published_at) || IsPast(r.remove_at)) continue;
                 result.Add(new LiveOpsAnnouncement
                 {
                     id          = r.id,
@@ -574,6 +581,24 @@ namespace ProtoSystem.LiveOps
         /// Загружает все записи коллекции (до 200).
         /// Фильтрация по project_id — на клиенте.
         /// </summary>
+        /// <summary>
+        /// Момент уже прошёл. Дата PocketBase — «2026-11-10 09:56:00.000Z» (UTC); пустая или нечитаемая —
+        /// не срок, а его отсутствие: такое не прячем
+        /// </summary>
+        private static bool IsPast(string iso) => TryParseUtc(iso, out var t) && t <= DateTime.UtcNow;
+
+        /// <summary>Момент ещё не наступил (см. IsPast)</summary>
+        private static bool IsFuture(string iso) => TryParseUtc(iso, out var t) && t > DateTime.UtcNow;
+
+        private static bool TryParseUtc(string iso, out DateTime utc)
+        {
+            utc = default;
+            if (string.IsNullOrWhiteSpace(iso)) return false;
+            return DateTime.TryParse(iso.Trim(), System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
+                out utc);
+        }
+
         private async Task<List<T>> FetchCollection<T>(string collection)
         {
             var url = $"{_baseUrl}/api/collections/{collection}/records?perPage=200";
@@ -954,6 +979,8 @@ namespace ProtoSystem.LiveOps
             public string body;
             public string url;
             public string created;
+            public string published_at;   // показывать не раньше (пусто — сразу)
+            public string remove_at;      // снять после (пусто — бессрочно)
             // Legacy
             public string title_ru;
             public string title_en;
