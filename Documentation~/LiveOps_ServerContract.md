@@ -48,10 +48,12 @@ Reverse proxy — nginx (порты 80/443), домен `api.twohuyakproduction.
 
 ## Что вызывает клиент (PocketBaseHttpLiveOpsProvider)
 
-- `GET /api/collections/{collection}/records` — коллекции: `messages`, `polls`,
+- `GET /api/collections/{collection}/records` — коллекции: `polls`,
   `announcements`, `devlog`, `goals`, `ratings`, `content_order`, panel config.
 - `POST /api/collections/messages/records` — фидбек/сообщение игрока
-  (player_id, project_id, message, category).
+  (player_id, project_id, message, category). Список `messages` клиент не читает
+  (с 1.57.4): это фидбек всех игроков, читать его может только суперюзер. Свою
+  переписку игрок получает через `GET /api/messages/my`.
 - `POST /api/collections/ratings/records` — оценка (обрабатывает `ratings.pb.js`).
 - `POST /api/collections/poll_votes/records` — голос (upsert в `hooks.pb.js`).
 - `GET /api/messages/my`, `POST /api/messages/confirm` — переписка.

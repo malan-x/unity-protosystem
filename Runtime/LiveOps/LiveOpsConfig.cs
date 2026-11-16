@@ -23,7 +23,7 @@ namespace ProtoSystem.LiveOps
         public string defaultLanguage = "en";
 
         [Header("Features")]
-        [Tooltip("Показывать сообщения от разработчиков (MOTD/новости).")]
+        [Tooltip("Показывать сообщения от разработчиков (MOTD/новости). У PocketBase-провайдера рассылок нет — новости идут анонсами.")]
         public bool enableMessages = true;
 
         [Tooltip("Отправлять аналитические события.")]

@@ -23,7 +23,8 @@ namespace ProtoSystem.LiveOps
     /// Ожидаемые коллекции PocketBase:
     ///   ratings       — project_id, version, score, player_id
     ///   announcements — project_id, title (json), body (json), url
-    ///   messages      — project_id, title (json), body (json), type, expires_at
+    ///   messages      — фидбек игроков: клиент только пишет (POST), свою переписку
+    ///                   читает через GET /api/messages/my; список закрыт (суперюзер)
     ///   polls         — project_id, question (json), poll_type, expires_at
     ///   poll_votes    — poll_id, option_id, player_id
     ///   devlog        — project_id, focus (json), title (json), description (json)
@@ -76,28 +77,17 @@ namespace ProtoSystem.LiveOps
 
         // ── ILiveOpsProvider ──────────────────────────────────────────────────
 
-        public async Task<List<LiveOpsMessage>> FetchMessagesAsync()
-        {
-            var items = await FetchCollection<PbMessage>("messages");
-            if (items == null) return null;
-
-            var result = new List<LiveOpsMessage>();
-            foreach (var r in items)
-            {
-                if (r.project_id != _projectId) continue;
-                if (IsPast(r.expires_at)) continue;          // срок вышел — не показываем
-                result.Add(new LiveOpsMessage
-                {
-                    id          = r.id,
-                    title       = MakeLocalized(r.title, r.title_ru, r.title_en),
-                    body        = MakeLocalized(r.body,  r.body_ru,  r.body_en),
-                    type        = r.type,
-                    publishedAt = r.created,
-                    expiresAt   = r.expires_at,
-                });
-            }
-            return result;
-        }
+        /// <summary>
+        /// Рассылок «всем игрокам» у PocketBase-бэкенда нет — новости идут анонсами
+        /// (<see cref="FetchAnnouncementsAsync"/>). Коллекция <c>messages</c> на сервере —
+        /// входящий фидбек игроков (player_id, message, reply), её список закрыт: читать
+        /// может только суперюзер. Раньше клиент читал её как рассылку и на каждом
+        /// обновлении получал 403; будь список открыт, каждый игрок увидел бы чужой фидбек
+        /// как сообщения разработчика. Свою переписку игрок получает через
+        /// <see cref="FetchMyMessagesAsync"/> (GET /api/messages/my).
+        /// </summary>
+        public Task<List<LiveOpsMessage>> FetchMessagesAsync()
+            => Task.FromResult(new List<LiveOpsMessage>());
 
         /// <summary>PlayerPrefs-ключ со списком опросов на случай отсутствия сети.</summary>
         private string PollsCacheKey => $"liveops_polls_{_projectId}_{_playerId}";
@@ -981,23 +971,6 @@ namespace ProtoSystem.LiveOps
             public string created;
             public string published_at;   // показывать не раньше (пусто — сразу)
             public string remove_at;      // снять после (пусто — бессрочно)
-            // Legacy
-            public string title_ru;
-            public string title_en;
-            public string body_ru;
-            public string body_en;
-        }
-
-        [Serializable]
-        private class PbMessage
-        {
-            public string id;
-            public string project_id;
-            public string title;
-            public string body;
-            public string type;
-            public string expires_at;
-            public string created;
             // Legacy
             public string title_ru;
             public string title_en;

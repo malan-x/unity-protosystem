@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.57.4] - 2026-11-16
+
+### Fixed
+- LiveOps (PocketBase): клиент на каждом обновлении запрашивал весь список `messages`
+  как рассылку «всем игрокам» и получал 403 — у сервера это входящий фидбек игроков,
+  читать его может только суперюзер (так и в контракте сервера). Тысячи отказов в
+  логах сервера; будь список открыт, каждый игрок увидел бы чужой фидбек как
+  сообщения разработчика. `FetchMessagesAsync` теперь отдаёт пустой список без
+  запроса: новости идут анонсами, своя переписка — через `GET /api/messages/my`.
+
 ## [1.57.3] - 2026-11-12
 
 ### Fixed
