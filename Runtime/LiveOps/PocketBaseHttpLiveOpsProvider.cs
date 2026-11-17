@@ -311,6 +311,9 @@ namespace ProtoSystem.LiveOps
             sb.Append("{\"project_id\":\"").Append(EscapeJson(_projectId)).Append('"');
             sb.Append(",\"player_id\":\"").Append(EscapeJson(playerId)).Append('"');
             if (!string.IsNullOrEmpty(name))            sb.Append(",\"name\":\"").Append(EscapeJson(name)).Append('"');
+            // id машины рядом с настоящим id: сервер один раз склеит анонимную историю
+            if (!string.IsNullOrEmpty(batch.anonId) && batch.anonId != playerId)
+                                                        sb.Append(",\"anon_id\":\"").Append(EscapeJson(batch.anonId)).Append('"');
             if (!string.IsNullOrEmpty(batch.version))   sb.Append(",\"version\":\"").Append(EscapeJson(batch.version)).Append('"');
             if (!string.IsNullOrEmpty(batch.lang))      sb.Append(",\"lang\":\"").Append(EscapeJson(batch.lang)).Append('"');
             if (!string.IsNullOrEmpty(batch.env))       sb.Append(",\"env\":\"").Append(EscapeJson(batch.env)).Append('"');

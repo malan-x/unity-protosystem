@@ -63,6 +63,7 @@ namespace ProtoSystem.LiveOps
         private string                    _playerId;
         private string                    _playerName;
         private bool                      _playerIdOverridden;
+        private string                    _anonymousId;     // id машины, считается один раз
 
         /// <summary>
         /// Сколько ждать финальный id игрока (SetPlayerId из проекта), прежде чем
@@ -704,14 +705,14 @@ namespace ProtoSystem.LiveOps
             _provider = config.GetProvider();
             if (_provider == null && !string.IsNullOrEmpty(config.serverUrl))
             {
-                if (!_playerIdOverridden) _playerId = GetOrCreateAnonymousId();
+                if (!_playerIdOverridden) _playerId = AnonymousId;
                 _provider = config.CreateProvider(_playerId);
                 config.SetProvider(_provider);
                 ProtoLogger.LogInit(SystemId, $"{_provider.GetType().Name} установлен автоматически.");
             }
 
             if (!_playerIdOverridden)
-                _playerId = GetOrCreateAnonymousId();
+                _playerId = AnonymousId;
 
             // Передаём имя игрока в провайдер (если задано)
             if (!string.IsNullOrEmpty(_playerName))
@@ -923,10 +924,15 @@ namespace ProtoSystem.LiveOps
             if (_provider == null || _telemetrySending) return;
             if (_analyticsQueue.Count == 0 && !force) return;
 
+            // Id машины уходит рядом с настоящим id, только когда они разные: сервер по
+            // этой паре переносит анонимную историю игрока (например, сессии, сыгранные,
+            // пока Steam не поднимался) в его запись. Анониму слать нечего — id совпадают.
+            string anonId = AnonymousId;
             var batch = new LiveOpsTelemetryBatch
             {
                 playerId        = _playerId,
                 playerName      = _playerName,
+                anonId          = !string.IsNullOrEmpty(anonId) && anonId != _playerId ? anonId : null,
                 version         = Application.version,
                 lang            = Language,
                 tzOffsetMinutes = (int)TimeZoneInfo.Local.GetUtcOffset(DateTime.Now).TotalMinutes,
@@ -986,6 +992,12 @@ namespace ProtoSystem.LiveOps
                 { "platform", Application.platform.ToString() },
             });
         }
+
+        /// <summary>
+        /// Анонимный id этой машины. Считается один раз: SystemInfo и PlayerPrefs
+        /// незачем дёргать на каждой пачке телеметрии.
+        /// </summary>
+        private string AnonymousId => _anonymousId ??= GetOrCreateAnonymousId();
 
         private static string GetOrCreateAnonymousId()
         {

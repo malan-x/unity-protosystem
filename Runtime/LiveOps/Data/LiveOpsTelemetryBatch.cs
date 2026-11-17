@@ -21,6 +21,16 @@ namespace ProtoSystem.LiveOps
         /// <summary>Отображаемое имя (Steam persona).</summary>
         public string playerName;
 
+        /// <summary>
+        /// Анонимный id этой машины (<c>SystemInfo.deviceUniqueIdentifier</c>), под
+        /// которым игрок жил, пока проект не подставил свой id через SetPlayerId.
+        /// Заполняется только когда <see cref="playerId"/> от него отличается: по
+        /// этой паре сервер один раз переносит анонимную историю (сессии, минуты,
+        /// дни, заезды) в запись под настоящим id. Без неё сессии, сыгранные, когда
+        /// Steam не поднялся, навсегда остались бы чужим «анонимным» игроком.
+        /// </summary>
+        public string anonId;
+
         /// <summary>Версия игры.</summary>
         public string version;
 

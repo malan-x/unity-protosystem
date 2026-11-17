@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.58.0] - 2026-11-17
+
+### Added
+- LiveOps: пачка телеметрии несёт `anon_id` — id машины (`SystemInfo.deviceUniqueIdentifier`),
+  когда проект подставил свой id через `SetPlayerId` (например SteamID). По этой паре сервер
+  один раз переносит анонимную историю игрока в его запись. Нужна, когда Steam не поднялся
+  и игрок какое-то время играл под id машины: такие сессии больше не остаются отдельным
+  «анонимным» игроком. Id машины считается один раз за запуск.
+
 ## [1.57.4] - 2026-11-16
 
 ### Fixed
