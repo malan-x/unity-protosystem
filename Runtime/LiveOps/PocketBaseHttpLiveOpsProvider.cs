@@ -28,8 +28,9 @@ namespace ProtoSystem.LiveOps
     ///   polls         — project_id, question (json), poll_type, expires_at
     ///   poll_votes    — poll_id, option_id, player_id
     ///   devlog        — project_id, focus (json), title (json), description (json)
-    ///   goals         — project_id, description (json), unit (json), current, goal
-    ///   content_order — project_id, order (json: [{"type":"poll","id":"..."}, ...])
+    ///   goals         — project_id, description (json), unit (json), current, target, is_active
+    ///   content_order — project_id, order (json: [{"type":"poll","id":"...","pinned":true}, ...];
+    ///                   pinned — элемент стоит под панелью на месте цели)
     ///   panel_config  — project_id, (json-поля конфига виджетов)
     ///
     /// Локализуемые поля хранятся как JSON: {"ru":"Текст","en":"Text","de":"Text",...}
@@ -460,6 +461,9 @@ namespace ProtoSystem.LiveOps
                     LiveOpsLog.Info($"[PocketBaseProvider] FetchMilestone: пропуск записи project_id='{r.project_id}'");
                     continue;
                 }
+                // Выключенную цель прятало только правило коллекции на сервере; без него
+                // игра брала первую цель проекта, в том числе выключенную
+                if (!r.is_active) continue;
                 var desc = MakeLocalized(r.description, r.description_ru, r.description_en);
                 LiveOpsLog.Info($"[PocketBaseProvider] FetchMilestone: найдена цель '{desc.Get("en")}' {r.current}/{r.target}");
                 return new LiveOpsMilestoneData
@@ -992,6 +996,7 @@ namespace ProtoSystem.LiveOps
             public string unit;
             public int    current;
             public int    target;    // На сервере поле называется "target"
+            public bool   is_active;
             public string updated;
             // Legacy _ru/_en (обратная совместимость)
             public string description_ru;
@@ -1137,6 +1142,20 @@ namespace ProtoSystem.LiveOps
                 s++;
             }
             return obj.Substring(start, s - start);
+        }
+
+        /// <summary>Булево поле JSON-объекта: true только при литерале true (нет поля — false).</summary>
+        private static bool ExtractBoolField(string obj, string fieldName)
+        {
+            int idx = obj.IndexOf($"\"{fieldName}\"", StringComparison.Ordinal);
+            if (idx < 0) return false;
+
+            int colonIdx = obj.IndexOf(':', idx + fieldName.Length + 2);
+            if (colonIdx < 0) return false;
+
+            int s = colonIdx + 1;
+            while (s < obj.Length && char.IsWhiteSpace(obj[s])) s++;
+            return string.CompareOrdinal(obj, s, "true", 0, 4) == 0;
         }
 
         // ── Poll DTOs & helpers ─────────────────────────────────────────────
@@ -1293,8 +1312,9 @@ namespace ProtoSystem.LiveOps
                     var obj = json.Substring(start, i - start);
                     var entry = new LiveOpsContentOrderEntry
                     {
-                        type = ExtractStringField(obj, "type"),
-                        id   = ExtractStringField(obj, "id"),
+                        type   = ExtractStringField(obj, "type"),
+                        id     = ExtractStringField(obj, "id"),
+                        pinned = ExtractBoolField(obj, "pinned"),
                     };
                     if (!string.IsNullOrEmpty(entry.type))
                         result.Add(entry);

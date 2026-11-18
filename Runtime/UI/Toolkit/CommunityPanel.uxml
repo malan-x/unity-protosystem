@@ -89,6 +89,29 @@
             <ui:Button name="cp-collapse-button" class="cp-toggle-button cp-toggle-button-right" text="" />
         </ui:VisualElement>
 
+        <!-- ══ Закреплённая карточка (не сворачивается) ══
+             Новость, опрос или девлог, закреплённые в дашборде под панелью
+             (content_order: pinned). Стоит на месте цели и вместо неё, в карусель
+             не попадает. Вёрстка — как у карточек карусели, код отрисовки общий. -->
+        <ui:VisualElement name="cp-pinned" class="cp-pinned">
+            <ui:VisualElement name="cp-pinned-poll-card" class="cp-card">
+                <ui:Label name="cp-pinned-poll-question" class="cp-card-title" text="" />
+                <ui:VisualElement name="cp-pinned-poll-options" class="cp-poll-options" />
+            </ui:VisualElement>
+            <ui:VisualElement name="cp-pinned-ann-card" class="cp-card">
+                <ui:Label name="cp-pinned-ann-title" class="cp-card-title" text="" />
+                <ui:Label name="cp-pinned-ann-body" class="cp-ann-body" text="" />
+                <ui:Button name="cp-pinned-ann-url-button" class="cp-link-button" text="" />
+            </ui:VisualElement>
+            <ui:VisualElement name="cp-pinned-devlog-card" class="cp-card">
+                <ui:Label name="cp-pinned-devlog-focus" class="cp-devlog-focus" text="" />
+                <ui:Label name="cp-pinned-devlog-title" class="cp-card-title" text="" />
+                <ui:Label name="cp-pinned-devlog-desc" class="cp-devlog-desc" text="" />
+                <ui:VisualElement name="cp-pinned-devlog-items" class="cp-devlog-items" />
+            </ui:VisualElement>
+            <ui:Label name="cp-pinned-meta" class="cp-card-meta" text="" />
+        </ui:VisualElement>
+
         <!-- ══ Цель (не сворачивается) ══ -->
         <ui:VisualElement name="cp-goal" class="cp-goal">
             <ui:Label name="cp-goal-desc" class="cp-goal-desc" text="" picking-mode="Ignore" />

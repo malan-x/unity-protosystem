@@ -450,6 +450,19 @@
 .cp-status-text  { font-size: 14px; color: var(--cp-text-dim); margin-left: 13px; }
 .cp-summary-text { font-size: 14px; color: var(--cp-text-dim); margin-right: 13px; }
 
+/* ══ Закреплённая карточка (на месте цели) ══
+   Та же полоса, что у цели; внутри — обычные классы карточек (.cp-card-title,
+   .cp-poll-option, ...), так что проектные переопределения карусели действуют и тут. */
+
+.cp-pinned {
+    flex-direction: column;
+    background-color: var(--cp-strip-bg);
+    border-width: 1px;
+    border-color: var(--cp-border);
+    border-top-width: 0;
+    padding: 12px 29px 6px 29px;
+}
+
 /* ══ Цель (вишлисты) ══ */
 
 .cp-goal {

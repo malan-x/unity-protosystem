@@ -46,15 +46,13 @@ namespace ProtoSystem.UI
 
         private VisualElement _expandedRoot;
         private VisualElement _panelBody;       // = cardsRoot в uGUI (вся верхняя панель)
-        private VisualElement _pollCard, _annCard, _devLogCard;
-        private Label  _pollQuestion;
-        private VisualElement _pollOptions;
-        private Label  _annTitle, _annBody;
-        private Button _annUrlButton;
-        private Label  _devLogFocus, _devLogTitle, _devLogDesc;
-        private VisualElement _devLogItems;
+        private VisualElement _cardHeader, _cardContent, _cardSeparator;
         private Button _prevButton, _nextButton;
-        private Label  _cardCounter, _typeBadge, _cardMeta;
+        private Label  _cardCounter;
+
+        // Карточка карусели и закреплённая под панелью — одна вёрстка, общий код отрисовки
+        private readonly CardView _cards  = new();
+        private readonly CardView _pinned = new();
 
         private VisualElement _messageRow;
         private TextField _messageInput;
@@ -82,6 +80,25 @@ namespace ProtoSystem.UI
         private readonly List<Label> _starLabels = new();
         private int _ratingPreview;
 
+        /// <summary>
+        /// Элементы, в которые рисуется карточка. Два набора: карусель (cp-*) и
+        /// закреплённая под панелью (cp-pinned-*); имена внутри наборов совпадают.
+        /// </summary>
+        private sealed class CardView
+        {
+            public VisualElement root;           // контейнер набора (у карусели не нужен)
+            public VisualElement pollCard, annCard, devLogCard;
+            public Label  pollQuestion;
+            public VisualElement pollOptions;
+            public Label  annTitle, annBody;
+            public Button annUrlButton;
+            public string annUrl;                // ссылка показанной новости
+            public Label  devLogFocus, devLogTitle, devLogDesc;
+            public VisualElement devLogItems;
+            public Label  meta;
+            public Label  badge;                 // бейдж типа — только у карусели
+        }
+
         #endregion
 
         #region State (зеркало uGUI-версии)
@@ -90,8 +107,10 @@ namespace ProtoSystem.UI
         private List<LiveOpsAnnouncement> _announcements = new();
         private LiveOpsDevLog             _devLog;
         private LiveOpsContentOrder       _contentOrder;
+        private LiveOpsMilestoneData      _milestone;
 
         private readonly List<string> _cardKeys = new();
+        private string _pinnedKey;   // ключ закреплённой карточки ("poll:id" и т.п.), null — нет
         private int  _currentCard;
         private int  _userVote;
         private bool _showLocalizedReply = true;
@@ -123,6 +142,7 @@ namespace ProtoSystem.UI
             // Начальная видимость (как Awake в uGUI)
             SetVisible(_panelBody,         false);
             SetVisible(_messageRow,        false);
+            SetVisible(_pinned.root,       false);
             SetVisible(_goalRoot,          false);
             SetVisible(_ratingRoot,        false);
             SetVisible(_notificationBadge, false);
@@ -224,23 +244,22 @@ namespace ProtoSystem.UI
         {
             _expandedRoot     = _root.Q("cp-expanded");
             _panelBody        = _root.Q("cp-panel-body");
-            _pollCard         = _root.Q("cp-poll-card");
-            _annCard          = _root.Q("cp-ann-card");
-            _devLogCard       = _root.Q("cp-devlog-card");
-            _pollQuestion     = _root.Q<Label>("cp-poll-question");
-            _pollOptions      = _root.Q("cp-poll-options");
-            _annTitle         = _root.Q<Label>("cp-ann-title");
-            _annBody          = _root.Q<Label>("cp-ann-body");
-            _annUrlButton     = _root.Q<Button>("cp-ann-url-button");
-            _devLogFocus      = _root.Q<Label>("cp-devlog-focus");
-            _devLogTitle      = _root.Q<Label>("cp-devlog-title");
-            _devLogDesc       = _root.Q<Label>("cp-devlog-desc");
-            _devLogItems      = _root.Q("cp-devlog-items");
+            _cardHeader       = _root.Q("cp-card-header");
+            _cardContent      = _root.Q("cp-card-content");
+            _cardSeparator    = _panelBody?.Q(className: "cp-separator");
             _prevButton       = _root.Q<Button>("cp-prev-button");
             _nextButton       = _root.Q<Button>("cp-next-button");
             _cardCounter      = _root.Q<Label>("cp-card-counter");
-            _typeBadge        = _root.Q<Label>("cp-type-badge");
-            _cardMeta         = _root.Q<Label>("cp-card-meta");
+
+            BindCardView(_cards, "cp-");
+            _cards.meta   = _root.Q<Label>("cp-card-meta");
+            _cards.badge  = _root.Q<Label>("cp-type-badge");
+
+            // Шаблон проекта без блока cp-pinned — root == null: закреплённая карточка
+            // остаётся в карусели, как у клиентов без поддержки закрепа
+            BindCardView(_pinned, "cp-pinned-");
+            _pinned.root  = _root.Q("cp-pinned");
+            _pinned.meta  = _root.Q<Label>("cp-pinned-meta");
 
             _messageRow       = _root.Q("cp-message-row");
             _messageInput     = _root.Q<TextField>("cp-message-input");
@@ -281,6 +300,23 @@ namespace ProtoSystem.UI
             _ratingAvg     = _root.Q<Label>("cp-rating-avg");
         }
 
+        /// <summary>Элементы карточек набора: prefix + "poll-card", "ann-title" и т.д.</summary>
+        private void BindCardView(CardView v, string prefix)
+        {
+            v.pollCard     = _root.Q(prefix + "poll-card");
+            v.pollQuestion = _root.Q<Label>(prefix + "poll-question");
+            v.pollOptions  = _root.Q(prefix + "poll-options");
+            v.annCard      = _root.Q(prefix + "ann-card");
+            v.annTitle     = _root.Q<Label>(prefix + "ann-title");
+            v.annBody      = _root.Q<Label>(prefix + "ann-body");
+            v.annUrlButton = _root.Q<Button>(prefix + "ann-url-button");
+            v.devLogCard   = _root.Q(prefix + "devlog-card");
+            v.devLogFocus  = _root.Q<Label>(prefix + "devlog-focus");
+            v.devLogTitle  = _root.Q<Label>(prefix + "devlog-title");
+            v.devLogDesc   = _root.Q<Label>(prefix + "devlog-desc");
+            v.devLogItems  = _root.Q(prefix + "devlog-items");
+        }
+
         private void RegisterCallbacks()
         {
             // Button.clicked — работает и от геймпадного Submit (в отличие от ClickEvent)
@@ -292,7 +328,19 @@ namespace ProtoSystem.UI
             if (_translationToggle != null) _translationToggle.clicked += CycleTranslationMode;
             if (_expandButton != null)   _expandButton.clicked   += () => SetExpanded(true);
             if (_collapseButton != null) _collapseButton.clicked += () => SetExpanded(false);
-            if (_annUrlButton != null)   SetVisible(_annUrlButton, false);
+
+            // Ссылка новости: один постоянный обработчик на набор, URL — из показанной карточки
+            foreach (var view in new[] { _cards, _pinned })
+            {
+                var v = view;
+                if (v.annUrlButton == null) continue;
+                SetVisible(v.annUrlButton, false);
+                v.annUrlButton.clicked += () =>
+                {
+                    if (!string.IsNullOrEmpty(v.annUrl))
+                        Application.OpenURL(v.annUrl);
+                };
+            }
 
             // Общий обход вверх/вниз по панели (см. OnPanelNavMove)
             _root.RegisterCallback<NavigationMoveEvent>(OnPanelNavMove);
@@ -756,10 +804,7 @@ namespace ProtoSystem.UI
                     Add(_nextButton);
 
                     // Интерактив текущей карточки: опции опроса или ссылка объявления
-                    if (_pollOptions != null)
-                        foreach (var option in _pollOptions.Children())
-                            Add(option);
-                    Add(_annUrlButton);
+                    AddCardControls(_cards);
 
                     Add(_messageInput);
                     Add(_sendButton);
@@ -771,6 +816,10 @@ namespace ProtoSystem.UI
             Add(_expandButton);
             Add(_collapseButton);
 
+            // Закреплённая карточка — под свёрнутой строкой, видна в обоих состояниях
+            if (!_conversationOpen && IsDisplayed(_pinned.root))
+                AddCardControls(_pinned);
+
             Add(_ratingStars);
 
             return list;
@@ -779,7 +828,18 @@ namespace ProtoSystem.UI
             {
                 if (IsNavigable(ve)) list.Add(ve);
             }
+
+            void AddCardControls(CardView v)
+            {
+                if (v.pollOptions != null)
+                    foreach (var option in v.pollOptions.Children())
+                        Add(option);
+                Add(v.annUrlButton);
+            }
         }
+
+        private static bool IsDisplayed(VisualElement ve)
+            => ve != null && ve.resolvedStyle.display != DisplayStyle.None;
 
         private static bool IsNavigable(VisualElement ve)
             => ve != null
@@ -862,12 +922,12 @@ namespace ProtoSystem.UI
 
             SetVisible(_panelBody,  stub.showCards);
             SetVisible(_messageRow, stub.showMessages);
-            SetVisible(_goalRoot,   stub.showGoal);
             SetVisible(_ratingRoot, stub.showRating);
 
             _polls.Clear();
             _announcements.Clear();
             _devLog = null;
+            _contentOrder = BuildStubContentOrder(stub.cards);
 
             if (stub.cards != null)
             {
@@ -884,9 +944,41 @@ namespace ProtoSystem.UI
 
             RebuildCardList();
             ShowCard(0);
+            RefreshCarouselParts();
 
-            if (stub.showGoal)   RefreshGoal(stub.goal.ToMilestone());
+            _milestone = stub.showGoal ? stub.goal.ToMilestone() : null;
+            if (_milestone != null) RefreshGoal(_milestone);
+            RefreshSlot();
+
             if (stub.showRating) RefreshRating(stub.rating.ToRatingData());
+        }
+
+        /// <summary>
+        /// Порядок из stub-карточек — только если какая-то закреплена; иначе null,
+        /// и карусель собирается по типам, как раньше.
+        /// </summary>
+        private static LiveOpsContentOrder BuildStubContentOrder(StubCardEntry[] cards)
+        {
+            if (cards == null || !System.Array.Exists(cards, c => c != null && c.pinned)) return null;
+
+            var entries = new List<LiveOpsContentOrderEntry>();
+            foreach (var c in cards)
+            {
+                if (c == null) continue;
+                switch (c.type)
+                {
+                    case StubCardType.Poll:
+                        entries.Add(new LiveOpsContentOrderEntry { type = "poll", id = c.poll.id, pinned = c.pinned });
+                        break;
+                    case StubCardType.Announcement:
+                        entries.Add(new LiveOpsContentOrderEntry { type = "announcement", id = c.announcement.id, pinned = c.pinned });
+                        break;
+                    case StubCardType.DevLog:
+                        entries.Add(new LiveOpsContentOrderEntry { type = "devlog", id = c.devLog.id, pinned = c.pinned });
+                        break;
+                }
+            }
+            return new LiveOpsContentOrder { order = entries.ToArray() };
         }
 
         #endregion
@@ -924,8 +1016,9 @@ namespace ProtoSystem.UI
                     break;
 
                 case LiveOpsDataType.Milestone when data.Data is LiveOpsMilestoneData milestone:
+                    _milestone = milestone;
                     RefreshGoal(milestone);
-                    SetVisible(_goalRoot, true);
+                    RefreshSlot();   // место цели может быть занято закреплённой карточкой
                     _dataLoaded = true;
                     UpdateSummary();
                     break;
@@ -947,6 +1040,7 @@ namespace ProtoSystem.UI
             RebuildCardList();
             ShowCard(_currentCard);
             RefreshCardsVisibility();
+            RefreshSlot();
             _dataLoaded = true;
             UpdateSummary();
         }
@@ -958,7 +1052,8 @@ namespace ProtoSystem.UI
             {
                 ShowCard(_currentCard);
                 UpdateSummary();
-                if (_liveOpsSystem?.Milestone != null) RefreshGoal(_liveOpsSystem.Milestone);
+                if (_milestone != null) RefreshGoal(_milestone);
+                RefreshSlot();   // перерисовать закреплённую карточку на новом языке
             }
             if (_conversationOpen)
             {
@@ -973,18 +1068,95 @@ namespace ProtoSystem.UI
 
         private void RefreshWidgetVisibility()
         {
+            RefreshSlot();
             if (_liveOpsSystem == null) return;
-            bool cardsVisible = _liveOpsSystem.IsWidgetVisible("cards") && _cardKeys.Count > 0;
-            SetVisible(_panelBody,  cardsVisible);
+            RefreshCardsVisibility();
             SetVisible(_messageRow, _liveOpsSystem.IsWidgetVisible("messages"));
-            SetVisible(_goalRoot,   _liveOpsSystem.IsWidgetVisible("goal") && _liveOpsSystem.Milestone != null);
             SetVisible(_ratingRoot, _liveOpsSystem.IsWidgetVisible("rating") && _liveOpsSystem.Rating != null && _launchCount >= 2);
         }
 
         private void RefreshCardsVisibility()
         {
+            RefreshCarouselParts();
             if (_liveOpsSystem == null) return;
-            SetVisible(_panelBody, _liveOpsSystem.IsWidgetVisible("cards") && _cardKeys.Count > 0);
+
+            // Всё содержимое закреплено — карусель пуста, но тело панели остаётся
+            // ради строки сообщения разработчикам (она внутри тела)
+            bool hasContent = _cardKeys.Count > 0 || _pinnedKey != null;
+            SetVisible(_panelBody, _liveOpsSystem.IsWidgetVisible("cards") && hasContent);
+        }
+
+        /// <summary>Шапка, карточка и разделитель карусели — только когда в ней есть карточки.</summary>
+        private void RefreshCarouselParts()
+        {
+            bool any = _cardKeys.Count > 0;
+            SetVisible(_cardHeader,    any);
+            SetVisible(_cardContent,   any);
+            SetVisible(_cards.meta,    any);
+            SetVisible(_cardSeparator, any);
+        }
+
+        /// <summary>Виджет панели включён (stub — флаги ассета; без системы — да).</summary>
+        private bool WidgetVisible(string key)
+        {
+            if (_stubConfig != null)
+                return key switch
+                {
+                    "cards" => _stubConfig.showCards,
+                    "goal"  => _stubConfig.showGoal,
+                    _       => true
+                };
+            return _liveOpsSystem == null || _liveOpsSystem.IsWidgetVisible(key);
+        }
+
+        #endregion
+
+        #region Slot: закреплённая карточка или цель
+
+        /// <summary>
+        /// Полоса под свёрнутой строкой — одно место: карточка, закреплённая в дашборде,
+        /// иначе цель. Пока открыта переписка, полоса скрыта целиком.
+        /// </summary>
+        private void RefreshSlot()
+        {
+            bool pinnedShown = !_conversationOpen
+                               && _pinnedKey != null
+                               && WidgetVisible("cards")
+                               && ShowCardIn(_pinned, _pinnedKey);
+            SetVisible(_pinned.root, pinnedShown);
+
+            if (pinnedShown)
+            {
+                // Пустая строка мета (у новости и девлога) дала бы лишний отступ снизу
+                SetVisible(_pinned.meta, !string.IsNullOrEmpty(_pinned.meta?.text));
+                // Карточка на виду — снятая с закрепа не всплывёт в карусели «новой»
+                MarkCardSeen(_pinnedKey);
+            }
+
+            SetVisible(_goalRoot, !_conversationOpen && !pinnedShown
+                                  && _milestone != null && WidgetVisible("goal"));
+        }
+
+        /// <summary>
+        /// Ключ закреплённой карточки — если она среди загруженных (активных, не истёкших)
+        /// и в шаблоне есть блок cp-pinned. Иначе null: элемент остаётся в карусели.
+        /// </summary>
+        private string ResolvePinnedKey()
+        {
+            var e = _contentOrder?.Pinned;
+            if (e == null || _pinned.root == null) return null;
+
+            switch (e.type)
+            {
+                case "poll":
+                    return _polls.Exists(p => p.id == e.id) ? $"poll:{e.id}" : null;
+                case "announcement":
+                    return _announcements.Exists(a => a.id == e.id) ? $"announcement:{e.id}" : null;
+                case "devlog":
+                    return _devLog != null && (_devLog.id == e.id || string.IsNullOrEmpty(e.id)) ? "devlog" : null;
+                default:
+                    return null;
+            }
         }
 
         #endregion
@@ -994,6 +1166,8 @@ namespace ProtoSystem.UI
         private void RebuildCardList()
         {
             _cardKeys.Clear();
+            // Закреплённая карточка стоит под панелью — в карусель её не берём
+            _pinnedKey = ResolvePinnedKey();
 
             if (_contentOrder != null && _contentOrder.order.Length > 0)
             {
@@ -1003,82 +1177,106 @@ namespace ProtoSystem.UI
                     {
                         case "poll":
                             if (_polls.Exists(p => p.id == entry.id))
-                                _cardKeys.Add($"poll:{entry.id}");
+                                AddKey($"poll:{entry.id}");
                             break;
                         case "announcement":
                             if (_announcements.Exists(a => a.id == entry.id))
-                                _cardKeys.Add($"announcement:{entry.id}");
+                                AddKey($"announcement:{entry.id}");
                             break;
                         case "devlog":
                             if (_devLog != null && (_devLog.id == entry.id || string.IsNullOrEmpty(entry.id)))
-                                _cardKeys.Add("devlog");
+                                AddKey("devlog");
                             break;
                     }
                 }
             }
             else
             {
-                foreach (var poll in _polls)        _cardKeys.Add($"poll:{poll.id}");
-                foreach (var ann in _announcements) _cardKeys.Add($"announcement:{ann.id}");
-                if (_devLog != null)                _cardKeys.Add("devlog");
+                foreach (var poll in _polls)        AddKey($"poll:{poll.id}");
+                foreach (var ann in _announcements) AddKey($"announcement:{ann.id}");
+                if (_devLog != null)                AddKey("devlog");
             }
 
             _currentCard = Mathf.Clamp(_currentCard, 0, Mathf.Max(0, _cardKeys.Count - 1));
+
+            void AddKey(string key)
+            {
+                if (key != _pinnedKey) _cardKeys.Add(key);
+            }
         }
 
         private void ShowCard(int index)
         {
-            SetVisible(_pollCard,   false);
-            SetVisible(_annCard,    false);
-            SetVisible(_devLogCard, false);
-
-            if (_cardKeys.Count == 0) { UpdateCardCounter(0, 0); return; }
+            if (_cardKeys.Count == 0) { HideCards(_cards); UpdateCardCounter(0, 0); return; }
 
             index = Mathf.Clamp(index, 0, _cardKeys.Count - 1);
             _currentCard = index;
-            var lang = _stubConfig?.language ?? _liveOpsSystem?.Language ?? "en";
-            var key  = _cardKeys[index];
+            var key = _cardKeys[index];
 
-            if (key.StartsWith("poll:"))
-            {
-                var poll = _polls.Find(p => p.id == key.Substring(5));
-                if (poll != null) ShowPollCard(poll, lang);
-            }
-            else if (key.StartsWith("announcement:"))
-            {
-                var ann = _announcements.Find(a => a.id == key.Substring(13));
-                if (ann != null) ShowAnnouncementCard(ann, lang);
-            }
-            else if (key == "devlog" && _devLog != null)
-            {
-                ShowDevLogCard(_devLog, lang);
-            }
+            ShowCardIn(_cards, key);
 
             UpdateCardCounter(index + 1, _cardKeys.Count);
             MarkCardSeen(key);
             NotifyLayoutChanged("card_changed");
         }
 
-        private void ShowPollCard(LiveOpsPoll poll, string lang)
+        /// <summary>Нарисовать карточку по ключу в набор. false — данных по ключу нет, набор пуст.</summary>
+        private bool ShowCardIn(CardView view, string key)
         {
-            SetVisible(_pollCard, true);
-            if (_pollQuestion != null)
-                _pollQuestion.text = L($"liveops.poll.{poll.id}.q", poll.question.Get(lang));
+            HideCards(view);
+            var lang = CurrentLang;
 
-            if (_cardMeta != null)
-                _cardMeta.text = poll.votesTotal > 0 ? $"{poll.votesTotal:N0} votes" : "";
+            if (key.StartsWith("poll:"))
+            {
+                var poll = _polls.Find(p => p.id == key.Substring(5));
+                if (poll == null) return false;
+                ShowPollCard(view, poll, lang);
+                return true;
+            }
+            if (key.StartsWith("announcement:"))
+            {
+                var ann = _announcements.Find(a => a.id == key.Substring(13));
+                if (ann == null) return false;
+                ShowAnnouncementCard(view, ann, lang);
+                return true;
+            }
+            if (key == "devlog" && _devLog != null)
+            {
+                ShowDevLogCard(view, _devLog, lang);
+                return true;
+            }
+            return false;
+        }
+
+        private static void HideCards(CardView view)
+        {
+            SetVisible(view.pollCard,   false);
+            SetVisible(view.annCard,    false);
+            SetVisible(view.devLogCard, false);
+        }
+
+        private string CurrentLang => _stubConfig?.language ?? _liveOpsSystem?.Language ?? "en";
+
+        private void ShowPollCard(CardView view, LiveOpsPoll poll, string lang)
+        {
+            SetVisible(view.pollCard, true);
+            if (view.pollQuestion != null)
+                view.pollQuestion.text = L($"liveops.poll.{poll.id}.q", poll.question.Get(lang));
+
+            if (view.meta != null)
+                view.meta.text = poll.votesTotal > 0 ? $"{poll.votesTotal:N0} votes" : "";
 
             bool isMulti = poll.pollType == "multi";
-            SetBadge(
+            SetBadge(view,
                 isMulti ? "type_poll_multi" : "type_poll",
                 isMulti ? UIKeys.CommunityPanel.Fallback.TypePollMulti : UIKeys.CommunityPanel.Fallback.TypePoll);
 
-            if (_pollOptions == null) return;
+            if (view.pollOptions == null) return;
 
             // Голосование перерисовывает опции: Clear() уничтожает кнопки вместе с фокусом.
             // Запоминаем позицию, чтобы вернуть фокус на ту же строку опроса.
-            int focusedOption = FocusedPollOptionIndex();
-            _pollOptions.Clear();
+            int focusedOption = FocusedPollOptionIndex(view);
+            view.pollOptions.Clear();
 
             bool hasVoted = System.Array.Exists(poll.options, o => o.selected);
 
@@ -1089,8 +1287,8 @@ namespace ProtoSystem.UI
 
                 var btn = new Button(() =>
                 {
-                    if (_liveOpsSystem != null) OptimisticPollVote(poll, optId);
-                    else                        ToggleStubPollSelection(optId, poll);
+                    if (_liveOpsSystem != null) OptimisticPollVote(view, poll, optId);
+                    else                        ToggleStubPollSelection(view, optId, poll);
                 });
                 btn.AddToClassList("cp-poll-option");
                 btn.text = string.Empty;
@@ -1119,20 +1317,20 @@ namespace ProtoSystem.UI
                 pct.pickingMode = PickingMode.Ignore;
                 btn.Add(pct);
 
-                _pollOptions.Add(btn);
+                view.pollOptions.Add(btn);
             }
 
-            RestorePollOptionFocus(focusedOption);
+            RestorePollOptionFocus(view, focusedOption);
         }
 
-        /// <summary>Индекс опции опроса, на которой сейчас фокус (-1 — фокус не в опросе).</summary>
-        private int FocusedPollOptionIndex()
+        /// <summary>Индекс опции опроса набора, на которой сейчас фокус (-1 — фокус не в этом опросе).</summary>
+        private int FocusedPollOptionIndex(CardView view)
         {
-            if (_pollOptions == null) return -1;
+            if (view.pollOptions == null) return -1;
             if (_root?.focusController?.focusedElement is not VisualElement focused) return -1;
 
             int index = 0;
-            foreach (var option in _pollOptions.Children())
+            foreach (var option in view.pollOptions.Children())
             {
                 if (option == focused || option.Contains(focused)) return index;
                 index++;
@@ -1144,14 +1342,14 @@ namespace ProtoSystem.UI
         /// Вернуть фокус на опцию опроса после перерисовки (кнопки — новые объекты).
         /// Отложено на кадр: до этого новые элементы ещё без layout, Focus() не сработает.
         /// </summary>
-        private void RestorePollOptionFocus(int index)
+        private void RestorePollOptionFocus(CardView view, int index)
         {
-            if (index < 0 || _pollOptions == null || _root?.panel == null) return;
+            if (index < 0 || view.pollOptions == null || _root?.panel == null) return;
 
             _root.schedule.Execute(() =>
             {
                 int i = 0;
-                foreach (var option in _pollOptions.Children())
+                foreach (var option in view.pollOptions.Children())
                 {
                     if (i++ != index) continue;
                     if (IsNavigable(option)) option.Focus();
@@ -1160,60 +1358,45 @@ namespace ProtoSystem.UI
             }).ExecuteLater(1);
         }
 
-        private void ShowAnnouncementCard(LiveOpsAnnouncement ann, string lang)
+        private void ShowAnnouncementCard(CardView view, LiveOpsAnnouncement ann, string lang)
         {
-            SetVisible(_annCard, true);
-            SetBadge("type_news", UIKeys.CommunityPanel.Fallback.TypeNews);
-            if (_cardMeta != null) _cardMeta.text = "";
-            if (_annTitle != null)
-                _annTitle.text = L($"liveops.ann.{ann.id}.title", ann.title.Get(lang));
-            if (_annBody != null)
-                _annBody.text = L($"liveops.ann.{ann.id}.body", ann.body.Get(lang));
+            SetVisible(view.annCard, true);
+            SetBadge(view, "type_news", UIKeys.CommunityPanel.Fallback.TypeNews);
+            if (view.meta != null) view.meta.text = "";
+            if (view.annTitle != null)
+                view.annTitle.text = L($"liveops.ann.{ann.id}.title", ann.title.Get(lang));
+            if (view.annBody != null)
+                view.annBody.text = L($"liveops.ann.{ann.id}.body", ann.body.Get(lang));
 
-            if (_annUrlButton != null)
+            if (view.annUrlButton != null)
             {
                 bool hasUrl = !string.IsNullOrEmpty(ann.url);
-                SetVisible(_annUrlButton, hasUrl);
-                _annUrlButton.text = L(UIKeys.CommunityPanel.ReadMore, UIKeys.CommunityPanel.Fallback.ReadMore);
-                _annUrlClickUrl = ann.url;
+                SetVisible(view.annUrlButton, hasUrl);
+                view.annUrlButton.text = L(UIKeys.CommunityPanel.ReadMore, UIKeys.CommunityPanel.Fallback.ReadMore);
+                view.annUrl = ann.url;
             }
         }
 
-        // Один постоянный обработчик URL-кнопки вместо RemoveAllListeners (uGUI)
-        private string _annUrlClickUrl;
-        private bool   _annUrlHandlerAttached;
-
-        private void EnsureAnnUrlHandler()
+        private void ShowDevLogCard(CardView view, LiveOpsDevLog devLog, string lang)
         {
-            if (_annUrlHandlerAttached || _annUrlButton == null) return;
-            _annUrlHandlerAttached = true;
-            _annUrlButton.clicked += () =>
-            {
-                if (!string.IsNullOrEmpty(_annUrlClickUrl))
-                    Application.OpenURL(_annUrlClickUrl);
-            };
-        }
+            SetVisible(view.devLogCard, true);
+            SetBadge(view, "type_devlog", UIKeys.CommunityPanel.Fallback.TypeDevLog);
+            if (view.meta != null) view.meta.text = "";
+            if (view.devLogFocus != null)
+                view.devLogFocus.text = L("liveops.devlog.focus", devLog.focus.Get(lang));
+            if (view.devLogTitle != null)
+                view.devLogTitle.text = L("liveops.devlog.title", devLog.title.Get(lang));
 
-        private void ShowDevLogCard(LiveOpsDevLog devLog, string lang)
-        {
-            SetVisible(_devLogCard, true);
-            SetBadge("type_devlog", UIKeys.CommunityPanel.Fallback.TypeDevLog);
-            if (_cardMeta != null) _cardMeta.text = "";
-            if (_devLogFocus != null)
-                _devLogFocus.text = L("liveops.devlog.focus", devLog.focus.Get(lang));
-            if (_devLogTitle != null)
-                _devLogTitle.text = L("liveops.devlog.title", devLog.title.Get(lang));
-
-            if (_devLogDesc != null)
+            if (view.devLogDesc != null)
             {
                 string desc = devLog.description?.Get(lang);
-                SetVisible(_devLogDesc, !string.IsNullOrEmpty(desc));
+                SetVisible(view.devLogDesc, !string.IsNullOrEmpty(desc));
                 if (!string.IsNullOrEmpty(desc))
-                    _devLogDesc.text = L("liveops.devlog.description", desc);
+                    view.devLogDesc.text = L("liveops.devlog.description", desc);
             }
 
-            if (_devLogItems == null) return;
-            _devLogItems.Clear();
+            if (view.devLogItems == null) return;
+            view.devLogItems.Clear();
 
             for (int idx = 0; idx < devLog.items.Length; idx++)
             {
@@ -1233,7 +1416,7 @@ namespace ProtoSystem.UI
                                                  : "cp-devlog-todo");
                 row.Add(label);
 
-                _devLogItems.Add(row);
+                view.devLogItems.Add(row);
             }
         }
 
@@ -1268,10 +1451,11 @@ namespace ProtoSystem.UI
             var text = _messageInput.value?.Trim();
             if (string.IsNullOrEmpty(text)) return;
 
-            // category = контекст (какая карточка сейчас открыта)
+            // category = контекст (какая карточка сейчас открыта; карусель пуста —
+            // закреплённая под панелью, она тогда единственная на виду)
             var category = _cardKeys.Count > 0 && _currentCard < _cardKeys.Count
                 ? _cardKeys[_currentCard]
-                : "general";
+                : _pinnedKey ?? "general";
 
             _sendButton?.SetEnabled(false);
             if (_liveOpsSystem != null)
@@ -1369,6 +1553,7 @@ namespace ProtoSystem.UI
             _conversationOpen = true;
 
             SetVisible(_panelBody,  false);
+            SetVisible(_pinned.root, false);
             SetVisible(_goalRoot,   false);
             SetVisible(_ratingRoot, false);
             SetVisible(_conversationRoot, true);
@@ -1737,12 +1922,13 @@ namespace ProtoSystem.UI
         /// Optimistic UI: мгновенно обновляем состояние опроса и перерисовываем,
         /// затем отправляем на сервер в фоне.
         /// </summary>
-        private void OptimisticPollVote(LiveOpsPoll poll, string optId)
+        private void OptimisticPollVote(CardView view, LiveOpsPoll poll, string optId)
         {
             TogglePollOption(poll, optId);
 
-            var lang = _liveOpsSystem != null ? _liveOpsSystem.Language : "en";
-            ShowPollCard(poll, lang);
+            // Перерисовать тот набор, где голосовали: закреплённый опрос не должен
+            // всплыть в карусели поверх её текущей карточки
+            ShowPollCard(view, poll, CurrentLang);
 
             var selected = new List<string>();
             foreach (var o in poll.options)
@@ -1766,11 +1952,11 @@ namespace ProtoSystem.UI
         }
 
         /// <summary>Тогл выбора опции в stub-режиме (локальный, без сервера).</summary>
-        private void ToggleStubPollSelection(string optId, LiveOpsPoll poll)
+        private void ToggleStubPollSelection(CardView view, string optId, LiveOpsPoll poll)
         {
             if (poll == null) return;
             TogglePollOption(poll, optId);
-            ShowPollCard(poll, _stubConfig?.language ?? "en");
+            ShowPollCard(view, poll, _stubConfig?.language ?? "en");
         }
 
         /// <summary>Переключить выбор опции с учётом single/multi и пересчитать голоса.</summary>
@@ -1814,8 +2000,6 @@ namespace ProtoSystem.UI
 
         private void ApplyStaticTexts()
         {
-            EnsureAnnUrlHandler();
-
             if (_expandButton != null)
                 _expandButton.text = L(UIKeys.CommunityPanel.Expand, UIKeys.CommunityPanel.Fallback.Expand);
             if (_collapseButton != null)
@@ -1830,10 +2014,10 @@ namespace ProtoSystem.UI
                 _ratingLabel.text = L(UIKeys.CommunityPanel.RatingLabel, UIKeys.CommunityPanel.Fallback.RatingLabel);
         }
 
-        private void SetBadge(string keySuffix, string fallback)
+        private static void SetBadge(CardView view, string keySuffix, string fallback)
         {
-            if (_typeBadge != null)
-                _typeBadge.text = L("ui.community." + keySuffix, fallback);
+            if (view.badge != null)
+                view.badge.text = L("ui.community." + keySuffix, fallback);
         }
 
         private static void SetVisible(VisualElement e, bool visible)

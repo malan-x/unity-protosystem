@@ -56,6 +56,9 @@ namespace ProtoSystem.LiveOps
     public class StubCardEntry
     {
         public StubCardType type = StubCardType.Poll;
+        [Tooltip("Закреплена под панелью: стоит на месте цели вместо неё и в карусель не попадает " +
+                 "(Community Panel на UI Toolkit). Учитывается первая закреплённая.")]
+        public bool pinned;
         public StubPollData         poll         = new();
         public StubAnnouncementData announcement = new();
         public StubDevLogData       devLog       = new();

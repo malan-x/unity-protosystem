@@ -50,6 +50,10 @@ Reverse proxy — nginx (порты 80/443), домен `api.twohuyakproduction.
 
 - `GET /api/collections/{collection}/records` — коллекции: `polls`,
   `announcements`, `devlog`, `goals`, `ratings`, `content_order`, panel config.
+  У `goals` клиент берёт первую запись проекта с `is_active = true` (с 1.59.0 —
+  сам, не полагаясь на правило коллекции). `content_order.order` — массив
+  `[{"type","id","pinned"?}]`; `pinned: true` — элемент стоит под панелью на месте
+  цели (см. LiveOps.md, «Закреплённая карточка»).
 - `POST /api/collections/messages/records` — фидбек/сообщение игрока
   (player_id, project_id, message, category). Список `messages` клиент не читает
   (с 1.57.4): это фидбек всех игроков, читать его может только суперюзер. Свою
