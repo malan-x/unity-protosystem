@@ -90,6 +90,7 @@ namespace ProtoSystem.LiveOps
         private ILiveOpsPanel _panel;
         private bool _serverAvailable;
         private bool _hasData;
+        private string _dataPlayerId;   // под каким id сняты данные (голоса, оценка — личные)
 
         #endregion
 
@@ -155,8 +156,24 @@ namespace ProtoSystem.LiveOps
 
             LiveOpsLog.Info($"[LiveOps] PlayerId уточнён: {previous} → {id}, переклеено событий: {moved}");
 
-            // Группы, оверрайды и выдачи привязаны к id — под новым id спрашиваем заново
-            if (_serverAvailable) _ = FetchPlayerStateAsync();
+            // Группы, оверрайды и выдачи привязаны к id — под новым id спрашиваем заново.
+            // Голоса в опросах, оценка и переписка тоже: первые данные сняты под анонимным
+            // id машины, и панель показывала бы чужие голоса, пока не перезапросит
+            if (_serverAvailable) _ = RefetchForPlayerAsync();
+        }
+
+        /// <summary>Перезапрос всего, что зависит от id игрока (после SetPlayerId).</summary>
+        private async Task RefetchForPlayerAsync()
+        {
+            try
+            {
+                await FetchAsync();
+                await FetchPlayerStateAsync();
+            }
+            catch (Exception ex)
+            {
+                ProtoLogger.LogWarning(SystemId, $"Fetch failed: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -250,8 +267,13 @@ namespace ProtoSystem.LiveOps
                 return;
             }
             panel.SetPanelVisible(true);
-            if (_hasData) PushAllDataToEventBus();
-            if (config != null && config.fetchOnPanelOpen) _ = SafeFetchAsync();
+
+            // Данные, снятые под другим id (до SetPlayerId от Steam), не показываем: в них чужие
+            // голоса, и через секунду свежий запрос перерисовал бы опрос — панель дёргалась при
+            // запуске. Пока идёт запрос, панель стоит в «Загрузке»
+            bool fresh = _hasData && _dataPlayerId == _playerId;
+            if (fresh) PushAllDataToEventBus();
+            if (!fresh || (config != null && config.fetchOnPanelOpen)) _ = SafeFetchAsync();
         }
 
         /// <summary>Отписать панель от системы.</summary>
@@ -585,6 +607,10 @@ namespace ProtoSystem.LiveOps
 
         private void PushAllDataToEventBus()
         {
+            // Ключи — на текущем языке ДО публикации: панель рисует тексты через Loc.
+            // Первый запрос идёт до готовности локализации (язык по умолчанию)
+            PushLocalizationKeys();
+
             // Публикуем PanelConfig всегда — даже null: панель использует IsWidgetVisible(),
             // который при null возвращает true (показывать всё по умолчанию).
             EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.PanelConfig, _panelConfig));
@@ -651,12 +677,18 @@ namespace ProtoSystem.LiveOps
         {
             if (_provider == null) return;
 
+            // Ответы копим и публикуем одной пачкой в конце: по одному (с сетевой паузой
+            // между ними) панель перестраивалась на каждом шаге — при запуске росла рывками,
+            // а новый закреплённый опрос на миг уступал место цели, пока не придёт сам опрос
+            string fetchedFor = _playerId;
+            var updates = new List<LiveOpsDataPayload>();
+
             // Panel config — управляет видимостью остальных виджетов
             var panelConfig = await _provider.FetchPanelConfigAsync();
             if (panelConfig != null)
             {
                 _panelConfig = panelConfig;
-                EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.PanelConfig, _panelConfig));
+                updates.Add(new LiveOpsDataPayload(LiveOpsDataType.PanelConfig, _panelConfig));
             }
 
             // Метка «оповестить игроков» из дашборда: панель сравнит её со своим
@@ -670,7 +702,7 @@ namespace ProtoSystem.LiveOps
             if (contentOrder != null)
             {
                 _contentOrder = contentOrder;
-                EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.ContentOrder, _contentOrder));
+                updates.Add(new LiveOpsDataPayload(LiveOpsDataType.ContentOrder, _contentOrder));
             }
 
             if (config.enableMessages)
@@ -680,7 +712,7 @@ namespace ProtoSystem.LiveOps
                 {
                     _messages = messages;
                     OnMessagesUpdated?.Invoke(_messages);
-                    EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.Messages, _messages));
+                    updates.Add(new LiveOpsDataPayload(LiveOpsDataType.Messages, _messages));
                 }
             }
 
@@ -691,7 +723,7 @@ namespace ProtoSystem.LiveOps
                 {
                     _polls = polls;
                     OnPollsUpdated?.Invoke(_polls);
-                    EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.Polls, _polls));
+                    updates.Add(new LiveOpsDataPayload(LiveOpsDataType.Polls, _polls));
                 }
             }
 
@@ -701,7 +733,7 @@ namespace ProtoSystem.LiveOps
                 if (ann != null)
                 {
                     _announcements = ann;
-                    EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.Announcements, _announcements));
+                    updates.Add(new LiveOpsDataPayload(LiveOpsDataType.Announcements, _announcements));
                 }
             }
 
@@ -711,7 +743,7 @@ namespace ProtoSystem.LiveOps
                 if (devLog != null)
                 {
                     _devLog = devLog;
-                    EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.DevLog, _devLog));
+                    updates.Add(new LiveOpsDataPayload(LiveOpsDataType.DevLog, _devLog));
                 }
             }
 
@@ -721,7 +753,7 @@ namespace ProtoSystem.LiveOps
                 if (rating != null)
                 {
                     _rating = rating;
-                    EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.Rating, _rating));
+                    updates.Add(new LiveOpsDataPayload(LiveOpsDataType.Rating, _rating));
                 }
             }
 
@@ -731,16 +763,22 @@ namespace ProtoSystem.LiveOps
                 if (milestone != null)
                 {
                     _milestone = milestone;
-                    EventBus.Publish(Evt.LiveOps.DataUpdated, new LiveOpsDataPayload(LiveOpsDataType.Milestone, _milestone));
+                    updates.Add(new LiveOpsDataPayload(LiveOpsDataType.Milestone, _milestone));
                 }
             }
 
-            // Переписка игрока
+            _hasData = true;
+            _dataPlayerId = fetchedFor;
+
+            // Переводы — до публикации: панель рисует тексты через Loc, и с ключами
+            // от прошлого запроса правка из дашборда доходила бы только со следующим
+            PushLocalizationKeys();
+            foreach (var update in updates)
+                EventBus.Publish(Evt.LiveOps.DataUpdated, update);
+
+            // Переписка игрока (публикует сама — панели она не двигает)
             if (config.enableFeedback)
                 await FetchMyMessagesAsync();
-
-            _hasData = true;
-            PushLocalizationKeys();
         }
 
         #endregion
@@ -750,6 +788,9 @@ namespace ProtoSystem.LiveOps
         protected override void InitEvents()
         {
             AddEvent(EventBus.Localization.LanguageChanged, OnLanguageChanged);
+            // Первый запрос уходит до готовности локализации — ключи тогда на языке
+            // по умолчанию; перерегистрируем, как только язык станет известен
+            AddEvent(EventBus.Localization.Ready, OnLanguageChanged);
             AddEvent(EventBus.Session.Started, OnSessionStartedPolls);
         }
 

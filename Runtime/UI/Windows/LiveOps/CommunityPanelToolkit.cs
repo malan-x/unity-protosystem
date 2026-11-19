@@ -97,6 +97,7 @@ namespace ProtoSystem.UI
             public VisualElement devLogItems;
             public Label  meta;
             public Label  badge;                 // бейдж типа — только у карусели
+            public string pollSig;               // что нарисовано в pollOptions (см. ShowPollCard)
         }
 
         #endregion
@@ -989,6 +990,11 @@ namespace ProtoSystem.UI
         {
             if (payload is not LiveOpsDataPayload data) return;
 
+            // Система ещё инициализируется (панель ждёт её в ConnectToSystem): язык не
+            // известен — карточки вышли бы на английском, нет конфига виджетов и состояния
+            // опросов. Подключаясь, RegisterPanel отдаст всё разом — без перерисовки на глазах
+            if (_liveOpsSystem == null && _stubConfig == null) return;
+
             switch (data.Type)
             {
                 case LiveOpsDataType.PanelConfig:
@@ -1277,12 +1283,30 @@ namespace ProtoSystem.UI
 
             if (view.pollOptions == null) return;
 
+            var labels = new string[poll.options.Length];
+            var sig = new System.Text.StringBuilder(poll.id).Append('|').Append(poll.votesTotal);
+            for (int idx = 0; idx < poll.options.Length; idx++)
+            {
+                var o = poll.options[idx];
+                labels[idx] = L($"liveops.poll.{poll.id}.opt.{idx}", o.label.Get(lang));
+                sig.Append('|').Append(labels[idx]).Append(o.selected ? '+' : '-').Append(o.votes);
+            }
+
+            // Тот же опрос с теми же голосами (перезапрос при входе в меню и по таймеру) —
+            // кнопки не пересоздаём: Clear() сбрасывал фокус и ховер, обводка фокуса
+            // (2px → 1px → снова 2px кадром позже) дёргала высоту панели
+            string sigText = sig.ToString();
+            if (view.pollSig == sigText && view.pollOptions.childCount == poll.options.Length)
+                return;
+            view.pollSig = sigText;
+
             // Голосование перерисовывает опции: Clear() уничтожает кнопки вместе с фокусом.
             // Запоминаем позицию, чтобы вернуть фокус на ту же строку опроса.
             int focusedOption = FocusedPollOptionIndex(view);
             view.pollOptions.Clear();
 
             bool hasVoted = System.Array.Exists(poll.options, o => o.selected);
+            string pollId = poll.id;
 
             for (int idx = 0; idx < poll.options.Length; idx++)
             {
@@ -1291,8 +1315,11 @@ namespace ProtoSystem.UI
 
                 var btn = new Button(() =>
                 {
-                    if (_liveOpsSystem != null) OptimisticPollVote(view, poll, optId);
-                    else                        ToggleStubPollSelection(view, optId, poll);
+                    // Кнопки переживают перезапрос (см. выше), а он приносит новые объекты
+                    // опросов — голосуем в актуальном, а не в том, с которым рисовали
+                    var current = _polls.Find(p => p.id == pollId) ?? poll;
+                    if (_liveOpsSystem != null) OptimisticPollVote(view, current, optId);
+                    else                        ToggleStubPollSelection(view, optId, current);
                 });
                 btn.AddToClassList("cp-poll-option");
                 btn.text = string.Empty;
@@ -1311,7 +1338,7 @@ namespace ProtoSystem.UI
                 check.pickingMode = PickingMode.Ignore;
                 btn.Add(check);
 
-                var label = new Label(L($"liveops.poll.{poll.id}.opt.{idx}", opt.label.Get(lang)));
+                var label = new Label(labels[idx]);
                 label.AddToClassList("cp-poll-label");
                 label.pickingMode = PickingMode.Ignore;
                 btn.Add(label);

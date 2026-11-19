@@ -45,16 +45,24 @@ liveOps.SetPlayerContext(new LiveOpsPlayerContext(
 InitializeAsync()
   ├── Если _provider == null && serverUrl != "" → создать DefaultHttpLiveOpsProvider
   ├── Health check (HEAD /config, таймаут = healthCheckTimeoutSeconds)
-  │     ├── OK  → FetchAsync() → EventBus.Publish(DataUpdated) × каждый тип
+  │     ├── OK  → FetchAsync() → все запросы → ключи Loc → EventBus.Publish(DataUpdated)
+  │     │         × каждый тип, одной пачкой в конце (панель перестраивается один раз)
   │     └── Fail → _serverAvailable = false
+  │
+SetPlayerId(steamId)   — id сменился → FetchAsync() заново (голоса, оценка — личные)
   │
 CommunityPanelWindow.Start()
   ├── stubConfig задан → ApplyStubConfig(), выйти
   └── GetSystem<LiveOpsSystem>().RegisterPanel(this)
-        ├── !serverAvailable → gameObject.SetActive(false)
-        ├── hasData          → PushAllDataToEventBus()
-        └── fetchOnPanelOpen → FetchAsync()
+        ├── !serverAvailable              → gameObject.SetActive(false)
+        ├── hasData под текущим id        → PushAllDataToEventBus()
+        └── данные под другим id / нет их,
+            или fetchOnPanelOpen          → FetchAsync()
 ```
+
+Панель UI Toolkit до `RegisterPanel` данные из шины не рисует: пока система
+инициализируется, язык не известен и голосов этого игрока нет — иначе панель
+перерисовывалась на глазах.
 
 ---
 
