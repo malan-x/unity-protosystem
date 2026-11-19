@@ -1140,6 +1140,8 @@ namespace ProtoSystem.UI
         /// <summary>
         /// Ключ закреплённой карточки — если она среди загруженных (активных, не истёкших)
         /// и в шаблоне есть блок cp-pinned. Иначе null: элемент остаётся в карусели.
+        /// Опрос, за который игрок голосовал и с тех пор начинал заезд, тоже остаётся
+        /// в карусели (LiveOpsSystem.PollLeftSlot) — первым, там можно переголосовать.
         /// </summary>
         private string ResolvePinnedKey()
         {
@@ -1149,7 +1151,9 @@ namespace ProtoSystem.UI
             switch (e.type)
             {
                 case "poll":
-                    return _polls.Exists(p => p.id == e.id) ? $"poll:{e.id}" : null;
+                    var poll = _polls.Find(p => p.id == e.id);
+                    if (poll == null || (_liveOpsSystem != null && _liveOpsSystem.PollLeftSlot(poll))) return null;
+                    return $"poll:{e.id}";
                 case "announcement":
                     return _announcements.Exists(a => a.id == e.id) ? $"announcement:{e.id}" : null;
                 case "devlog":
@@ -1924,7 +1928,11 @@ namespace ProtoSystem.UI
         /// </summary>
         private void OptimisticPollVote(CardView view, LiveOpsPoll poll, string optId)
         {
+            bool votedBefore = System.Array.Exists(poll.options, o => o.selected);
             TogglePollOption(poll, optId);
+            // Первый голос: закреплённый опрос стоит на месте до старта заезда, потом уходит в карусель
+            if (!votedBefore && System.Array.Exists(poll.options, o => o.selected))
+                _liveOpsSystem.NotePollVoted(poll.id);
 
             // Перерисовать тот набор, где голосовали: закреплённый опрос не должен
             // всплыть в карусели поверх её текущей карточки

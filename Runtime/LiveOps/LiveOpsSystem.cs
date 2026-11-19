@@ -441,7 +441,6 @@ namespace ProtoSystem.LiveOps
             return await _provider.SubmitFeedbackAsync(feedback);
         }
 
-        /// <summary>Отправить ответ на опрос. Работает для single и multi.</summary>
         /// <summary>
         /// Отметить, что стало с показанным опросом: shown | later | dismissed |
         /// answered | form. Без ожидания: это статистика, игре ждать нечего.
@@ -452,11 +451,77 @@ namespace ProtoSystem.LiveOps
             _ = _provider.ReportPollStateAsync(pollId, state);
         }
 
+        /// <summary>Отправить ответ на опрос. Работает для single и multi; повторный — правка голоса.</summary>
         public async Task<bool> SubmitPollAnswerAsync(string pollId, string[] optionIds)
         {
             if (config == null || !config.enablePolls || _provider == null) return false;
             var answer = new LiveOpsPollAnswer { pollId = pollId, optionIds = optionIds, playerId = _playerId };
             return await _provider.SubmitPollAnswerAsync(answer);
+        }
+
+        // ── Закреплённый опрос после голоса ──────────────────────────
+        //
+        // Опрос, закреплённый в дашборде на месте цели, загораживает вид. Проголосовал
+        // игрок — опрос ещё стоит на месте (видны проценты), а со следующего заезда
+        // (Session.Started) уходит в карусель: там к нему можно вернуться и
+        // переголосовать. Ушедший обратно не возвращается, даже если снять голос.
+        // Состояние — на машине (PlayerPrefs), как и просмотренные карточки.
+
+        private const string PollsVotedBeforeRunKey = "liveops_polls_voted_before_run";
+        private const string PollsLeftSlotKey       = "liveops_polls_left_slot";
+        private const int    PollsLeftSlotMax       = 100;
+
+        /// <summary>Панель: игрок впервые проголосовал в опросе — до старта заезда опрос остаётся на месте.</summary>
+        public void NotePollVoted(string pollId)
+        {
+            if (string.IsNullOrEmpty(pollId)) return;
+            var waiting = LoadIdList(PollsVotedBeforeRunKey);
+            if (waiting.Contains(pollId) || LoadIdList(PollsLeftSlotKey).Contains(pollId)) return;
+            waiting.Add(pollId);
+            SaveIdList(PollsVotedBeforeRunKey, waiting);
+        }
+
+        /// <summary>
+        /// Закреплённый опрос ушёл с места цели в карусель: игрок голосовал и с тех пор
+        /// начинал заезд. Голос без отметки (до обновления игры, с другой машины) —
+        /// тоже ушёл: игрок голосовал не в этот заход в меню.
+        /// </summary>
+        public bool PollLeftSlot(LiveOpsPoll poll)
+        {
+            if (poll == null || string.IsNullOrEmpty(poll.id)) return false;
+            if (LoadIdList(PollsLeftSlotKey).Contains(poll.id)) return true;
+            bool voted = poll.options != null && Array.Exists(poll.options, o => o.selected);
+            return voted && !LoadIdList(PollsVotedBeforeRunKey).Contains(poll.id);
+        }
+
+        private void OnSessionStartedPolls(object _)
+        {
+            var waiting = LoadIdList(PollsVotedBeforeRunKey);
+            if (waiting.Count == 0) return;
+            var left = LoadIdList(PollsLeftSlotKey);
+            foreach (var id in waiting)
+                if (!left.Contains(id)) left.Add(id);
+            // Старые опросы давно истекли — держим только последние
+            if (left.Count > PollsLeftSlotMax) left.RemoveRange(0, left.Count - PollsLeftSlotMax);
+            SaveIdList(PollsLeftSlotKey, left);
+            SaveIdList(PollsVotedBeforeRunKey, new List<string>());
+        }
+
+        /// <summary>Список id через запятую: id записей PocketBase запятых не содержат.</summary>
+        private static List<string> LoadIdList(string key)
+        {
+            var raw = PlayerPrefs.GetString(key, "");
+            var list = new List<string>();
+            if (string.IsNullOrEmpty(raw)) return list;
+            foreach (var id in raw.Split(','))
+                if (!string.IsNullOrEmpty(id) && !list.Contains(id)) list.Add(id);
+            return list;
+        }
+
+        private static void SaveIdList(string key, List<string> ids)
+        {
+            PlayerPrefs.SetString(key, string.Join(",", ids));
+            PlayerPrefs.Save();
         }
 
         /// <summary>Отправить или обновить оценку текущего билда.</summary>
@@ -685,6 +750,7 @@ namespace ProtoSystem.LiveOps
         protected override void InitEvents()
         {
             AddEvent(EventBus.Localization.LanguageChanged, OnLanguageChanged);
+            AddEvent(EventBus.Session.Started, OnSessionStartedPolls);
         }
 
         private void OnLanguageChanged(object _) => PushLocalizationKeys();

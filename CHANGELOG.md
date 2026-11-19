@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.60.0] - 2026-11-19
+
+### Added
+- LiveOps: закреплённый опрос после голоса уходит с места цели в карусель — со
+  следующего заезда. Сразу после голоса он остаётся на месте (видны проценты), а после
+  `Session.Started` (GameSessionSystem) встаёт в карусель первым: к нему можно
+  вернуться и переголосовать, но вид он больше не загораживает. Обратно на место не
+  возвращается, даже если снять голос. Голос, отданный до обновления или с другой
+  машины, считается уже «отыгранным». Состояние — PlayerPrefs
+  (`liveops_polls_voted_before_run`, `liveops_polls_left_slot`); API —
+  `LiveOpsSystem.NotePollVoted`, `LiveOpsSystem.PollLeftSlot`. Stub-режим не меняется.
+
 ## [1.59.0] - 2026-11-18
 
 ### Added
