@@ -51,6 +51,15 @@
     border-color: var(--cp-focus);
 }
 
+/* Рамка фокуса толще обычной на 1px — у кнопок с высотой по содержимому этот 1px снимаем
+   с отступа. Иначе клик (он же фокус) растил строку на 2px, и панель, прижатая к низу,
+   дёргалась: вариант опроса — при каждом голосе. Проект, меняющий отступ такой кнопки,
+   меняет и его :focus-пару */
+.community-panel .cp-poll-option:focus   { padding: 5px 11px; }
+.community-panel .cp-link-button:focus   { padding: 3px 13px; }
+.community-panel .cp-send-button:focus   { padding: 7px 21px; }
+.community-panel .cp-toggle-button:focus { padding: 5px 9px; }
+
 /* ══ Разворачиваемый блок ══ */
 
 .cp-expanded {

@@ -97,7 +97,7 @@ namespace ProtoSystem.UI
             public VisualElement devLogItems;
             public Label  meta;
             public Label  badge;                 // бейдж типа — только у карусели
-            public string pollSig;               // что нарисовано в pollOptions (см. ShowPollCard)
+            public string pollLayout;            // опрос и варианты, под которые собраны кнопки (см. ShowPollCard)
         }
 
         #endregion
@@ -1283,40 +1283,45 @@ namespace ProtoSystem.UI
 
             if (view.pollOptions == null) return;
 
-            var labels = new string[poll.options.Length];
-            var sig = new System.Text.StringBuilder(poll.id).Append('|').Append(poll.votesTotal);
-            for (int idx = 0; idx < poll.options.Length; idx++)
+            // Голос и перезапросы (после голоса, при входе в меню, по таймеру) меняют только
+            // отметки и проценты — кнопки обновляем на месте. Пересоздание (Clear) снимало
+            // фокус, который поставил клик: рамка 2px → 1px → снова 2px кадром позже,
+            // и после каждого голоса панель дёргалась. Собираем заново, только если сменился
+            // опрос или набор вариантов
+            var layout = new System.Text.StringBuilder(poll.id);
+            foreach (var o in poll.options) layout.Append('|').Append(o.id);
+            string layoutKey = layout.ToString();
+            if (view.pollLayout != layoutKey || view.pollOptions.childCount != poll.options.Length)
+                BuildPollOptions(view, poll, layoutKey);
+
+            bool hasVoted = System.Array.Exists(poll.options, o => o.selected);
+            int idx = 0;
+            foreach (var btn in view.pollOptions.Children())
             {
-                var o = poll.options[idx];
-                labels[idx] = L($"liveops.poll.{poll.id}.opt.{idx}", o.label.Get(lang));
-                sig.Append('|').Append(labels[idx]).Append(o.selected ? '+' : '-').Append(o.votes);
+                var opt = poll.options[idx];
+                FillPollOption(btn, opt, L($"liveops.poll.{poll.id}.opt.{idx}", opt.label.Get(lang)),
+                               hasVoted, poll.votesTotal);
+                idx++;
             }
+        }
 
-            // Тот же опрос с теми же голосами (перезапрос при входе в меню и по таймеру) —
-            // кнопки не пересоздаём: Clear() сбрасывал фокус и ховер, обводка фокуса
-            // (2px → 1px → снова 2px кадром позже) дёргала высоту панели
-            string sigText = sig.ToString();
-            if (view.pollSig == sigText && view.pollOptions.childCount == poll.options.Length)
-                return;
-            view.pollSig = sigText;
+        /// <summary>Пересоздать кнопки вариантов (пустые — заполняет FillPollOption).</summary>
+        private void BuildPollOptions(CardView view, LiveOpsPoll poll, string layoutKey)
+        {
+            view.pollLayout = layoutKey;
 
-            // Голосование перерисовывает опции: Clear() уничтожает кнопки вместе с фокусом.
-            // Запоминаем позицию, чтобы вернуть фокус на ту же строку опроса.
+            // Clear() уничтожает кнопки вместе с фокусом — вернём его на ту же строку
             int focusedOption = FocusedPollOptionIndex(view);
             view.pollOptions.Clear();
 
-            bool hasVoted = System.Array.Exists(poll.options, o => o.selected);
             string pollId = poll.id;
-
-            for (int idx = 0; idx < poll.options.Length; idx++)
+            foreach (var opt in poll.options)
             {
-                var opt = poll.options[idx];
-                var optId = opt.id;
-
+                string optId = opt.id;
                 var btn = new Button(() =>
                 {
-                    // Кнопки переживают перезапрос (см. выше), а он приносит новые объекты
-                    // опросов — голосуем в актуальном, а не в том, с которым рисовали
+                    // Кнопки переживают перезапрос, а он приносит новые объекты опросов —
+                    // голосуем в актуальном, а не в том, с которым собирали кнопки
                     var current = _polls.Find(p => p.id == pollId) ?? poll;
                     if (_liveOpsSystem != null) OptimisticPollVote(view, current, optId);
                     else                        ToggleStubPollSelection(view, optId, current);
@@ -1324,34 +1329,40 @@ namespace ProtoSystem.UI
                 btn.AddToClassList("cp-poll-option");
                 btn.text = string.Empty;
 
-                // FillBar — только после голосования, ширина = процент
-                var fill = new VisualElement();
-                fill.AddToClassList("cp-poll-fill");
-                fill.pickingMode = PickingMode.Ignore;
-                fill.style.display = hasVoted ? DisplayStyle.Flex : DisplayStyle.None;
-                if (hasVoted)
-                    fill.style.width = Length.Percent(opt.Percent(poll.votesTotal));
-                btn.Add(fill);
-
-                var check = new Label(opt.selected ? "✓" : "");
-                check.AddToClassList("cp-poll-check");
-                check.pickingMode = PickingMode.Ignore;
-                btn.Add(check);
-
-                var label = new Label(labels[idx]);
-                label.AddToClassList("cp-poll-label");
-                label.pickingMode = PickingMode.Ignore;
-                btn.Add(label);
-
-                var pct = new Label(hasVoted ? $"{opt.Percent(poll.votesTotal):0}%" : "");
-                pct.AddToClassList("cp-poll-pct");
-                pct.pickingMode = PickingMode.Ignore;
-                btn.Add(pct);
-
+                AddPart(btn, new VisualElement(), "cp-poll-fill");   // полоса — после голосования, ширина = процент
+                AddPart(btn, new Label(), "cp-poll-check");
+                AddPart(btn, new Label(), "cp-poll-label");
+                AddPart(btn, new Label(), "cp-poll-pct");
                 view.pollOptions.Add(btn);
             }
 
             RestorePollOptionFocus(view, focusedOption);
+
+            static void AddPart(VisualElement parent, VisualElement part, string className)
+            {
+                part.AddToClassList(className);
+                part.pickingMode = PickingMode.Ignore;
+                parent.Add(part);
+            }
+        }
+
+        /// <summary>Отметка, подпись, полоса и процент варианта.</summary>
+        private static void FillPollOption(VisualElement btn, LiveOpsPollOption opt, string label,
+                                           bool hasVoted, int votesTotal)
+        {
+            float percent = opt.Percent(votesTotal);
+
+            if (btn.Q<Label>(className: "cp-poll-check") is { } check)
+                check.text = opt.selected ? "✓" : "";
+            if (btn.Q<Label>(className: "cp-poll-label") is { } text)
+                text.text = label;
+            if (btn.Q<Label>(className: "cp-poll-pct") is { } pct)
+                pct.text = hasVoted ? $"{percent:0}%" : "";
+            if (btn.Q(className: "cp-poll-fill") is { } fill)
+            {
+                fill.style.display = hasVoted ? DisplayStyle.Flex : DisplayStyle.None;
+                if (hasVoted) fill.style.width = Length.Percent(percent);
+            }
         }
 
         /// <summary>Индекс опции опроса набора, на которой сейчас фокус (-1 — фокус не в этом опросе).</summary>
@@ -1964,6 +1975,10 @@ namespace ProtoSystem.UI
             // Перерисовать тот набор, где голосовали: закреплённый опрос не должен
             // всплыть в карусели поверх её текущей карточки
             ShowPollCard(view, poll, CurrentLang);
+            // Первый голос в опросе: строка «N votes» у закреплённого появляется сразу,
+            // а не с ответом сервера (пустую её прячет RefreshSlot)
+            if (view == _pinned)
+                SetVisible(_pinned.meta, !string.IsNullOrEmpty(_pinned.meta?.text));
 
             var selected = new List<string>();
             foreach (var o in poll.options)
