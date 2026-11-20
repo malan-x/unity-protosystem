@@ -52,6 +52,7 @@ namespace ProtoSystem.AudioGen.Editor
                     AudioAiSettings.ElevenLabsApiKey = EditorGUILayout.PasswordField(
                         new GUIContent("API-ключ", "Хранится только в EditorPrefs — в git не попадает"),
                         AudioAiSettings.ElevenLabsApiKey);
+                    DrawReserveKeys();
 
                     EditorGUILayout.Space(10);
                     EditorGUILayout.LabelField("Qwen3-TTS (локальная озвучка, qwentts.cpp)", EditorStyles.boldLabel);
@@ -89,6 +90,50 @@ namespace ProtoSystem.AudioGen.Editor
                     if (def != AudioStyleRegistry.Default) AudioStyleRegistry.Default = def;
                 },
             };
+        }
+
+        /// <summary>
+        /// Запасные ключи ElevenLabs: кончились кредиты у текущего — запрос уходит со следующим.
+        /// Ключ другого аккаунта видит только свои голоса: голоса из библиотеки добавьте и туда.
+        /// </summary>
+        private static void DrawReserveKeys()
+        {
+            var reserve = AudioAiSettings.ElevenLabsReserveKeys;
+            bool changed = false;
+            int remove = -1;
+            for (int i = 0; i < reserve.Count; i++)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    string v = EditorGUILayout.PasswordField(
+                        new GUIContent($"Запасной ключ {i + 1}",
+                            "Берётся, когда у предыдущих ключей кончились кредиты. Только EditorPrefs"),
+                        reserve[i]);
+                    if (v != reserve[i]) { reserve[i] = v; changed = true; }
+                    if (GUILayout.Button("×", GUILayout.Width(28))) remove = i;
+                }
+            }
+            if (remove >= 0) { reserve.RemoveAt(remove); changed = true; }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.Space(EditorGUIUtility.labelWidth);
+                if (GUILayout.Button("+ Запасной ключ", GUILayout.Width(140))) { reserve.Add(""); changed = true; }
+                int count = ElevenLabsClient.KeyCount;
+                if (count > 1)
+                    GUILayout.Label($"сейчас работает ключ {ElevenLabsClient.ActiveKeyIndex + 1} из {count}",
+                        EditorStyles.miniLabel);
+            }
+            if (changed)
+            {
+                AudioAiSettings.SaveElevenLabsReserveKeys();
+                ElevenLabsClient.InvalidateCredits();
+            }
+            if (reserve.Count > 0)
+                EditorGUILayout.HelpBox(
+                    "Кончились кредиты у текущего ключа — студия повторяет запрос со следующим. " +
+                    "Ключ другого аккаунта видит только свои голоса: голоса из библиотеки ElevenLabs добавьте и туда.",
+                    MessageType.None);
         }
     }
 }

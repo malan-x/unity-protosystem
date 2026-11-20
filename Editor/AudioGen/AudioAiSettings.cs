@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 
 namespace ProtoSystem.AudioGen.Editor
@@ -110,6 +112,46 @@ namespace ProtoSystem.AudioGen.Editor
         {
             get => GetS(ref _elevenLabsKey, "ProtoAudio.ElevenLabsKey", "");
             set => SetS(ref _elevenLabsKey, "ProtoAudio.ElevenLabsKey", value);
+        }
+
+        /// <summary>
+        /// Запасные ключи ElevenLabs: когда у текущего кончились кредиты (или ключ погашен), запрос
+        /// повторяется со следующим — см. ElevenLabsClient. В EditorPrefs одной строкой, ключ на строку
+        /// (ProtoAudio.ElevenLabsReserveKeys — имя НЕ начинается с ProtoAudio.ElevenLabsKey: внешние
+        /// скрипты ищут основной ключ по этому префиксу). Список живой: пустые поля держатся, пока окно
+        /// настроек открыто, в рабочий список ключей не попадают.
+        /// </summary>
+        private static List<string> _reserveKeys;
+        public static List<string> ElevenLabsReserveKeys
+        {
+            get
+            {
+                if (_reserveKeys != null) return _reserveKeys;
+                string raw = EditorPrefs.GetString("ProtoAudio.ElevenLabsReserveKeys", "");
+                _reserveKeys = raw.Split('\n').Select(k => k.Trim()).Where(k => k.Length > 0).ToList();
+                return _reserveKeys;
+            }
+        }
+
+        public static void SaveElevenLabsReserveKeys()
+        {
+            EditorPrefs.SetString("ProtoAudio.ElevenLabsReserveKeys",
+                string.Join("\n", ElevenLabsReserveKeys.Select(k => (k ?? "").Trim())));
+        }
+
+        /// <summary>Рабочий порядок ключей: основной, затем запасные; пустые и повторы отброшены.</summary>
+        public static List<string> ElevenLabsApiKeys
+        {
+            get
+            {
+                var keys = new List<string>();
+                foreach (var k in ElevenLabsReserveKeys.Prepend(ElevenLabsApiKey))
+                {
+                    string t = (k ?? "").Trim();
+                    if (t.Length > 0 && !keys.Contains(t)) keys.Add(t);
+                }
+                return keys;
+            }
         }
 
         // ── Qwen3-TTS (локальный движок озвучки, qwentts.cpp) ──

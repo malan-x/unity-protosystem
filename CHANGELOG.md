@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.62.0] - 2026-11-20
+
+### Added
+- AudioGen: несколько API-ключей ElevenLabs. В «Project Settings ▸ AI Audio Tools» под основным ключом —
+  «+ Запасной ключ». Кончились кредиты у текущего ключа (quota_exceeded, 402, проблема оплаты) или ключ
+  погашен — тот же запрос (SFX, озвучка) уходит со следующим, по кругу; удачный ключ становится текущим.
+  Ошибки, не связанные с ключом (голос не найден, плохой текст, 429), ключ не меняют.
+  Запасные ключи — только в EditorPrefs (`ProtoAudio.ElevenLabsReserveKeys`, ключ на строку).
+- Строка кредитов в студии показывает, чей это остаток: «· ключ 2/3», когда ключей больше одного.
+
 ## [1.61.0] - 2026-11-20
 
 ### Added

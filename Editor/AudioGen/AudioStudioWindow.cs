@@ -608,12 +608,15 @@ namespace ProtoSystem.AudioGen.Editor
             {
                 var c = await ElevenLabsClient.GetCreditsAsync();
                 if (label.panel == null) return;
+                string key = c.KeyCount > 1 ? $" · ключ {c.KeyIndex + 1}/{c.KeyCount}" : "";
                 if (c.Ok)
                 {
-                    label.text = $"Кредиты: {c.Remaining:N0} из {c.Limit:N0}";
+                    label.text = $"Кредиты: {c.Remaining:N0} из {c.Limit:N0}{key}";
                     label.style.color = c.Remaining < c.Limit / 10
                         ? new Color(0.9f, 0.5f, 0.3f) : new Color(0.6f, 0.75f, 0.6f);
-                    label.tooltip = $"Потрачено: {c.Used:N0}";
+                    label.tooltip = $"Потрачено: {c.Used:N0}" + (c.KeyCount > 1
+                        ? $"\nОстаток текущего ключа; кончится — запросы пойдут следующим (всего ключей {c.KeyCount})"
+                        : "");
                 }
                 else if (c.NoPermission)
                 {
