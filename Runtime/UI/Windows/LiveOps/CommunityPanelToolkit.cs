@@ -79,6 +79,7 @@ namespace ProtoSystem.UI
         private Label  _ratingLabel, _ratingVersion, _ratingValue, _ratingAvg;
         private readonly List<Label> _starLabels = new();
         private int _ratingPreview;
+        private bool _pointerOverStars;   // курсор/палец над звёздами — фокус не сбрасывает выбор
 
         /// <summary>
         /// Элементы, в которые рисуется карточка. Два набора: карусель (cp-*) и
@@ -407,14 +408,32 @@ namespace ProtoSystem.UI
             // Геймпад/клавиатура: влево/вправо — значение; вверх/вниз всплывут до корня
             // панели, где их обработает общий OnPanelNavMove
             _ratingStars.RegisterCallback<NavigationMoveEvent>(OnRatingNavMove);
+            // Стартовое значение (свой голос или 5) — только для геймпада/клавиатуры.
+            // Кнопка получает фокус на НАЖАТИИ мыши, между наведением и отпусканием:
+            // без проверки клик без движения мыши отправлял 5, какую звезду ни нажми.
             _ratingStars.RegisterCallback<FocusInEvent>(_ =>
-                SetRatingPreview(_userVote > 0 ? _userVote : 5));
+            {
+                if (_pointerOverStars) return;
+                SetRatingPreview(_userVote > 0 ? _userVote : 5);
+            });
             _ratingStars.RegisterCallback<FocusOutEvent>(_ => ResetRatingPreview());
 
-            // Мышь: превью по позиции курсора, увод — откат к своему голосу
+            // Мышь/тач: превью по позиции указателя, увод — откат к своему голосу.
+            // Нажатие тоже берёт звезду под указателем (тап без движения, порядок
+            // нажатия и фокуса не важен); TrickleDown — раньше Clickable кнопки.
+            _ratingStars.RegisterCallback<PointerEnterEvent>(_ => _pointerOverStars = true);
+            _ratingStars.RegisterCallback<PointerDownEvent>(e =>
+            {
+                _pointerOverStars = true;
+                SetRatingPreview(StarFromPointer(e.position.x));
+            }, TrickleDown.TrickleDown);
             _ratingStars.RegisterCallback<PointerMoveEvent>(e =>
                 SetRatingPreview(StarFromPointer(e.position.x)));
-            _ratingStars.RegisterCallback<PointerLeaveEvent>(_ => ResetRatingPreview());
+            _ratingStars.RegisterCallback<PointerLeaveEvent>(_ =>
+            {
+                _pointerOverStars = false;
+                ResetRatingPreview();
+            });
         }
 
         #region Арт полосы цели (градиент + свечение)
