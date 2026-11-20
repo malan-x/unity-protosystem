@@ -45,12 +45,26 @@ namespace ProtoSystem.AudioGen.Editor
 
         // ── Чекпоинты аудио-моделей (models/checkpoints на сервере) ──
 
-        /// <summary>Модель SFX/эмбиентов: Stable Audio Open (text-to-audio до ~47 с).</summary>
+        /// <summary>
+        /// Модель SFX/эмбиентов. По умолчанию Stable Audio 3 Small SFX (май 2026, лучше SAO 1.0 на
+        /// звуковых эффектах); Stable Audio Open 1.0 по-прежнему работает — граф выбирается по имени.
+        /// </summary>
         private static string _sfxCheckpoint;
         public static string SfxCheckpoint
         {
-            get => GetS(ref _sfxCheckpoint, "ProtoAudio.SfxCheckpoint", "stable-audio-open-1.0.safetensors");
+            get => GetS(ref _sfxCheckpoint, "ProtoAudio.SfxCheckpoint", "stable_audio_3_small_sfx.safetensors");
             set => SetS(ref _sfxCheckpoint, "ProtoAudio.SfxCheckpoint", value);
+        }
+
+        /// <summary>
+        /// Текстовый энкодер Stable Audio 3 (models/text_encoders) — свой, не T5 от SAO 1.0:
+        /// T5Gemma из репака Comfy-Org/stable-audio-3.
+        /// </summary>
+        private static string _sa3TextEncoder;
+        public static string Sa3TextEncoder
+        {
+            get => GetS(ref _sa3TextEncoder, "ProtoAudio.Sa3TextEncoder", "t5gemma_b_b_ul2.safetensors");
+            set => SetS(ref _sa3TextEncoder, "ProtoAudio.Sa3TextEncoder", value);
         }
 
         /// <summary>
@@ -64,11 +78,14 @@ namespace ProtoSystem.AudioGen.Editor
             set => SetS(ref _sfxTextEncoder, "ProtoAudio.SfxTextEncoder", value);
         }
 
-        /// <summary>Модель музыки: ACE-Step (полные треки, теги + лирика).</summary>
+        /// <summary>
+        /// Модель музыки: ACE-Step (полные треки, теги + лирика). По умолчанию 1.5 turbo (январь 2026,
+        /// all-in-one из Comfy-Org/ACE-Step-1.5); v1 3.5B тоже работает — граф выбирается по имени.
+        /// </summary>
         private static string _musicCheckpoint;
         public static string MusicCheckpoint
         {
-            get => GetS(ref _musicCheckpoint, "ProtoAudio.MusicCheckpoint", "ace_step_v1_3.5b.safetensors");
+            get => GetS(ref _musicCheckpoint, "ProtoAudio.MusicCheckpoint", "ace_step_1.5_turbo_aio.safetensors");
             set => SetS(ref _musicCheckpoint, "ProtoAudio.MusicCheckpoint", value);
         }
 

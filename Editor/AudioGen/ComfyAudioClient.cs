@@ -100,6 +100,30 @@ namespace ProtoSystem.AudioGen.Editor
         public static bool IsAceCheckpoint(string name)
             => !string.IsNullOrEmpty(name) && name.ToLowerInvariant().Contains("ace");
 
+        /// <summary>ACE-Step 1.5 (январь 2026): свой энкодер с LLM-кодами, латент 1.5, AuraFlow-сэмплинг</summary>
+        public static bool IsAce15Checkpoint(string name)
+        {
+            if (!IsAceCheckpoint(name)) return false;
+            string n = name.ToLowerInvariant();
+            return n.Contains("1.5") || n.Contains("1_5") || n.Contains("v15") || n.Contains("ace15");
+        }
+
+        /// <summary>Stable Audio 3 (май 2026): энкодер T5Gemma, без ConditioningStableAudio</summary>
+        public static bool IsSa3Checkpoint(string name)
+            => !string.IsNullOrEmpty(name) && name.ToLowerInvariant().Contains("stable_audio_3");
+
+        /// <summary>
+        /// Дистиллированная версия (SA3 без «_base», ACE 1.5 turbo): 8 шагов, cfg 1. Шаги и cfg стиля
+        /// от прежних моделей (SAO: 50 шагов, cfg 5) такой модели только вредят — пережжённый звук
+        /// </summary>
+        public static bool IsDistilledCheckpoint(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return false;
+            string n = name.ToLowerInvariant();
+            if (IsAce15Checkpoint(name)) return n.Contains("turbo");
+            return IsSa3Checkpoint(name) && !n.Contains("_base");
+        }
+
         /// <summary>Жив ли сервер (быстрая проверка перед пачкой генераций).</summary>
         public static async Task<bool> IsOnlineAsync(string server = null)
         {
@@ -178,6 +202,64 @@ namespace ProtoSystem.AudioGen.Editor
                 "\"7\":{\"class_type\":\"VAEDecodeAudio\",\"inputs\":{\"samples\":[\"6\",0],\"vae\":[\"1\",2]}}," +
                 "\"9\":{\"class_type\":\"SaveAudio\",\"inputs\":{\"audio\":[\"7\",0]," +
                     "\"filename_prefix\":\"lc_audio\"}}";
+
+            bool distilled = IsDistilledCheckpoint(r.EffCheckpoint);
+            int steps = distilled ? 8 : r.Steps;
+            if (distilled) cfg = "1.0";
+
+            if (r.Engine == AudioEngine.AceStep && IsAce15Checkpoint(r.EffCheckpoint))
+            {
+                // ACE-Step 1.5 — граф официального шаблона Comfy-Org (audio_ace_step_1_5_checkpoint):
+                // энкодер 1.5 с метаданными трека (bpm, размер, тональность, язык) и LLM-кодами звука,
+                // AuraFlow shift 3, латент 1.5. Пустая лирика — инструментал
+                string tags = EscapeJson(r.Positive);
+                string lyrics = EscapeJson(string.IsNullOrWhiteSpace(r.Lyrics) ? "[Instrumental]" : r.Lyrics);
+                string sampler = string.IsNullOrEmpty(r.Sampler) || distilled ? "euler" : r.Sampler;
+                string scheduler = string.IsNullOrEmpty(r.Scheduler) || distilled ? "simple" : r.Scheduler;
+
+                return "{" + loader +
+                    "\"M\":{\"class_type\":\"ModelSamplingAuraFlow\",\"inputs\":{\"model\":[\"1\",0],\"shift\":3.0}}," +
+                    "\"3\":{\"class_type\":\"TextEncodeAceStepAudio1.5\",\"inputs\":{\"clip\":[\"1\",1]," +
+                        "\"tags\":\"" + tags + "\",\"lyrics\":\"" + lyrics + "\",\"seed\":" + r.Seed +
+                        ",\"bpm\":120,\"duration\":" + sec + ",\"timesignature\":\"4\",\"language\":\"en\"," +
+                        "\"keyscale\":\"A minor\",\"generate_audio_codes\":true,\"cfg_scale\":2.0," +
+                        "\"temperature\":0.85,\"top_p\":0.9,\"top_k\":0,\"min_p\":0.0}}," +
+                    "\"4\":{\"class_type\":\"ConditioningZeroOut\",\"inputs\":{\"conditioning\":[\"3\",0]}}," +
+                    "\"5\":{\"class_type\":\"EmptyAceStep1.5LatentAudio\",\"inputs\":{\"seconds\":" + sec +
+                        ",\"batch_size\":1}}," +
+                    "\"6\":{\"class_type\":\"KSampler\",\"inputs\":{\"model\":[\"M\",0],\"positive\":[\"3\",0]," +
+                        "\"negative\":[\"4\",0],\"latent_image\":[\"5\",0],\"seed\":" + r.Seed +
+                        ",\"steps\":" + steps + ",\"cfg\":" + cfg +
+                        ",\"sampler_name\":\"" + sampler + "\",\"scheduler\":\"" + scheduler +
+                        "\",\"denoise\":1.0}}," +
+                    tail + "}";
+            }
+
+            if (r.Engine != AudioEngine.AceStep && IsSa3Checkpoint(r.EffCheckpoint))
+            {
+                // Stable Audio 3 — граф официального шаблона (audio_stable_audio_3_medium): энкодер
+                // T5Gemma тип stable_audio, длительность задаёт сам латент (ConditioningStableAudio
+                // шаблон не ставит). Дистиллированные — lcm/simple, 8 шагов, cfg 1
+                string pos = EscapeJson(r.Positive);
+                string neg = EscapeJson(r.Negative);
+                string te = EscapeJson(AudioAiSettings.Sa3TextEncoder);
+                string sampler = string.IsNullOrEmpty(r.Sampler) || distilled ? "lcm" : r.Sampler;
+                string scheduler = string.IsNullOrEmpty(r.Scheduler) || distilled ? "simple" : r.Scheduler;
+
+                return "{" + loader +
+                    "\"2\":{\"class_type\":\"CLIPLoader\",\"inputs\":{\"clip_name\":\"" + te +
+                        "\",\"type\":\"stable_audio\",\"device\":\"default\"}}," +
+                    "\"3\":{\"class_type\":\"CLIPTextEncode\",\"inputs\":{\"clip\":[\"2\",0],\"text\":\"" + pos + "\"}}," +
+                    "\"4\":{\"class_type\":\"CLIPTextEncode\",\"inputs\":{\"clip\":[\"2\",0],\"text\":\"" + neg + "\"}}," +
+                    "\"5\":{\"class_type\":\"EmptyLatentAudio\",\"inputs\":{\"seconds\":" + sec +
+                        ",\"batch_size\":1}}," +
+                    "\"6\":{\"class_type\":\"KSampler\",\"inputs\":{\"model\":[\"1\",0],\"positive\":[\"3\",0]," +
+                        "\"negative\":[\"4\",0],\"latent_image\":[\"5\",0],\"seed\":" + r.Seed +
+                        ",\"steps\":" + steps + ",\"cfg\":" + cfg +
+                        ",\"sampler_name\":\"" + sampler + "\",\"scheduler\":\"" + scheduler +
+                        "\",\"denoise\":1.0}}," +
+                    tail + "}";
+            }
 
             if (r.Engine == AudioEngine.AceStep)
             {

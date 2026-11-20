@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.61.0] - 2026-11-20
+
+### Added
+- AudioGen: Stable Audio 3 (май 2026) и ACE-Step 1.5 (январь 2026) в ИИ Аудио студии. Граф ComfyUI
+  выбирается по имени чекпоинта и повторяет официальные шаблоны Comfy-Org:
+  - Stable Audio 3 (`stable_audio_3_*`): энкодер T5Gemma (`ProtoAudio.Sa3TextEncoder`, по умолчанию
+    `t5gemma_b_b_ul2.safetensors`), длительность задаёт латент, без `ConditioningStableAudio`;
+  - ACE-Step 1.5 (`ace_step_1.5_*`): `TextEncodeAceStepAudio1.5` (bpm, размер, тональность, LLM-коды звука),
+    `ModelSamplingAuraFlow` shift 3, латент 1.5; пустая лирика — `[Instrumental]`;
+  - дистиллированные версии (SA3 без `_base`, ACE 1.5 turbo) идут на своих 8 шагах и cfg 1 — шаги и cfg
+    стилей прежних моделей (50 / 5–7) им вредят.
+  Stable Audio Open 1.0 и ACE-Step v1 работают как раньше.
+- Настройки AI Audio Tools: поле «Энкодер SA3».
+- Голосовой движок ElevenLabs: `eleven_v4` и `eleven_v4_turbo` в списке моделей TTS.
+
+### Changed
+- Модели по умолчанию (когда в EditorPrefs ничего не задано): SFX — `stable_audio_3_small_sfx.safetensors`,
+  музыка — `ace_step_1.5_turbo_aio.safetensors`.
+
 ## [1.60.3] - 2026-11-20
 
 ### Fixed

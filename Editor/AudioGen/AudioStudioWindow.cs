@@ -896,13 +896,15 @@ namespace ProtoSystem.AudioGen.Editor
             // старым текстом при потере фокуса после внешних правок
             var models = new List<string>
             {
-                "eleven_v3", "eleven_multilingual_v2", "eleven_turbo_v2_5", "eleven_flash_v2_5",
+                "eleven_v4", "eleven_v4_turbo", "eleven_v3", "eleven_multilingual_v2", "eleven_turbo_v2_5",
+                "eleven_flash_v2_5",
             };
             if (!models.Contains(style.ttsModelId) && !string.IsNullOrEmpty(style.ttsModelId))
                 models.Add(style.ttsModelId);
             var model = new DropdownField("Модель TTS", models,
                 Mathf.Max(0, models.IndexOf(style.ttsModelId)));
-            model.tooltip = "eleven_v3 — лучшие интонации и русский, понимает [аудио-теги] в тексте";
+            model.tooltip = "eleven_v4 (сентябрь 2026) — лучшая естественность, 90+ языков, [аудио-теги] по порядку; " +
+                            "eleven_v3 — прежняя, stability только 0/0.5/1";
             model.RegisterValueChangedCallback(e =>
             {
                 style.ttsModelId = e.newValue;

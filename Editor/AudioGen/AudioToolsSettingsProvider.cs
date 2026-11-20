@@ -35,13 +35,16 @@ namespace ProtoSystem.AudioGen.Editor
                     EditorGUILayout.Space(10);
                     EditorGUILayout.LabelField("Модели (models/checkpoints)", EditorStyles.boldLabel);
                     AudioAiSettings.SfxCheckpoint = EditorGUILayout.TextField(
-                        new GUIContent("SFX/эмбиент", "Stable Audio Open — до ~47 с"),
+                        new GUIContent("SFX/эмбиент", "Stable Audio 3 (stable_audio_3_*) или Open 1.0 — граф по имени"),
                         AudioAiSettings.SfxCheckpoint);
+                    AudioAiSettings.Sa3TextEncoder = EditorGUILayout.TextField(
+                        new GUIContent("Энкодер SA3", "models/text_encoders — T5Gemma для Stable Audio 3"),
+                        AudioAiSettings.Sa3TextEncoder);
                     AudioAiSettings.SfxTextEncoder = EditorGUILayout.TextField(
-                        new GUIContent("T5 для SFX", "models/text_encoders — энкодер Stable Audio"),
+                        new GUIContent("T5 для SAO 1.0", "models/text_encoders — энкодер Stable Audio Open 1.0"),
                         AudioAiSettings.SfxTextEncoder);
                     AudioAiSettings.MusicCheckpoint = EditorGUILayout.TextField(
-                        new GUIContent("Музыка", "ACE-Step — полные треки"),
+                        new GUIContent("Музыка", "ACE-Step 1.5 или v1 — полные треки, граф по имени"),
                         AudioAiSettings.MusicCheckpoint);
 
                     EditorGUILayout.Space(10);
