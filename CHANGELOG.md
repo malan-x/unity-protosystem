@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.63.0] - 2026-11-21
+
+### Changed
+- ИИ Аудио студия: кредиты ElevenLabs — по каждому ключу, строка на ключ, текущий помечен «← сейчас».
+  Раньше был виден только остаток текущего ключа: пока сама студия не получила отказ, она стояла на
+  основном и показывала «0 из …», хотя скрипты уже работали запасным.
+- Ключ без права User Read — «не видно — нет права User Read» (озвучивать он может), непринятый ключ —
+  «ключ не принят». В подсказке — что счётчик подписки pay-as-you-go не видит докупленного, поэтому ключи
+  по нему не переключаются, только по отказу сервиса.
+- `ElevenLabsClient.GetAllCreditsAsync()` — остаток всех ключей (параллельно, кэш 30 с);
+  `GetCreditsAsync()` — текущего ключа из того же кэша.
+
 ## [1.62.0] - 2026-11-20
 
 ### Added

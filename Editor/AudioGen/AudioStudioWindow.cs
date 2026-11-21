@@ -604,30 +604,52 @@ namespace ProtoSystem.AudioGen.Editor
             label.AddToClassList("credits-row");
             _leftPanel.Add(label);
 
+            // Один ключ — одна строка; несколько — строка на ключ, текущий помечен
+            static string Describe(ElevenLabsClient.Credits c) =>
+                c.Ok ? $"{System.Math.Max(0L, c.Remaining):N0} из {c.Limit:N0}"
+                : c.NoPermission ? "не видно — нет права User Read"
+                : c.Invalid ? "ключ не принят"
+                : "недоступно";
+
             async void Refresh()
             {
-                var c = await ElevenLabsClient.GetCreditsAsync();
+                var all = await ElevenLabsClient.GetAllCreditsAsync();
                 if (label.panel == null) return;
-                string key = c.KeyCount > 1 ? $" · ключ {c.KeyIndex + 1}/{c.KeyCount}" : "";
-                if (c.Ok)
+                if (all.Length == 0)
                 {
-                    label.text = $"Кредиты: {c.Remaining:N0} из {c.Limit:N0}{key}";
-                    label.style.color = c.Remaining < c.Limit / 10
-                        ? new Color(0.9f, 0.5f, 0.3f) : new Color(0.6f, 0.75f, 0.6f);
-                    label.tooltip = $"Потрачено: {c.Used:N0}" + (c.KeyCount > 1
-                        ? $"\nОстаток текущего ключа; кончится — запросы пойдут следующим (всего ключей {c.KeyCount})"
-                        : "");
+                    label.text = "Кредиты: нет ключа";
+                    label.tooltip = "Project Settings ▸ AI Audio Tools ▸ ElevenLabs";
+                    return;
                 }
-                else if (c.NoPermission)
-                {
-                    label.text = "Кредиты: нет права User Read у ключа";
-                    label.style.color = new Color(0.7f, 0.6f, 0.4f);
-                    label.tooltip = "Включите Administration ▸ User ▸ Read у API-ключа на elevenlabs.io";
-                }
+
+                int active = Mathf.Min(ElevenLabsClient.ActiveKeyIndex, all.Length - 1);
+                var cur = all[active];
+                if (all.Length == 1)
+                    label.text = $"Кредиты: {Describe(cur)}";
                 else
                 {
-                    label.text = "Кредиты: недоступно";
+                    var sb = new System.Text.StringBuilder("Кредиты по ключам:");
+                    for (int i = 0; i < all.Length; i++)
+                        sb.Append($"\n  {i + 1}: {Describe(all[i])}{(i == active ? "  ← сейчас" : "")}");
+                    label.text = sb.ToString();
                 }
+
+                label.style.color = cur.Ok
+                    ? (cur.Remaining < cur.Limit / 10 ? new Color(0.9f, 0.5f, 0.3f) : new Color(0.6f, 0.75f, 0.6f))
+                    : new Color(0.7f, 0.6f, 0.4f);
+
+                var tip = new System.Text.StringBuilder();
+                if (cur.Ok) tip.Append($"Потрачено текущим ключом: {cur.Used:N0}\n");
+                if (all.Length > 1)
+                    tip.Append("Запросы идут ключом «← сейчас»; сервис отказал (кредиты, оплата) — тот же запрос уходит следующим.\n");
+                tip.Append("Это счётчик подписки: у тарифа pay-as-you-go докупленное он не видит — ключ может работать и при нуле.");
+                foreach (var c in all)
+                    if (c.NoPermission)
+                    {
+                        tip.Append("\nОстаток скрыт: включите у ключа Administration ▸ User ▸ Read на elevenlabs.io.");
+                        break;
+                    }
+                label.tooltip = tip.ToString();
             }
 
             label.schedule.Execute(Refresh).Every(30000);

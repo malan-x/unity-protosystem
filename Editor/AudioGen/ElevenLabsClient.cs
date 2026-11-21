@@ -236,56 +236,71 @@ namespace ProtoSystem.AudioGen.Editor
         public struct Credits
         {
             public bool Ok;
+            /// <summary>У ключа нет права User Read: остаток не виден, но озвучивать ключ может.</summary>
             public bool NoPermission;
+            /// <summary>Ключ не принят (опечатка, погашен).</summary>
+            public bool Invalid;
             public long Used;
             public long Limit;
             public long Remaining => Limit - Used;
-            /// <summary>Чей это остаток: номер текущего ключа (0 — основной) из KeyCount.</summary>
+            /// <summary>Чей это остаток: номер ключа (0 — основной) из KeyCount.</summary>
             public int KeyIndex;
             public int KeyCount;
         }
 
-        private static Credits _creditsCache;
+        private static Credits[] _creditsCache = Array.Empty<Credits>();
         private static double _creditsFetchedAt = -999999;
 
         public static void InvalidateCredits() => _creditsFetchedAt = -999999;
 
-        /// <summary>Остаток кредитов подписки. Кэш 30 с — дёргать можно свободно.</summary>
+        /// <summary>Остаток кредитов текущего ключа (того, которым сейчас идут запросы).</summary>
         public static async Task<Credits> GetCreditsAsync()
         {
-            if (UnityEditor.EditorApplication.timeSinceStartup - _creditsFetchedAt < 30.0)
+            var all = await GetAllCreditsAsync();
+            if (all.Length == 0) return new Credits();
+            return all[Math.Min(ActiveKeyIndex, all.Length - 1)];
+        }
+
+        /// <summary>
+        /// Остаток по каждому ключу — основной и запасные, запросы параллельно. Кэш 30 с — дёргать можно свободно.
+        /// Это счётчик подписки: у тарифа pay-as-you-go докупленное он не видит — ключ может работать и при нуле,
+        /// поэтому ключи по нему не переключаются (это делает только отказ сервиса).
+        /// </summary>
+        public static async Task<Credits[]> GetAllCreditsAsync()
+        {
+            var keys = new List<string>(AudioAiSettings.ElevenLabsApiKeys);
+            if (UnityEditor.EditorApplication.timeSinceStartup - _creditsFetchedAt < 30.0 &&
+                _creditsCache.Length == keys.Count)
                 return _creditsCache;
             _creditsFetchedAt = UnityEditor.EditorApplication.timeSinceStartup;
 
-            if (!HasKey) return _creditsCache = new Credits();
+            var tasks = new Task<Credits>[keys.Count];
+            for (int i = 0; i < keys.Count; i++) tasks[i] = FetchCreditsAsync(keys[i], i, keys.Count);
+            return _creditsCache = await Task.WhenAll(tasks);
+        }
 
-            // Остаток текущего ключа: запасные вступают, только когда он кончится
-            int keyIndex = ActiveKeyIndex, keyCount = KeyCount;
+        private static async Task<Credits> FetchCreditsAsync(string key, int index, int count)
+        {
+            var c = new Credits { KeyIndex = index, KeyCount = count };
             using var msg = new HttpRequestMessage(HttpMethod.Get,
                 "https://api.elevenlabs.io/v1/user/subscription");
-            msg.Headers.Add("xi-api-key", AudioAiSettings.ElevenLabsApiKeys[keyIndex]);
+            msg.Headers.Add("xi-api-key", key);
             try
             {
-                var resp = await Http.SendAsync(msg);
+                using var resp = await Http.SendAsync(msg);
                 string json = await resp.Content.ReadAsStringAsync();
                 if (!resp.IsSuccessStatusCode)
-                    return _creditsCache = new Credits
-                    {
-                        NoPermission = json.Contains("missing_permissions") || json.Contains("user_read"),
-                        KeyIndex = keyIndex,
-                        KeyCount = keyCount,
-                    };
-
-                return _creditsCache = new Credits
                 {
-                    Ok = true,
-                    Used = ExtractJsonNumber(json, "character_count"),
-                    Limit = ExtractJsonNumber(json, "character_limit"),
-                    KeyIndex = keyIndex,
-                    KeyCount = keyCount,
-                };
+                    c.NoPermission = json.Contains("missing_permissions") || json.Contains("user_read");
+                    c.Invalid = !c.NoPermission && json.Contains("invalid_api_key");
+                    return c;
+                }
+                c.Ok = true;
+                c.Used = ExtractJsonNumber(json, "character_count");
+                c.Limit = ExtractJsonNumber(json, "character_limit");
+                return c;
             }
-            catch { return _creditsCache = new Credits(); }
+            catch { return c; }
         }
 
         private static long ExtractJsonNumber(string json, string key)
